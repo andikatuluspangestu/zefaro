@@ -30,3 +30,6 @@ dist-ssr
 /video/out/
 # Pixabay licence: the music file may not be redistributed on its own
 /video/public/music/
+
+# Cloudflare
+.wrangler/

@@ -1,0 +1,21 @@
+# Cloudflare Pages: response headers. The equivalent of .htaccess on Apache hosts.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+# Built files carry a hash in their name, so they can be cached for a year.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# The page and these files must be re-checked on every visit.
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/sitemap.xml
+  Cache-Control: no-cache
+/robots.txt
+  Cache-Control: no-cache

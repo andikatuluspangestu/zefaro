@@ -81,7 +81,7 @@ Dial: ENERGY 2 / RHYTHM 2 / MOTION 1
 
 ## Website
 
-The landing page (`site/`, zefaro.web.id) uses the same palette and tokens. The owner asked for a
+The landing page (`site/`, zefaro.pages.dev) uses the same palette and tokens. The owner asked for a
 more modern, fluid and full-motion page, so its dials are higher than the app's:
 ENERGY 5 / RHYTHM 4 / MOTION 4.
 

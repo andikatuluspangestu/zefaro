@@ -1,6 +1,6 @@
 # Zefaro website
 
-The landing page for Zefaro, published at [zefaro.web.id](https://zefaro.web.id). React 19,
+The landing page for Zefaro, published at [zefaro.pages.dev](https://zefaro.pages.dev). React 19,
 Vite and Framer Motion, in English and Bahasa Indonesia, with a light and a dark theme.
 
 ```bash
@@ -11,8 +11,19 @@ npm run build    # writes the finished site to dist/
 
 ## Publish
 
-Upload the **contents** of `dist/` (not the folder itself) to the web root of zefaro.web.id,
-for example `public_html`. It is plain static files, with relative paths, so any host works.
+The site is plain static files with relative paths, hosted on Cloudflare Pages as the project `zefaro`
+(https://zefaro.pages.dev). `npm run deploy` builds the site and uploads `dist/` with Wrangler, using
+`wrangler.jsonc`. The first time on a machine, log in with `npx wrangler login`.
+
+- `public/_headers` sets the cache and security headers. `public/404.html` is the page for unknown addresses.
+- This Wrangler version redirects `pages` commands to Cloudflare Workers unless the project already
+  exists as a Pages project. The `zefaro` Pages project was created once with
+  `npx wrangler pages project create zefaro --production-branch main --force`; after that no flag is needed.
+- If the site moves to its own domain, change the address in `index.html` (canonical and Open Graph),
+  `public/sitemap.xml`, `public/robots.txt` and `../video/src/components/OgImage.tsx`, then run
+  `npm run og` in `../video` to redraw `public/og.png`.
+
+**Any other host**: upload the **contents** of `dist/` (not the folder itself) to the web root.
 `dist/.htaccess` turns on compression and caching on Apache and is ignored elsewhere.
 
 The download buttons point to

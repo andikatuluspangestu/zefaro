@@ -1,0 +1,8 @@
+{
+  // Zefaro's website, served as plain static files from dist/ on Cloudflare Pages
+  // (https://zefaro.pages.dev). Publish with: npm run deploy
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "zefaro",
+  "compatibility_date": "2026-10-23",
+  "pages_build_output_dir": "./dist"
+}

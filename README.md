@@ -161,7 +161,7 @@ The icon's source is `src-tauri/icons/app-icon.svg`. After editing it:
 
 ## Website
 
-The landing page at zefaro.web.id lives in `site/` (React, Vite and Framer Motion). See
+The landing page at zefaro.pages.dev lives in `site/` (React, Vite and Framer Motion). See
 [site/README.md](site/README.md) to run, build and publish it.
 
 ## Changes

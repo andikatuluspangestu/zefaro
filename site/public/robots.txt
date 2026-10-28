@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://zefaro.web.id/sitemap.xml
+Sitemap: https://zefaro.pages.dev/sitemap.xml

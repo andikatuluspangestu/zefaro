@@ -1,4 +1,4 @@
-// The link preview for zefaro.web.id (site/public/og.png), 1200 x 630. Render it with
+// The link preview for zefaro.pages.dev (site/public/og.png), 1200 x 630. Render it with
 // `npm run og`, which writes straight into the site's public folder.
 
 import { AbsoluteFill } from "remotion";
@@ -21,7 +21,7 @@ export function OgImage() {
           A free, open-source local PHP development environment for Windows.
         </div>
       </div>
-      <div style={{ fontSize: 28, color: C.mutedFg, fontWeight: 500 }}>zefaro.web.id</div>
+      <div style={{ fontSize: 28, color: C.mutedFg, fontWeight: 500 }}>zefaro.pages.dev</div>
     </AbsoluteFill>
   );
 }
