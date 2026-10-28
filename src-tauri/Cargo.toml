@@ -1,0 +1,83 @@
+[package]
+name = "zefaro"
+version = "1.0.0"
+description = "Zefaro: Yet Another Local Laravel Tools, a free local PHP development environment for Windows"
+edition = "2024"
+license = "MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "zefaro_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+dirs = "6"
+# HTTP over Windows' native TLS (SChannel), so downloads use Windows' own trust store.
+ureq = { version = "2", default-features = false, features = ["native-tls", "json"] }
+native-tls = "0.2"
+# Deflate only: PHP's zips need nothing else, and zstd/bzip2 would pull in C builds.
+zip = { version = "2", default-features = false, features = ["deflate"] }
+sha2 = "0.10"
+# HTTPS for sites: Zefaro's local CA and site certificates (ECDSA P-256 via ring).
+rcgen = "0.14"
+ring = "0.17"
+time = "0.3"
+# Gzip for database exports/imports (already in the tree via zip).
+flate2 = "1"
+# Fast line scanning for dump files (already in the tree).
+memchr = "2"
+
+# Job Objects: every service runs inside one, so stopping a service (or Zefaro
+# exiting/crashing) also kills its child processes — no orphaned nginx workers
+# or php-cgi holding ports. 0.61 is already in the dependency tree via Tauri.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Security_Cryptography",
+  "Win32_Storage_FileSystem",
+  "Win32_System_JobObjects",
+  "Win32_System_Threading",
+] }
+
+
+[profile.dev]
+# Skip PDB debug info to slash linker memory on low-RAM machines (this is what
+# triggers LNK1102 "out of memory"). Set to 1 ("line-tables-only") if you later
+# need Rust backtraces while debugging. The app still runs normally at debug = 0.
+debug = 0
+
+# Compression is ~10x slower unoptimized; database exports/imports and PHP/Node
+# installs run it on gigabytes, so optimise these few crates even in dev builds.
+[profile.dev.package.miniz_oxide]
+opt-level = 3
+[profile.dev.package.flate2]
+opt-level = 3
+[profile.dev.package.crc32fast]
+opt-level = 3
+[profile.dev.package.adler2]
+opt-level = 3
+[profile.dev.package.memchr]
+opt-level = 3
+
+# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+# Thin LTO with the default 16 codegen units instead of the template's
+# fat LTO + 1 unit: that combination needs several GB for the final link and
+# runs out of memory on an 8 GB machine. The binary is only slightly larger.
+lto = "thin"
+opt-level = 3
+panic = "abort"
+strip = true

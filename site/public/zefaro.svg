@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Zefaro: a soft white "Z" on a coral, violet and indigo tile.
+       Source of truth for every app icon: `npm run tauri icon src-tauri/icons/app-icon.svg`,
+       then copy this file to public/zefaro.svg. src/components/logo.tsx and
+       video/src/components/Logo.tsx draw the same artwork. -->
+  <defs>
+    <linearGradient id="zefaro-bg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1024" y2="1024">
+      <stop offset="0" stop-color="#FF6082"/>
+      <stop offset="0.55" stop-color="#B26CFF"/>
+      <stop offset="1" stop-color="#705EFF"/>
+    </linearGradient>
+    <radialGradient id="zefaro-hi" gradientUnits="userSpaceOnUse" cx="260" cy="180" r="620">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="zefaro-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="12" flood-color="#2A1470" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <!-- tile: rounded square with straight sides -->
+  <path d="M254 24 H770 C897 24 1000 127 1000 254 V770 C1000 897 897 1000 770 1000 H254 C127 1000 24 897 24 770 V254 C24 127 127 24 254 24 Z" fill="url(#zefaro-bg)"/>
+  <path d="M254 24 H770 C897 24 1000 127 1000 254 V770 C1000 897 897 1000 770 1000 H254 C127 1000 24 897 24 770 V254 C24 127 127 24 254 24 Z" fill="url(#zefaro-hi)"/>
+  <path d="M254 26 H770 C896 26 998 128 998 254 V770 C998 896 896 998 770 998 H254 C128 998 26 896 26 770 V254 C26 128 128 26 254 26 Z" fill="none" stroke="#FFFFFF" stroke-opacity="0.12" stroke-width="4"/>
+  <!-- the Z: top bar, diagonal, bottom bar, drawn as one stroke with round caps and joins -->
+  <path d="M296 336 H728 L296 688 H728" fill="none" stroke="#FFFFFF" stroke-width="140" stroke-linecap="round" stroke-linejoin="round" filter="url(#zefaro-shadow)"/>
+</svg>

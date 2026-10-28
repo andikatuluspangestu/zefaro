@@ -1,0 +1,202 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-heading: var(--font-sans);
+    --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: ui-monospace, 'Cascadia Mono', 'Cascadia Code', Consolas, monospace;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    /* Status colours: each theme gets shades that read on its own background. */
+    --color-success: var(--success);
+    --color-warning: var(--warning);
+    --color-info: var(--info);
+    /* The four brand colours, the same in both themes. */
+    --color-brand-coral: var(--brand-coral);
+    --color-brand-pink: var(--brand-pink);
+    --color-brand-violet: var(--brand-violet);
+    --color-brand-indigo: var(--brand-indigo);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+  Zefaro's palette: coral #FF6082, pink #FFE4F6, violet #B26CFF, indigo #705EFF.
+  Neutrals lean towards violet so the brand colours sit on them naturally.
+
+  Contrast (WCAG): light theme text 16:1, muted text 6.6:1, white on the primary button
+  5.0:1. Dark theme text 17:1, muted text 8:1, white on the primary button 4.7:1. Indigo is
+  only ever a fill on the dark theme; accent text there is violet (5.9:1) or coral (6.6:1).
+*/
+:root {
+    --brand-coral: #ff6082;
+    --brand-pink: #ffe4f6;
+    --brand-violet: #b26cff;
+    --brand-indigo: #705eff;
+    --brand-gradient: linear-gradient(135deg, #ff6082 0%, #b26cff 55%, #705eff 100%);
+
+    --background: oklch(0.985 0.012 340);
+    --foreground: oklch(0.225 0.055 282);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.225 0.055 282);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.225 0.055 282);
+    --primary: oklch(0.56 0.215 277);
+    --primary-foreground: oklch(0.99 0.005 330);
+    --secondary: oklch(0.946 0.038 338);
+    --secondary-foreground: oklch(0.3 0.07 285);
+    --muted: oklch(0.968 0.022 338);
+    --muted-foreground: oklch(0.47 0.05 290);
+    --accent: oklch(0.946 0.038 338);
+    --accent-foreground: oklch(0.3 0.07 285);
+    --destructive: oklch(0.54 0.215 25);
+    --border: oklch(0.9 0.035 320);
+    --input: oklch(0.88 0.04 320);
+    --ring: oklch(0.673 0.213 303);
+    --success: oklch(0.5 0.13 160);
+    --warning: oklch(0.52 0.12 65);
+    --info: oklch(0.5 0.215 295);
+    --chart-1: oklch(0.703 0.194 11);
+    --chart-2: oklch(0.673 0.213 303);
+    --chart-3: oklch(0.592 0.229 282);
+    --chart-4: oklch(0.8 0.1 338);
+    --chart-5: oklch(0.45 0.15 285);
+    --radius: 0.75rem;
+    --sidebar: oklch(0.968 0.022 338);
+    --sidebar-foreground: oklch(0.225 0.055 282);
+    --sidebar-primary: oklch(0.56 0.215 277);
+    --sidebar-primary-foreground: oklch(0.99 0.005 330);
+    --sidebar-accent: oklch(0.93 0.05 330);
+    --sidebar-accent-foreground: oklch(0.25 0.07 285);
+    --sidebar-border: oklch(0.9 0.035 320);
+    --sidebar-ring: oklch(0.673 0.213 303);
+    --shadow-soft: 0 1px 2px oklch(0.3 0.1 290 / 6%), 0 10px 28px -14px oklch(0.3 0.12 290 / 18%);
+    color-scheme: light;
+}
+
+.dark {
+    --background: oklch(0.175 0.03 290);
+    --foreground: oklch(0.965 0.014 335);
+    --card: oklch(0.215 0.034 290);
+    --card-foreground: oklch(0.965 0.014 335);
+    --popover: oklch(0.235 0.036 290);
+    --popover-foreground: oklch(0.965 0.014 335);
+    --primary: oklch(0.575 0.215 279);
+    --primary-foreground: oklch(0.99 0.005 330);
+    --secondary: oklch(0.285 0.045 290);
+    --secondary-foreground: oklch(0.965 0.014 335);
+    --muted: oklch(0.265 0.04 290);
+    --muted-foreground: oklch(0.745 0.04 300);
+    --accent: oklch(0.3 0.05 295);
+    --accent-foreground: oklch(0.965 0.014 335);
+    --destructive: oklch(0.72 0.19 25);
+    --border: oklch(0.946 0.038 338 / 11%);
+    --input: oklch(0.946 0.038 338 / 16%);
+    --ring: oklch(0.673 0.213 303);
+    --success: oklch(0.8 0.16 160);
+    --warning: oklch(0.83 0.15 82);
+    --info: oklch(0.673 0.213 303);
+    --chart-1: oklch(0.703 0.194 11);
+    --chart-2: oklch(0.673 0.213 303);
+    --chart-3: oklch(0.592 0.229 282);
+    --chart-4: oklch(0.946 0.038 338);
+    --chart-5: oklch(0.45 0.15 285);
+    --sidebar: oklch(0.195 0.032 290);
+    --sidebar-foreground: oklch(0.965 0.014 335);
+    --sidebar-primary: oklch(0.673 0.213 303);
+    --sidebar-primary-foreground: oklch(0.99 0.005 330);
+    --sidebar-accent: oklch(0.28 0.05 295);
+    --sidebar-accent-foreground: oklch(0.965 0.014 335);
+    --sidebar-border: oklch(0.946 0.038 338 / 11%);
+    --sidebar-ring: oklch(0.673 0.213 303);
+    --shadow-soft: 0 1px 0 oklch(1 0 0 / 4%) inset, 0 14px 32px -18px oklch(0 0 0 / 70%);
+    color-scheme: dark;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-background text-foreground antialiased;
+    letter-spacing: -0.006em;
+    }
+  html {
+    @apply font-sans;
+    }
+  /* Headings sit a little tighter than body text. */
+  h1, h2, h3 {
+    letter-spacing: -0.02em;
+    }
+}
+
+/* The brand gradient: the active menu mark, progress bars and the wordmark. Never
+   behind body text. */
+@utility bg-brand-gradient {
+    background-image: var(--brand-gradient);
+}
+@utility text-brand-gradient {
+    background-image: var(--brand-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+@utility shadow-soft {
+    box-shadow: var(--shadow-soft);
+}
+
+/* An install step with no measurable progress: a segment sliding across the
+   bar. With reduced motion, a still, dimmed bar. */
+@keyframes zefaro-indeterminate {
+    from { left: -33%; }
+    to { left: 100%; }
+}
+.zefaro-indeterminate {
+    animation: zefaro-indeterminate 1.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+    .zefaro-indeterminate {
+        animation: none;
+        left: 0;
+        width: 100%;
+        opacity: 0.5;
+    }
+}

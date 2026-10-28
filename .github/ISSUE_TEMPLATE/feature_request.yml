@@ -1,0 +1,30 @@
+name: Feature request
+description: Suggest something Zefaro should do.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Zefaro accepts no AI features and no cloud features. Requests for either are closed. See [CONTRIBUTING.md](https://github.com/andikatuluspangestu/zefaro/blob/main/CONTRIBUTING.md).
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: Describe the task and where Zefaro gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like Zefaro to do
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: This request involves no AI features of any kind.
+          required: true
+        - label: This request involves no cloud features (accounts, sync, hosted services, telemetry).
+          required: true

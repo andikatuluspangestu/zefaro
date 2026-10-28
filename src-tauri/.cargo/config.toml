@@ -1,0 +1,8 @@
+# Memory-friendly build config for low-RAM (~8 GB) machines.
+#
+# Cargo defaults to one compile job per CPU core. This machine has 12 cores but
+# only ~8 GB RAM, so 12 concurrent rustc/link.exe processes exhausted the commit
+# limit (STATUS_COMMITMENT_LIMIT 0xc000012d) and the linker ran out of memory
+# (LNK1102). Cap concurrency low; the build is slower but fits in RAM.
+[build]
+jobs = 2

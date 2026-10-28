@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zefaro is running</title>
+<!-- Served by Zefaro's nginx for addresses that aren't a linked site. Self-contained:
+     no network requests, so it works offline. Colours follow the Zefaro app.
+     The text below is English; the script switches it to Indonesian when the
+     browser prefers Indonesian. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Cdefs%3E%3ClinearGradient id='g' gradientUnits='userSpaceOnUse' x1='0' y1='0' x2='1024' y2='1024'%3E%3Cstop offset='0' stop-color='%23FF6082'/%3E%3Cstop offset='.55' stop-color='%23B26CFF'/%3E%3Cstop offset='1' stop-color='%23705EFF'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M254 24 H770 C897 24 1000 127 1000 254 V770 C1000 897 897 1000 770 1000 H254 C127 1000 24 897 24 770 V254 C24 127 127 24 254 24 Z' fill='url%28%23g%29'/%3E%3Cpath d='M296 336 H728 L296 688 H728' fill='none' stroke='%23fff' stroke-width='140' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #100e1d;
+    --card: #191728;
+    --fg: #faf0f7;
+    --muted: #b0a7c3;
+    --subtle: #8a819b;
+    --border: rgb(255 228 246 / 11%);
+    --chip: rgb(255 228 246 / 6%);
+    --brand: #ff6082;
+    --brand-soft: rgb(178 108 255 / 16%);
+    --ok: #43dd9a;
+    --ok-glow: rgb(67 221 154 / 50%);
+    --warn: #f8bd40;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --bg: #fff7fd;
+      --card: #ffffff;
+      --fg: #181834;
+      --muted: #5a5675;
+      --subtle: #716e88;
+      --border: rgb(60 30 120 / 12%);
+      --chip: rgb(112 94 255 / 6%);
+      --brand: #7137cd;
+      --brand-soft: rgb(112 94 255 / 10%);
+      --ok: #007948;
+      --ok-glow: rgb(0 121 72 / 40%);
+      --warn: #975800;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 15px/1.6 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: grid;
+    place-items: center;
+    padding: 32px 16px;
+    position: relative;
+    overflow-x: hidden;
+  }
+  /* A soft brand glow and a faint grid behind the card. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(600px 320px at 50% -80px, rgb(178 108 255 / 22%), transparent 70%),
+      linear-gradient(var(--border) 1px, transparent 1px) 0 0 / 48px 48px,
+      linear-gradient(90deg, var(--border) 1px, transparent 1px) 0 0 / 48px 48px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 30%, transparent 75%);
+    pointer-events: none;
+  }
+  main {
+    position: relative;
+    width: 100%;
+    max-width: 560px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .brand svg { width: 44px; height: 44px; flex: none; filter: drop-shadow(0 6px 18px rgb(112 94 255 / 35%)); }
+  .brand b { display: block; font-size: 17px; line-height: 1.2; }
+  .brand span { display: block; font-size: 13px; color: var(--subtle); }
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--chip);
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--ok);
+    box-shadow: 0 0 0 0 var(--ok-glow);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    70% { box-shadow: 0 0 0 7px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+  @media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
+  h1 {
+    margin: 16px 0 8px;
+    font-size: clamp(28px, 5vw, 36px);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+  }
+  h1 code { color: var(--brand); }
+  .lead { margin: 0; color: var(--muted); }
+  code {
+    font-family: "Cascadia Code", Consolas, ui-monospace, monospace;
+    font-size: 0.92em;
+  }
+  .card {
+    margin-top: 28px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--card);
+    overflow: hidden;
+  }
+  .card h2 {
+    margin: 0;
+    padding: 14px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+  ol { list-style: none; margin: 0; padding: 0; counter-reset: step; }
+  li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 12px;
+    padding: 14px 20px;
+  }
+  li + li { border-top: 1px solid var(--border); }
+  li::before {
+    content: counter(step);
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    background: var(--brand-soft);
+    color: var(--brand);
+    font-size: 13px;
+    font-weight: 650;
+  }
+  li b { display: block; font-weight: 600; }
+  li span { color: var(--muted); font-size: 14px; }
+  li code {
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: var(--chip);
+    border: 1px solid var(--border);
+    color: var(--fg);
+  }
+  .hint {
+    display: none;
+    margin-top: 16px;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--warn);
+    border-radius: 10px;
+    background: var(--chip);
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .hint.show { display: block; }
+  footer {
+    margin-top: 28px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12.5px;
+    color: var(--subtle);
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">
+    <svg viewBox="0 0 1024 1024" aria-hidden="true">
+      <defs>
+        <linearGradient id="zefaro-bg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1024" y2="1024">
+          <stop offset="0" stop-color="#FF6082"/>
+          <stop offset="0.55" stop-color="#B26CFF"/>
+          <stop offset="1" stop-color="#705EFF"/>
+        </linearGradient>
+        <radialGradient id="zefaro-hi" gradientUnits="userSpaceOnUse" cx="260" cy="180" r="620">
+          <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.28"/>
+          <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <path d="M254 24 H770 C897 24 1000 127 1000 254 V770 C1000 897 897 1000 770 1000 H254 C127 1000 24 897 24 770 V254 C24 127 127 24 254 24 Z" fill="url(#zefaro-bg)"/>
+      <path d="M254 24 H770 C897 24 1000 127 1000 254 V770 C1000 897 897 1000 770 1000 H254 C127 1000 24 897 24 770 V254 C24 127 127 24 254 24 Z" fill="url(#zefaro-hi)"/>
+      <path d="M296 336 H728 L296 688 H728" fill="none" stroke="#FFFFFF" stroke-width="140" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div><b>Zefaro</b><span data-t="tagline">Yet Another Local Laravel Tools</span></div>
+  </div>
+
+  <span class="status"><span class="dot"></span><span id="status">Web server is running</span></span>
+  <h1 id="title">Zefaro is running</h1>
+  <p class="lead" id="lead">Zefaro's web server is up. Link a project folder and Zefaro serves it at its own address.</p>
+
+  <p class="hint" id="hint"></p>
+
+  <section class="card">
+    <h2 data-t="steps">Serve a project in three steps</h2>
+    <ol>
+      <li><div><b data-t="step1">Open the Sites page in Zefaro</b><span data-t="step1Text">Find the Zefaro app in your Start menu or taskbar.</span></div></li>
+      <li><div><b data-t="step2">Click <em>Link folder</em></b><span data-t="step2Text">Choose your project. For Laravel, Zefaro serves the <code>public</code> folder automatically.</span></div></li>
+      <li><div><b>Open <code id="example">my-app.test</code></b><span data-t="step3Text">Zefaro uses the folder name as the address. Subdomains work too.</span></div></li>
+    </ol>
+  </section>
+
+  <footer>
+    <span data-t="footer">Zefaro · free local PHP for Windows</span>
+    <span>Served by nginx on <span id="where">this computer</span></span>
+  </footer>
+</main>
+<script>
+  (function () {
+    // Indonesian when the browser prefers it (the same rule as the Zefaro app), else English.
+    var prefs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language];
+    var id = false;
+    for (var i = 0; i < prefs.length; i++) {
+      if (String(prefs[i] || "").toLowerCase().indexOf("id") === 0) id = true;
+    }
+
+    var t = id
+      ? {
+          here: "komputer ini",
+          running: "Zefaro sedang berjalan",
+          noSite: "Tidak ada situs di ",
+          missing: "Web server Zefaro berjalan, tetapi tidak ada situs tertaut yang memakai nama ini.",
+          hint: function (tld) {
+            return "Mengira ada situs di sini? Periksa namanya di halaman Situs. Zefaro menamai setiap situs " +
+              "sesuai nama foldernya dalam huruf kecil, dengan spasi dan karakter lain diganti tanda hubung: " +
+              "folder bernama My App menjadi my-app." + tld + ".";
+          }
+        }
+      : {
+          here: "this computer",
+          running: "Zefaro is running",
+          noSite: "No site at ",
+          missing: "Zefaro's web server is running, but no linked site uses this name.",
+          hint: function (tld) {
+            return "Expected a site here? Check its name on the Sites page. Zefaro names each site after its " +
+              "folder in lowercase, with spaces and other characters turned into hyphens: a folder called My App " +
+              "becomes my-app." + tld + ".";
+          }
+        };
+
+    if (id) {
+      // Fixed markup written here, never anything from the address bar.
+      var html = {
+        tagline: "Yet Another Local Laravel Tools",
+        steps: "Sajikan proyek dalam tiga langkah",
+        step1: "Buka halaman Situs di Zefaro",
+        step1Text: "Cari aplikasi Zefaro di menu Start atau taskbar Anda.",
+        step2: "Klik <em>Tautkan folder</em>",
+        step2Text: "Pilih proyek Anda. Untuk Laravel, Zefaro otomatis menyajikan folder <code>public</code>.",
+        step3Text: "Zefaro memakai nama folder sebagai alamat. Subdomain juga bisa dipakai.",
+        footer: "Zefaro · PHP lokal gratis untuk Windows"
+      };
+      var els = document.querySelectorAll("[data-t]");
+      for (var k = 0; k < els.length; k++) els[k].innerHTML = html[els[k].getAttribute("data-t")];
+      document.documentElement.lang = "id";
+      document.title = t.running;
+      document.getElementById("status").textContent = "Web server sedang berjalan";
+      document.getElementById("title").textContent = t.running;
+      document.getElementById("lead").textContent =
+        "Web server Zefaro sudah aktif. Tautkan folder proyek, lalu Zefaro menyajikannya di alamatnya sendiri.";
+      document.getElementById("example").previousSibling.nodeValue = "Buka ";
+      document.getElementById("where").previousSibling.nodeValue = "Disajikan oleh nginx di ";
+    }
+
+    // Plain text only (textContent) from here: the host comes from the address bar.
+    var host = location.hostname;
+    var where = location.host || t.here;
+    var local = !host || host === "localhost" || /^[0-9.:\[\]]+$/.test(host);
+    var tld = local ? "test" : host.split(".").pop();
+    document.getElementById("where").textContent = where;
+    document.getElementById("example").textContent = "my-app." + tld + (location.port ? ":" + location.port : "");
+    if (local) return;
+    var title = document.getElementById("title");
+    title.textContent = t.noSite;
+    var code = document.createElement("code");
+    code.textContent = host;
+    title.appendChild(code);
+    document.getElementById("status").textContent = t.running;
+    document.getElementById("lead").textContent = t.missing;
+    var hint = document.getElementById("hint");
+    hint.textContent = t.hint(tld);
+    hint.className = "hint show";
+  })();
+</script>
+</body>
+</html>

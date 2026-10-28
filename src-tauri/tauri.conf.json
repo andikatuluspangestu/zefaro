@@ -1,0 +1,55 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Zefaro",
+  "version": "1.0.0",
+  "identifier": "dev.zefaro.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Zefaro",
+        "width": 1000,
+        "height": 680,
+        "minWidth": 820,
+        "minHeight": 560
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "Zefaro contributors",
+    "category": "DeveloperTool",
+    "shortDescription": "Yet Another Local Laravel Tools",
+    "longDescription": "Zefaro serves PHP projects at name.test with nginx, multiple PHP versions, local DNS, MariaDB, Redis and phpMyAdmin. Everything is free and runs only on your computer.",
+    "resources": {
+      "installer/uninstall-cleanup.ps1": "uninstall-cleanup.ps1"
+    },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "installer/header.bmp",
+        "sidebarImage": "installer/sidebar.bmp",
+        "installerHooks": "installer/hooks.nsh",
+        "languages": ["English", "Indonesian"],
+        "customLanguageFiles": { "Indonesian": "installer/Indonesian.nsh" }
+      }
+    }
+  }
+}

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Contribution guide
+    url: https://github.com/andikatuluspangestu/zefaro/blob/main/CONTRIBUTING.md
+    about: Read the rules, including the no-AI rule, before you open a pull request.

@@ -1,0 +1,41 @@
+name: Bug report
+description: Something in Zefaro doesn't work as described.
+labels: ["bug"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Zefaro version
+      description: Shown on the About page.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 24H2"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Services
+        2. Click Start on nginx
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and what happened instead
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log lines
+      description: Copy the relevant lines from the Logs page. Remove personal details first.
+      render: text
