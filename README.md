@@ -4,15 +4,29 @@
 
 **Yet Another Local Laravel Tools**
 
-Zefaro is a free, open-source local PHP development environment for Windows. Link a
-project folder and Zefaro serves it at `name.test` on the PHP version you choose, with
-HTTPS, databases and a mail catcher already set up.
+Zefaro is a free, open-source local PHP development environment for Windows, and an
+alternative to XAMPP and Laragon. Link a project folder and Zefaro serves it at
+`name.test` on the PHP version you choose, with HTTPS, databases and a mail catcher
+already set up.
+
+**Website:** [zefaro.pages.dev](https://zefaro.pages.dev) ·
+[Bahasa Indonesia](https://zefaro.pages.dev/id/) ·
+[Download](https://github.com/andikatuluspangestu/zefaro/releases/latest)
 
 Every feature is free. Zefaro has no accounts and no analytics, and by design it has no
 AI features and no cloud features. It is built with Tauri v2, React and TypeScript,
 and a Rust engine downloads, configures and supervises the services.
 
 Zefaro is an independent project and is not affiliated with Laravel.
+
+### Panduan dalam Bahasa Indonesia
+
+- [Alternatif XAMPP untuk belajar PHP dan Laravel](https://zefaro.pages.dev/id/alternatif-xampp/):
+  perbandingan dan cara pindah dari htdocs.
+- [Alternatif Laragon yang gratis dan open source](https://zefaro.pages.dev/id/alternatif-laragon/):
+  cara pindah dari folder www Laragon.
+- [Aplikasi gratis untuk mahasiswa IT](https://zefaro.pages.dev/id/aplikasi-mahasiswa-it/):
+  memulai PHP, Laravel, dan database di laptop sendiri.
 
 ## Install
 
