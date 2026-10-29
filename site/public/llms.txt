@@ -1,0 +1,29 @@
+# Zefaro
+
+> Zefaro ("Yet Another Local Laravel Tools") is a free, open-source (MIT) local PHP development environment for Windows 10 and 11. It is an alternative to XAMPP and Laragon: link a project folder and open it at name.test, with PHP 7.4 to 8.5, nginx, one-click HTTPS, MariaDB, PostgreSQL, Redis, phpMyAdmin and Mailpit set up. It has no accounts, no analytics, no AI features and no cloud features.
+
+Zefaro suits students and developers who learn or build with PHP and Laravel on Windows. The installer is about 3.2 MB; each component is downloaded from its official source when it is first needed.
+
+## Pages
+
+- [Zefaro (English)](https://zefaro.pages.dev/): what Zefaro does, how it works, install steps and FAQ
+- [Zefaro (Bahasa Indonesia)](https://zefaro.pages.dev/id/): the same page in Indonesian
+- [Alternatif XAMPP](https://zefaro.pages.dev/id/alternatif-xampp/): Zefaro as a XAMPP alternative, a side-by-side comparison and how to move projects and databases from htdocs
+- [Alternatif Laragon](https://zefaro.pages.dev/id/alternatif-laragon/): Zefaro as a free, open-source Laragon alternative and how to move from Laragon's www folder
+- [Aplikasi untuk mahasiswa IT](https://zefaro.pages.dev/id/aplikasi-mahasiswa-it/): a free app for IT students learning PHP, Laravel and databases on Windows
+
+## Download and source
+
+- [Latest release (installer and SHA256SUMS)](https://github.com/andikatuluspangestu/zefaro/releases/latest)
+- [Source code on GitHub](https://github.com/andikatuluspangestu/zefaro)
+- [Changelog](https://github.com/andikatuluspangestu/zefaro/blob/main/CHANGELOG.md)
+- [Full description for language models](https://zefaro.pages.dev/llms-full.txt)
+
+## Facts
+
+- Platform: Windows 10 and 11, 64-bit. Installs per user, without administrator rights.
+- License: MIT. Free, no account.
+- Latest version: 1.1.0.
+- PHP: 7.4, 8.0, 8.1, 8.2, 8.3, 8.4 and 8.5 side by side; each site picks its own version.
+- Services: nginx, php-cgi per PHP version, a local DNS server for .test, MariaDB 11.8, PostgreSQL 18, Redis 8, phpMyAdmin 5.2, Mailpit.
+- Not affiliated with Laravel.

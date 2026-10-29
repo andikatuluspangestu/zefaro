@@ -1,11 +1,12 @@
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { LINKS } from "../copy";
+import { guides } from "../guides";
 import { usePrefs, useReduce } from "../prefs";
 import { Logo } from "./Logo";
 
 export function Footer() {
-  const { t } = usePrefs();
+  const { t, path, home } = usePrefs();
   const f = t.footer;
   const reduce = useReduce();
   const ref = useRef<HTMLDivElement>(null);
@@ -19,7 +20,7 @@ export function Footer() {
       <div className="wrap">
         <div className="footer-top">
           <div>
-            <a className="brand" href="#top" aria-label="Zefaro">
+            <a className="brand" href={path === home ? "#top" : home} aria-label="Zefaro">
               <Logo />
               Zefaro
             </a>
@@ -34,6 +35,14 @@ export function Footer() {
             <li><a href={LINKS.license}>{f.links.license}</a></li>
           </ul>
         </div>
+        <nav className="footer-guides" aria-label={f.guides}>
+          <span>{f.guides}</span>
+          {guides.map((g) => (
+            <a key={g.id} href={g.path} hrefLang="id">
+              {g.label}
+            </a>
+          ))}
+        </nav>
         <div ref={ref} className="mega-wrap" aria-hidden="true">
           <motion.div className="mega grad-text" style={{ fontVariationSettings: settings, y }}>
             Zefaro

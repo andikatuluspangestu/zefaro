@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { LINKS } from "../copy";
 import { usePrefs } from "../prefs";
 import { Reveal } from "./Reveal";
@@ -43,22 +43,21 @@ export function Faq() {
                       <i className="fa-solid fa-plus" aria-hidden="true" />
                     </button>
                   </h3>
-                  <AnimatePresence initial={false}>
-                    {isOpen && (
-                      <motion.div
-                        className="ans"
-                        id={`${uid}-a${i}`}
-                        role="region"
-                        aria-labelledby={`${uid}-q${i}`}
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                      >
-                        <div>{it.a}</div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  {/* Every answer stays in the page (closed ones at zero height), so search
+                      engines and crawlers read all of them. */}
+                  <motion.div
+                    className="ans"
+                    id={`${uid}-a${i}`}
+                    role="region"
+                    aria-labelledby={`${uid}-q${i}`}
+                    aria-hidden={!isOpen}
+                    initial={false}
+                    animate={isOpen ? { height: "auto", opacity: 1 } : { height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                    style={{ overflow: "hidden" }}
+                  >
+                    <div>{it.a}</div>
+                  </motion.div>
                 </div>
               );
             })}

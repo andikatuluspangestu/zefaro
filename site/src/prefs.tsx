@@ -1,11 +1,16 @@
-// Language and theme. Both are remembered in localStorage and applied from index.html before
-// the first paint. The theme follows Windows until the visitor picks one.
+// Language and theme. The language comes from the URL (/ is English, /id/ Indonesian), so each
+// has its own address for search engines; switching goes to the other address. The theme is
+// remembered in localStorage and applied from index.html before the first paint; it follows
+// Windows until the visitor picks one. Everything here also runs at build time, where there
+// is no window, to prerender each page.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { copy, type Copy } from "./copy";
+import { homePath, type Lang } from "./seo";
 
-export type Lang = "en" | "id";
+export type { Lang };
+const browser = typeof window !== "undefined";
 
 const LANG_KEY = "zefaro-site.lang";
 const THEME_KEY = "zefaro-site.theme";
@@ -28,13 +33,8 @@ const store = {
   },
 };
 
-function initialLang(): Lang {
-  const saved = store.get(LANG_KEY);
-  if (saved === "en" || saved === "id") return saved;
-  return (navigator.language || "en").toLowerCase().startsWith("id") ? "id" : "en";
-}
-
 function initialDark(): boolean {
+  if (!browser) return false;
   const saved = store.get(THEME_KEY);
   if (saved) return saved === "dark";
   return matchMedia("(prefers-color-scheme: dark)").matches;
@@ -42,6 +42,10 @@ function initialDark(): boolean {
 
 type Prefs = {
   lang: Lang;
+  /** The page's own path, e.g. "/id/alternatif-xampp/". */
+  path: string;
+  /** This language's home page. */
+  home: string;
   t: Copy;
   toggleLang: () => void;
   dark: boolean;
@@ -52,11 +56,10 @@ type Prefs = {
 };
 const Ctx = createContext<Prefs | null>(null);
 
-export function PrefsProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<Lang>(initialLang);
+export function PrefsProvider({ lang, path, children }: { lang: Lang; path: string; children: ReactNode }) {
   const [dark, setDark] = useState<boolean>(initialDark);
   const [chosen, setChosen] = useState<boolean>(() => store.get(THEME_KEY) !== null);
-  const [systemReduce, setSystemReduce] = useState<boolean>(() => matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const [systemReduce, setSystemReduce] = useState<boolean>(() => browser && matchMedia("(prefers-reduced-motion: reduce)").matches);
   const [motion, setMotion] = useState<"system" | "on" | "off">(() => {
     const saved = store.get(MOTION_KEY);
     return saved === "on" || saved === "off" ? saved : "system";
@@ -95,7 +98,13 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
     store.set(MOTION_KEY, next);
   }, [reduce]);
 
-  const toggleLang = useCallback(() => setLang((l) => (l === "en" ? "id" : "en")), []);
+  // The other language lives at another address. Guides are Indonesian only, so from one
+  // the switch goes to the English home page.
+  const toggleLang = useCallback(() => {
+    const next: Lang = lang === "en" ? "id" : "en";
+    store.set(LANG_KEY, next);
+    window.location.assign(homePath(next));
+  }, [lang]);
   // The new theme spreads out from the button as a circle (View Transitions), where the browser
   // supports it. Otherwise, and with reduced motion, it just switches.
   const toggleTheme = useCallback(
@@ -128,8 +137,8 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ lang, t: copy[lang], toggleLang, dark, toggleTheme, reduce, toggleMotion }),
-    [lang, dark, toggleLang, toggleTheme, reduce, toggleMotion],
+    () => ({ lang, path, home: homePath(lang), t: copy[lang], toggleLang, dark, toggleTheme, reduce, toggleMotion }),
+    [lang, path, dark, toggleLang, toggleTheme, reduce, toggleMotion],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

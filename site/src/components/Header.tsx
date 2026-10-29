@@ -7,7 +7,9 @@ import { Logo } from "./Logo";
 
 /** Floats at the top, steps out of the way while you read down, and returns when you scroll up. */
 export function Header() {
-  const { t, dark, toggleTheme, toggleLang, reduce, toggleMotion } = usePrefs();
+  const { t, dark, toggleTheme, toggleLang, reduce, toggleMotion, path, home } = usePrefs();
+  // On a guide, the section links lead back to the home page's sections.
+  const at = path === home ? "" : home;
   const ready = useReady();
   const { scrollY } = useScroll();
   const [hidden, setHidden] = useState(false);
@@ -25,21 +27,21 @@ export function Header() {
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
     >
       <div className="wrap hd-in">
-        <a className="brand" href="#top" aria-label="Zefaro">
+        <a className="brand" href={at || "#top"} aria-label="Zefaro">
           <Logo />
           Zefaro
         </a>
         <nav className="nav" aria-label="Sections">
-          <a href="#inside">{t.nav.inside}</a>
-          <a href="#story">{t.nav.story}</a>
-          <a href="#tools">{t.nav.tools}</a>
-          <a href="#install">{t.nav.how}</a>
-          <a href="#faq">{t.nav.faq}</a>
+          <a href={`${at}#inside`}>{t.nav.inside}</a>
+          <a href={`${at}#story`}>{t.nav.story}</a>
+          <a href={`${at}#tools`}>{t.nav.tools}</a>
+          <a href={`${at}#install`}>{t.nav.how}</a>
+          <a href={`${at}#faq`}>{t.nav.faq}</a>
         </nav>
         <div className="hd-end">
-          <button className="icon-btn" onClick={toggleLang} aria-label={t.nav.lang} title={t.nav.lang}>
+          <a className="icon-btn" href={home === "/" ? "/id/" : "/"} hrefLang={home === "/" ? "id" : "en"} onClick={(e) => { e.preventDefault(); toggleLang(); }} aria-label={t.nav.lang} title={t.nav.lang}>
             {t.nav.langShort}
-          </button>
+          </a>
           <button
             className="icon-btn"
             onClick={toggleMotion}

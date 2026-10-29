@@ -1,9 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// Relative base: the built folder works at the domain root or in a subfolder.
+// Served from the domain root: pages live at /, /id/ and /id/<guide>/, and all of them load
+// the same /assets/ files.
 export default defineConfig({
-  base: "./",
+  base: "/",
   plugins: [react()],
   build: { target: "es2020", cssCodeSplit: false },
 });

@@ -16,10 +16,14 @@ import { NoBand } from "./components/NoBand";
 import { Install } from "./components/Install";
 import { Faq } from "./components/Faq";
 import { Footer } from "./components/Footer";
+import { Guide } from "./components/Guide";
+import { routeFor, type Route } from "./seo";
 
 const SEEN = "zefaro-site.intro";
 
 function seenIntro(): boolean {
+  // Prerendered pages show the content itself, never the preloader.
+  if (typeof window === "undefined") return true;
   try {
     return sessionStorage.getItem(SEEN) === "1";
   } catch {
@@ -27,9 +31,10 @@ function seenIntro(): boolean {
   }
 }
 
-function Page() {
+function Page({ route }: { route: Route }) {
   const { t, reduce } = usePrefs();
-  const [ready, setReady] = useState(() => reduce || seenIntro());
+  // Guides open straight on their text; the logo intro is for the home page.
+  const [ready, setReady] = useState(() => reduce || !!route.guide || seenIntro());
   const done = useCallback(() => {
     try {
       sessionStorage.setItem(SEEN, "1");
@@ -44,20 +49,26 @@ function Page() {
       <Smooth />
       <ProgressBar />
       <AnimatePresence>{!ready && <Preloader key="pre" onDone={done} />}</AnimatePresence>
-      <a className="skip" href="#inside">
+      <a className="skip" href={route.guide ? "#guide" : "#inside"}>
         {t.nav.skip}
       </a>
       <Header />
       <main>
-        <Hero />
-        <Marquee />
-        <Stack />
-        <Story />
-        <Tools />
-        <Flow />
-        <NoBand />
-        <Install />
-        <Faq />
+        {route.guide ? (
+          <Guide guide={route.guide} />
+        ) : (
+          <>
+            <Hero />
+            <Marquee />
+            <Stack />
+            <Story />
+            <Tools />
+            <Flow />
+            <NoBand />
+            <Install />
+            <Faq />
+          </>
+        )}
       </main>
       <Footer />
     </ReadyContext.Provider>
@@ -65,19 +76,21 @@ function Page() {
 }
 
 /** Movement follows the system's setting until the visitor presses the play or pause button. */
-function Gate() {
+function Gate({ route }: { route: Route }) {
   const { reduce } = usePrefs();
   return (
     <MotionConfig reducedMotion={reduce ? "always" : "never"}>
-      <Page />
+      <Page route={route} />
     </MotionConfig>
   );
 }
 
-export default function App() {
+/** One page of the site, chosen by its URL path. */
+export default function App({ path }: { path: string }) {
+  const route = routeFor(path);
   return (
-    <PrefsProvider>
-      <Gate />
+    <PrefsProvider lang={route.lang} path={route.path}>
+      <Gate route={route} />
     </PrefsProvider>
   );
 }

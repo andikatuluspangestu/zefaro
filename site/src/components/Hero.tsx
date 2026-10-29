@@ -72,6 +72,8 @@ export function Hero() {
                   </span>
                 );
               })}
+              {/* Rows are blocks; the space keeps "Another Local" apart for anything reading the text. */}
+              {r < ROWS.length - 1 ? " " : ""}
             </span>
           ))}
         </motion.h1>

@@ -440,3 +440,37 @@ h2.display { font-size: clamp(2.6rem, 6.4vw, 5.6rem); }
 .tbl-body { position: relative; min-height: 120px; }
 .tbl-body .empty { position: absolute; left: 0; right: 0; top: 0; border-top: 1px solid var(--border); }
 .tbl-body .tbl-row { border-top: 1px solid var(--border); }
+
+/* Guide pages: long-form reading, with the same type and colours as the home page */
+.guide { --wrap: 820px; padding: 150px 0 40px; }
+.guide .crumbs { display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.9rem; color: var(--muted-foreground); margin-bottom: 28px; }
+.guide .crumbs a { color: inherit; }
+.guide h1 { font-size: clamp(2.4rem, 5.6vw, 4.2rem); line-height: 1; }
+.guide .lead { margin-top: 24px; max-width: none; }
+.guide-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 32px; font-size: 0.9rem; color: var(--muted-foreground); }
+.guide section { margin-top: 64px; }
+.guide h2 { font-family: var(--display); font-size: clamp(1.6rem, 3vw, 2.2rem); letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 18px; }
+.guide p, .guide li, .guide dd { font-size: 1.06rem; line-height: 1.7; color: var(--foreground); }
+.guide p + p { margin-top: 14px; }
+.guide ul, .guide ol { padding-left: 1.3em; display: grid; gap: 8px; }
+.guide ul { list-style: disc; }
+.guide ol { list-style: decimal; }
+.guide li::marker { color: var(--primary); }
+.guide ul + p, .guide ol + p { margin-top: 16px; }
+.guide-table { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-md); }
+.guide table { width: 100%; min-width: 34rem; border-collapse: collapse; font-size: 0.97rem; }
+.guide th, .guide td { text-align: left; vertical-align: top; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.guide thead th { background: var(--muted); font-weight: 600; }
+.guide tbody tr:last-child > * { border-bottom: 0; }
+.guide tbody th { font-weight: 600; white-space: nowrap; }
+.guide-faq { display: grid; gap: 22px; }
+.guide-faq dt { font-weight: 600; font-size: 1.08rem; }
+.guide-faq dd { margin-top: 6px; color: var(--muted-foreground); }
+.guide-more a { color: var(--foreground); text-underline-offset: 3px; }
+.guide-updated { margin-top: 28px; font-size: 0.9rem; color: var(--muted-foreground) !important; }
+@media (max-width: 640px) { .guide { padding-top: 120px; } .guide tbody th { white-space: normal; } }
+
+.footer-guides { margin-top: 28px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 24px; font-size: 0.95rem; }
+.footer-guides span { color: var(--muted-foreground); }
+.footer-guides a { color: var(--muted-foreground); text-decoration: none; }
+.footer-guides a:hover { color: var(--foreground); text-decoration: underline; text-underline-offset: 3px; }

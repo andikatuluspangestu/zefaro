@@ -3,56 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Zefaro: Yet Another Local Laravel Tools</title>
-    <meta
-      name="description"
-      content="Zefaro is a free, open-source local PHP development environment for Windows. Link a folder and open it at name.test, with PHP, HTTPS, databases and a mail catcher already set up."
-    />
-    <link rel="canonical" href="https://zefaro.pages.dev/" />
-    <link rel="icon" type="image/svg+xml" href="./zefaro.svg" />
+    <!-- Replaced per page by scripts/prerender.mjs (title, description, canonical, hreflang, Open Graph, schema.org). -->
+    <!--seo:start-->
+    <title>Zefaro: free local PHP and Laravel environment for Windows</title>
+    <meta name="description" content="Zefaro is a free, open-source local PHP development environment for Windows." />
+    <!--seo:end-->
+    <link rel="icon" type="image/svg+xml" href="/zefaro.svg" />
+    <link rel="alternate" type="text/markdown" title="Zefaro for language models" href="/llms.txt" />
     <meta name="theme-color" content="#FFF7FD" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#100E1D" media="(prefers-color-scheme: dark)" />
 
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Zefaro" />
-    <meta property="og:title" content="Zefaro: Yet Another Local Laravel Tools" />
-    <meta
-      property="og:description"
-      content="A free, open-source local PHP development environment for Windows. Link a folder, open name.test."
-    />
-    <meta property="og:url" content="https://zefaro.pages.dev/" />
-    <meta property="og:image" content="https://zefaro.pages.dev/og.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta name="twitter:card" content="summary_large_image" />
-
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "Zefaro",
-        "alternateName": "Yet Another Local Laravel Tools",
-        "applicationCategory": "DeveloperApplication",
-        "operatingSystem": "Windows 10, Windows 11",
-        "softwareVersion": "1.1.0",
-        "license": "https://opensource.org/license/mit",
-        "url": "https://zefaro.pages.dev/",
-        "downloadUrl": "https://github.com/andikatuluspangestu/zefaro/releases/latest",
-        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
-      }
-    </script>
-
-    <!-- Theme and language are applied before the first paint, so the page never flashes the wrong ones. -->
+    <!-- Theme before the first paint. On the English home page, a visitor who chose Indonesian
+         (or whose browser is Indonesian, until they choose) goes to /id/. Crawlers keep the page they asked for. -->
     <script>
       try {
         var t = localStorage.getItem("zefaro-site.theme");
         var dark = t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
         document.documentElement.classList.toggle("dark", dark);
         document.documentElement.style.colorScheme = dark ? "dark" : "light";
-        var l =
-          localStorage.getItem("zefaro-site.lang") ||
-          ((navigator.language || "en").toLowerCase().indexOf("id") === 0 ? "id" : "en");
-        document.documentElement.lang = l;
+        var l = localStorage.getItem("zefaro-site.lang");
+        var id = l ? l === "id" : (navigator.language || "").toLowerCase().indexOf("id") === 0;
+        if (location.pathname === "/" && id && !/bot|crawl|spider|slurp|preview/i.test(navigator.userAgent)) {
+          location.replace("/id/" + location.hash);
+        }
       } catch (e) {}
     </script>
   </head>

@@ -191,6 +191,7 @@ const en = {
     line: "Yet Another Local Laravel Tools",
     legal: "Zefaro is an independent project, not affiliated with Laravel. Released under the MIT License.",
     links: { github: "GitHub", releases: "Releases", changelog: "Changelog", issues: "Issues", license: "License" },
+    guides: "Guides in Bahasa Indonesia",
   },
 };
 
@@ -214,7 +215,7 @@ const id: Copy = {
   },
   hero: {
     title: "Yet Another Local Laravel Tools",
-    lead: "Zefaro adalah lingkungan pengembangan PHP lokal untuk Windows yang gratis dan open source. Tautkan folder proyek lalu buka di nama.test, dengan PHP, HTTPS, database, dan penangkap email yang sudah siap.",
+    lead: "Zefaro adalah alternatif XAMPP dan Laragon yang gratis dan open source untuk Windows, cocok untuk mahasiswa IT yang belajar PHP dan Laravel. Tautkan folder proyek lalu buka di nama.test, dengan PHP, HTTPS, database, dan penangkap email yang sudah siap.",
     cta: "Unduh untuk Windows",
     source: "Lihat kode sumber",
     meta: "Versi 1.1.0 · Windows 10 dan 11 · 3,2 MB",
@@ -377,6 +378,7 @@ const id: Copy = {
     line: "Yet Another Local Laravel Tools",
     legal: "Zefaro adalah proyek independen, tidak berafiliasi dengan Laravel. Dirilis dengan Lisensi MIT.",
     links: { github: "GitHub", releases: "Rilis", changelog: "Catatan perubahan", issues: "Issue", license: "Lisensi" },
+    guides: "Panduan",
   },
 };
 
