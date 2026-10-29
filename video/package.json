@@ -6,14 +6,16 @@
   "scripts": {
     "studio": "remotion studio",
     "render": "npm run render:youtube && npm run render:vertical && npm run render:feed",
-    "render:youtube": "remotion render ZefaroPromo out/zefaro-1.0.0-youtube-16x9.mp4 --concurrency=2 --crf=18",
-    "render:vertical": "remotion render ZefaroPromoVertical out/zefaro-1.0.0-tiktok-reels-9x16.mp4 --concurrency=2 --crf=18",
-    "render:feed": "remotion render ZefaroPromoFeed out/zefaro-1.0.0-instagram-feed-4x5.mp4 --concurrency=2 --crf=18",
+    "render:youtube": "remotion render ZefaroPromo out/video/zefaro-1.0.0-1920x1080.mp4 --concurrency=2 --crf=18",
+    "render:vertical": "remotion render ZefaroPromoVertical out/video/zefaro-1.0.0-1080x1920.mp4 --concurrency=2 --crf=18",
+    "render:feed": "remotion render ZefaroPromoFeed out/video/zefaro-1.0.0-1080x1350.mp4 --concurrency=2 --crf=18",
     "still": "remotion still ZefaroPromo out/still.png --frame=300",
+    "mockups": "node scripts/render-mockups.mjs",
     "og": "remotion still OgImage ../site/public/og.png",
     "installer-art": "remotion still InstallerSidebar out/sidebar.png && remotion still InstallerHeader out/header.png && powershell -NoProfile -File scripts/png-to-bmp.ps1 out/sidebar.png ../src-tauri/installer/sidebar.bmp && powershell -NoProfile -File scripts/png-to-bmp.ps1 out/header.png ../src-tauri/installer/header.bmp"
   },
   "dependencies": {
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
     "@fontsource-variable/geist": "5.3.0",
     "@fortawesome/fontawesome-free": "7.3.1",
     "@remotion/cli": "4.0.539",

@@ -14,7 +14,7 @@ export function Intro() {
   const shift = progress(frame, 40, 60);
   const logo = pick(kind, { landscape: 190, portrait: 210, feed: 170 });
   const word = pick(kind, { landscape: 160, portrait: 150, feed: 124 });
-  const chips = ["v1.0.0", "open source", "MIT"];
+  const chips = ["v1.0.0", "open source", "zefaro.pages.dev"];
   return (
     <SceneShell entrance="iris" push={{ from: 1.04, to: 1 }}>
       <div

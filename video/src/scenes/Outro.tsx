@@ -39,19 +39,34 @@ export function Outro() {
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: wide ? "row" : "column", alignItems: "center", gap: 18, ...enter(frame, 26) }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 14, height: 76, padding: "0 34px", borderRadius: 18, background: C.primary, color: C.onPrimary, fontSize: 32, fontWeight: 600 }}>
-            <Icon name="download" /> Download Zefaro 1.0.0
+          <span
+            style={{
+              display: "inline-flex",
+              flexDirection: "column",
+              alignItems: wide ? "flex-start" : "center",
+              justifyContent: "center",
+              gap: 4,
+              padding: wide ? "16px 38px" : "20px 40px",
+              borderRadius: 22,
+              background: C.primary,
+              color: C.onPrimary,
+            }}
+          >
+            <span style={{ fontSize: pick(kind, { landscape: 22, portrait: 28, feed: 22 }), opacity: 0.88, display: "flex", alignItems: "center", gap: 10 }}>
+              <Icon name="download" /> Download free for Windows
+            </span>
+            <span style={{ fontSize: pick(kind, { landscape: 46, portrait: 58, feed: 46 }), fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1.1 }}>zefaro.pages.dev</span>
           </span>
           <span
             style={{
               display: "inline-flex",
               alignItems: "center",
               gap: 14,
-              height: 76,
-              padding: "0 30px",
+              height: wide ? 76 : 70,
+              padding: "0 28px",
               borderRadius: 18,
               border: `1px solid ${C.input}`,
-              fontSize: wide ? 28 : 25,
+              fontSize: pick(kind, { landscape: 24, portrait: 24, feed: 21 }),
               fontFamily: MONO,
             }}
           >

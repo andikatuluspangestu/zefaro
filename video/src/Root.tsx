@@ -4,7 +4,9 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AbsoluteFill, Audio, Composition, Sequence, continueRender, delayRender, interpolate, staticFile } from "remotion";
 import { InstallerHeader, InstallerSidebar } from "./components/InstallerArt";
 import { OgImage } from "./components/OgImage";
+import { MOCKUPS } from "./mockups/Mockups";
 import { OVERLAP, SceneJoin } from "./components/SceneShell";
+import { SiteBadge } from "./components/SiteBadge";
 import { Features } from "./scenes/Features";
 import { Hook } from "./scenes/Hook";
 import { Intro } from "./scenes/Intro";
@@ -91,6 +93,7 @@ function ZefaroPromo() {
             </Sequence>
           );
         })}
+        <SiteBadge from={startOf("orbit")} to={startOf("outro")} />
       </AbsoluteFill>
     </Fonts>
   );
@@ -104,6 +107,9 @@ export function Root() {
       <Composition id="ZefaroPromoVertical" component={ZefaroPromo} durationInFrames={TOTAL} fps={FPS} width={1080} height={1920} />
       <Composition id="ZefaroPromoFeed" component={ZefaroPromo} durationInFrames={TOTAL} fps={FPS} width={1080} height={1350} />
       <Composition id="InstallerSidebar" component={InstallerSidebar} durationInFrames={1} fps={FPS} width={164} height={314} />
+      {MOCKUPS.map((m) => (
+        <Composition key={m.id} id={m.id} component={m.component} durationInFrames={1} fps={FPS} width={m.width} height={m.height} />
+      ))}
       <Composition id="OgImage" component={OgImage} durationInFrames={1} fps={FPS} width={1200} height={630} />
       <Composition id="InstallerHeader" component={InstallerHeader} durationInFrames={1} fps={FPS} width={150} height={57} />
     </>
