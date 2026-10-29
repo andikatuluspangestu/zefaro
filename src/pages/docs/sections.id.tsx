@@ -30,10 +30,13 @@ const FAQ: [string, ReactNode][] = [
     ada di urutan pertama, jadi <C>php</C> menjalankan PHP aktif milik Zefaro.</>,
   ],
   [
-    "Mengapa phpMyAdmin butuh PHP 8.3 atau yang lebih lama?",
+    "phpMyAdmin berjalan di versi PHP yang mana?",
     <>phpMyAdmin 5.2.3 secara resmi mendukung PHP 7.2 sampai 8.3. Zefaro menjalankannya dengan versi
     terbaru yang terpasang dalam rentang itu, jadi Anda tetap bisa memakai PHP 8.4 atau 8.5 untuk
-    situs Anda sendiri.</>,
+    situs Anda sendiri. Kalau yang terpasang hanya PHP 8.4 atau 8.5, Zefaro menjalankan phpMyAdmin
+    di versi itu sebagai percobaan (8.4 lebih dulu) dan menandainya "eksperimental" di halaman
+    Layanan. Sebagian besar halaman berjalan, tetapi kalau ada yang rusak, instal PHP 8.3 di
+    sampingnya dan Zefaro akan beralih ke sana.</>,
   ],
   [
     "Mengapa pemasangan DNS meminta hak admin?",

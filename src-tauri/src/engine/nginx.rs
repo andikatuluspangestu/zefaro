@@ -153,6 +153,30 @@ fn long_path(p: &Path) -> PathBuf {
 
 /// Serve a project's `public/` folder when it has one (Laravel and most
 /// frameworks), otherwise the project folder itself.
+/// The PHP line a site is served by: its own, or the default when its own
+/// isn't installed.
+fn site_php<'a>(cfg: &'a ZefaroConfig, own: &'a str, installed: impl Fn(&str) -> bool) -> &'a str {
+    if installed(own) { own } else { &cfg.default_php }
+}
+
+/// The installed PHP lines the linked sites are served by, once each. Their
+/// php-cgi has to run alongside nginx or those sites answer 502.
+pub fn site_php_lines(cfg: &ZefaroConfig) -> Vec<String> {
+    php_lines_for(cfg, php::is_installed)
+}
+
+fn php_lines_for(cfg: &ZefaroConfig, installed: impl Fn(&str) -> bool) -> Vec<String> {
+    let mut lines: Vec<String> = cfg
+        .sites
+        .iter()
+        .map(|s| site_php(cfg, &s.php_version, &installed).to_owned())
+        .filter(|l| installed(l))
+        .collect();
+    lines.sort();
+    lines.dedup();
+    lines
+}
+
 pub fn site_root(path: &Path) -> PathBuf {
     let public = path.join("public");
     if public.is_dir() { public } else { path.to_path_buf() }
@@ -351,7 +375,7 @@ pub fn write_config(cfg: &ZefaroConfig, l: &Layout) -> AppResult<()> {
         }
     }
     for site in &cfg.sites {
-        let version = if php::is_installed(&site.php_version) { &site.php_version } else { &cfg.default_php };
+        let version = site_php(cfg, &site.php_version, php::is_installed);
         let port = php::port_for(cfg.php.base_port, version);
         let root = site_root(Path::new(&site.path));
         let host = format!("{}.{}", site.name, cfg.tld);
@@ -448,6 +472,30 @@ mod tests {
         assert!(conf.contains(r#"include "C:/Users/me/.config/zefaro/bin-nginx/conf/mime.types";"#));
         assert!(conf.contains("client_max_body_size 0;"));
         assert!(!conf.contains('\\'), "Windows backslashes must be converted");
+    }
+
+    #[test]
+    fn site_php_lines_follow_each_site_once() {
+        let site = |name: &str, php: &str| Site {
+            name: name.into(),
+            path: format!(r"C:\Projects\{name}"),
+            url: format!("http://{name}.test"),
+            secured: false,
+            php_version: php.into(),
+            kind: "linked".into(),
+            framework: None,
+        };
+        let mut cfg = ZefaroConfig::default();
+        cfg.default_php = "8.3".into();
+        cfg.sites = vec![site("a", "8.4"), site("b", "8.4"), site("c", "7.4"), site("d", "8.5")];
+        // 7.4 isn't installed, so site c is served by the default, 8.3.
+        let installed = |l: &str| ["8.3", "8.4", "8.5"].contains(&l);
+        assert_eq!(php_lines_for(&cfg, installed), ["8.3", "8.4", "8.5"]);
+        // A missing default adds nothing.
+        let only_84 = |l: &str| l == "8.4";
+        assert_eq!(php_lines_for(&cfg, only_84), ["8.4"]);
+        cfg.sites.clear();
+        assert!(php_lines_for(&cfg, installed).is_empty());
     }
 
     #[test]

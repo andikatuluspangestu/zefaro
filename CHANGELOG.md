@@ -4,6 +4,26 @@ All notable changes to Zefaro are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Zefaro uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-10-29
+
+### Fixed
+
+- **502 Bad Gateway on a site after starting nginx or phpMyAdmin.** Starting nginx, or
+  phpMyAdmin (which starts nginx), now also starts the PHP version each linked site uses.
+  Before, a site on PHP 8.4 answered 502 until you started PHP 8.4 yourself, because only
+  phpMyAdmin's own PHP came up. If one of those PHP versions can't start, nginx still
+  starts and the message names the version.
+
+### Changed
+
+- **phpMyAdmin on PHP 8.4 and 8.5.** phpMyAdmin 5.2.3 officially supports PHP 7.2 to 8.3.
+  It still runs on the newest installed version in that range. When none is installed,
+  Zefaro now runs it on PHP 8.4, then 8.5, as an experiment, and the Services card says
+  "experimental". Deprecation notices from phpMyAdmin's own code are hidden through a
+  `.user.ini` in its folder, so they don't affect your sites. Pages, SQL queries and exports
+  worked on PHP 8.4; PHP 8.5 hasn't been tested yet.
+- The documentation and the website describe the phpMyAdmin PHP versions accordingly.
+
 ## [1.0.0] - 2026-10-28
 
 The first release under the name Zefaro, "Yet Another Local Laravel Tools": a free, open-source local PHP
@@ -90,4 +110,5 @@ development environment for Windows.
 - Every service listens on `127.0.0.1` only.
 - The installer isn't code-signed yet, so Windows SmartScreen asks you to confirm it.
 
+[1.0.1]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.0.1
 [1.0.0]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.0.0

@@ -82,6 +82,10 @@ fn installed_php_lines() -> Vec<String> {
 fn phpmyadmin_service(cfg: &ZefaroConfig, sup: &Supervisor) -> Service {
     let line = phpmyadmin::pick_php(&installed_php_lines());
     let detail = match &line {
+        Some(l) if phpmyadmin::is_experimental(l) => crate::tr!(
+            format!("phpMyAdmin {} · PHP {l} (experimental) · signs in as root", phpmyadmin::VERSION),
+            format!("phpMyAdmin {} · PHP {l} (eksperimental) · masuk sebagai root", phpmyadmin::VERSION)
+        ),
         Some(l) => crate::tr!(
             format!("phpMyAdmin {} · PHP {l} · signs in as root", phpmyadmin::VERSION),
             format!("phpMyAdmin {} · PHP {l} · masuk sebagai root", phpmyadmin::VERSION)
@@ -316,7 +320,22 @@ fn start_inner(cfg: &ZefaroConfig, sup: &Supervisor, id: &str) -> AppResult<()> 
             }
             nginx::write_config(cfg, &l)?;
             nginx::test_config(&l)?;
+            // Each site's PHP first, so nginx never proxies to a port nobody
+            // serves (a 502). A PHP that won't start doesn't hold nginx back.
+            let mut php_error = None;
+            for line in nginx::site_php_lines(cfg) {
+                let started = sup.start(php::cgi_spec(&line, php::port_for(cfg.php.base_port, &line)));
+                if let Err(e) = started {
+                    php_error.get_or_insert(crate::tr!(
+                        format!("nginx is running, but PHP {line} didn't start: {e}"),
+                        format!("nginx berjalan, tetapi PHP {line} gagal dimulai: {e}")
+                    ));
+                }
+            }
             sup.start(nginx::spec(&l)).map_err(|e| port_hint(e, cfg.nginx.http_port))?;
+            if let Some(msg) = php_error {
+                return Err(AppError::msg(msg));
+            }
         }
         dns::SERVICE_ID => {
             sup.start(dns::spec(&cfg.tld)?)?;

@@ -83,9 +83,12 @@ const FAQ: [string, ReactNode][] = [
     active PHP.</>,
   ],
   [
-    "Why does phpMyAdmin need PHP 8.3 or older?",
+    "Which PHP version does phpMyAdmin run on?",
     <>phpMyAdmin 5.2.3 officially supports PHP 7.2 to 8.3. Zefaro runs it on the newest installed
-    version in that range, so you can still use PHP 8.4 or 8.5 for your own sites.</>,
+    version in that range, so you can still use PHP 8.4 or 8.5 for your own sites. If you only have
+    PHP 8.4 or 8.5, Zefaro runs phpMyAdmin on it as an experiment (8.4 first) and marks it
+    "experimental" on the Services page. Most pages work, but if something breaks, install PHP 8.3
+    alongside and Zefaro switches to it.</>,
   ],
   [
     "Why does the DNS setup ask for administrator rights?",
