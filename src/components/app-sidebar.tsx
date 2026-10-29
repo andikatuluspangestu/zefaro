@@ -36,11 +36,13 @@ const GROUPS: { label: keyof Nav; items: NavItem[] }[] = [
       { id: "services", icon: "server" },
       { id: "mail", icon: "envelope" },
       { id: "logs", icon: "file-lines" },
+      { id: "dumps", icon: "bug" },
     ],
   },
   {
     label: "help",
     items: [
+      { id: "doctor", icon: "stethoscope" },
       { id: "docs", icon: "book" },
       { id: "about", icon: "circle-info" },
     ],
@@ -51,11 +53,14 @@ export function AppSidebar({
   active,
   onSelect,
   version,
+  newVersion,
   badges = {},
 }: {
   active: PageId;
   onSelect: (id: PageId) => void;
   version?: string;
+  /** A newer version on GitHub, shown beside the current one. */
+  newVersion?: string;
   /** Counts shown beside items, e.g. unread mail. */
   badges?: Partial<Record<PageId, number>>;
 }) {
@@ -100,8 +105,13 @@ export function AppSidebar({
               <Logo className="size-8 rounded-lg" />
               <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate font-semibold tracking-tight text-brand-gradient">Zefaro</span>
-                <span className="truncate text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
                   {version ? `v${version}` : t.nav.localPhp}
+                  {newVersion && (
+                    <span className="rounded-full bg-primary px-1.5 text-[10px] font-medium text-primary-foreground" title={`v${newVersion}`}>
+                      v{newVersion}
+                    </span>
+                  )}
                 </span>
               </div>
             </SidebarMenuButton>

@@ -6,6 +6,15 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type {
   AppInfo,
+  DumpEntry,
+  DumpsStatus,
+  DoctorCheck,
+  ImportSource,
+  ImportLinkResult,
+  OldServer,
+  ProjectPreview,
+  ProjectReport,
+  UpdateInfo,
   CaStatus,
   DbJob,
   DbOverview,
@@ -64,6 +73,24 @@ async function mutate<T>(p: Promise<T>): Promise<T> {
 export const api = {
   // sites
   listSites: () => invoke<Site[]>("list_sites"),
+  /** The folder's zefaro.json and what linking with it would do; null when it has none. */
+  projectRead: (path: string) => invoke<ProjectPreview | null>("project_read", { path }),
+  /** Link a folder and apply its zefaro.json. */
+  projectLink: (path: string) => mutate(invoke<ProjectReport>("project_link", { path })),
+  /** Write zefaro.json into the site's folder; resolves to its path. */
+  projectSave: (name: string) => invoke<string>("project_save", { name }),
+  doctorRun: () => invoke<DoctorCheck[]>("doctor_run"),
+  importScan: (extra: string | null) => invoke<ImportSource[]>("import_scan", { extra }),
+  importLink: (paths: string[]) => mutate(invoke<ImportLinkResult[]>("import_link", { paths })),
+  importDbStatus: () => invoke<OldServer>("import_db_status"),
+  importDbDump: (names: string[]) => invoke<string[]>("import_db_dump", { names }),
+  importDbLoad: () => mutate(invoke<string[]>("import_db_load")),
+  phpXdebugVersion: (version: string) => invoke<string | null>("php_xdebug_version", { version }),
+  phpXdebugInstall: (version: string) => invoke<PhpExtension[]>("php_xdebug_install", { version }),
+  dumpsStatus: () => invoke<DumpsStatus>("dumps_status"),
+  dumpsSetEnabled: (on: boolean) => mutate(invoke<DumpsStatus>("dumps_set_enabled", { on })),
+  dumpsList: () => invoke<DumpEntry[]>("dumps_list"),
+  dumpsClear: () => invoke<void>("dumps_clear"),
   linkSite: (path: string) => mutate(invoke<Site>("link_site", { path })),
   unlinkSite: (name: string) => mutate(invoke<void>("unlink_site", { name })),
   secureSite: (name: string) => mutate(invoke<Site>("secure_site", { name })),
@@ -147,6 +174,10 @@ export const api = {
 
   // tooling
   toolsStatus: () => invoke<ToolsStatus>("tools_status"),
+  /** The active PHP line when installed; nothing to run, so it answers at once. */
+  toolsActivePhp: () => invoke<string | null>("tools_active_php"),
+  /** Is Zefaro's bin folder on the user PATH? Asks PowerShell, so it's slower. */
+  toolsBinOnPath: () => invoke<boolean>("tools_bin_on_path"),
   installComposer: () => invoke<void>("tools_install_composer"),
   installLaravel: () => invoke<void>("tools_install_laravel"),
   addBinToPath: () => invoke<void>("path_add_bin"),
@@ -236,6 +267,9 @@ export const api = {
   /** Settings wait to be written because another program has config.json open. */
   configPending: () => invoke<boolean>("config_pending"),
   setCloseToTray: (on: boolean) => invoke<void>("set_close_to_tray", { on }),
+  /** Ask GitHub whether a newer Zefaro exists. Nothing is downloaded. */
+  checkUpdate: () => invoke<UpdateInfo>("check_update"),
+  setCheckUpdates: (on: boolean) => invoke<void>("set_check_updates", { on }),
   /** Answer to the first-close question: remember it, then hide or quit. */
   closeWindow: (keepRunning: boolean) => invoke<void>("close_window", { keepRunning }),
 };

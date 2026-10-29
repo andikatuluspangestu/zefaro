@@ -38,32 +38,46 @@ pub struct SiteInfo {
 
 /// Quick facts about a site, without starting PHP.
 #[tauri::command]
-pub fn site_info(name: String, state: State<AppState>) -> AppResult<SiteInfo> {
-    let cfg = state.config.lock().unwrap();
-    let site = cfg
-        .sites
-        .iter()
-        .find(|s| s.name == name)
-        .ok_or_else(|| AppError::msg(crate::tr!("That site no longer exists.", "Situs itu sudah tidak ada.")))?;
-    let site = Site {
-        url: cfg.url_for(&format!("{}.{}", site.name, cfg.tld), site.secured),
-        framework: crate::engine::framework::detect(std::path::Path::new(&site.path)).map(str::to_owned),
-        ..site.clone()
+pub async fn site_info(name: String, state: State<'_, AppState>) -> AppResult<SiteInfo> {
+    let (site, php, mailpit_smtp_port) = {
+        let cfg = state.config.lock().unwrap();
+        let site = cfg
+            .sites
+            .iter()
+            .find(|s| s.name == name)
+            .ok_or_else(|| AppError::msg(crate::tr!("That site no longer exists.", "Situs itu sudah tidak ada.")))?;
+        let site = Site {
+            url: cfg.url_for(&format!("{}.{}", site.name, cfg.tld), site.secured),
+            framework: crate::engine::framework::detect(std::path::Path::new(&site.path)).map(str::to_owned),
+            ..site.clone()
+        };
+        let php = App::for_site(&cfg, &name).ok().map(|a| a.php);
+        (site, php, cfg.mailpit.smtp_port)
     };
-    let app = App::for_site(&cfg, &name).ok();
-    let folder = PathBuf::from(&site.path);
-    Ok(SiteInfo {
-        is_laravel: folder.join("artisan").is_file(),
-        has_vendor: folder.join("vendor").join("autoload.php").is_file(),
-        has_env: folder.join(".env").is_file(),
-        php: app.map(|a| a.php),
-        mariadb_running: supervisor::port_open(mariadb::PORT),
-        postgres_running: supervisor::port_open(postgres::PORT),
-        mailpit_smtp_port: cfg.mailpit.smtp_port,
-        mailpit_running: supervisor::port_open(cfg.mailpit.smtp_port),
-        composer_installed: paths::composer_phar().is_file(),
-        site,
+    // A port nobody listens on costs a timeout, so ask about all three at once,
+    // off the thread that draws the window.
+    blocking(move || {
+        let folder = PathBuf::from(&site.path);
+        let (mariadb_running, postgres_running, mailpit_running) = std::thread::scope(|s| {
+            let mariadb = s.spawn(|| supervisor::port_open(mariadb::PORT));
+            let postgres = s.spawn(|| supervisor::port_open(postgres::PORT));
+            let mailpit = supervisor::port_open(mailpit_smtp_port);
+            (mariadb.join().unwrap_or(false), postgres.join().unwrap_or(false), mailpit)
+        });
+        Ok(SiteInfo {
+            is_laravel: folder.join("artisan").is_file(),
+            has_vendor: folder.join("vendor").join("autoload.php").is_file(),
+            has_env: folder.join(".env").is_file(),
+            php,
+            mariadb_running,
+            postgres_running,
+            mailpit_smtp_port,
+            mailpit_running,
+            composer_installed: paths::composer_phar().is_file(),
+            site,
+        })
     })
+    .await
 }
 
 async fn query(state: &AppState, name: &str, request: Value) -> AppResult<Value> {

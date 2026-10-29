@@ -72,8 +72,10 @@ const FAQ: [string, ReactNode][] = [
   ],
   [
     "Does Zefaro send any data anywhere?",
-    <>Zefaro has no accounts and sends no analytics. It goes online only to check for new versions
-    and to download the software listed on the About page, from each project's official source.</>,
+    <>Zefaro has no accounts and sends no analytics. It goes online only to check for a new Zefaro
+    release on GitHub when it starts (you can turn that off in Settings), to check versions of the
+    software it installs, and to download that software from each project's official source:
+    the tools on the About page, and WordPress or Xdebug when you ask for them.</>,
   ],
   [
     "Will Zefaro interfere with PHP or Composer I already have?",
@@ -1023,6 +1025,154 @@ export const SECTIONS: DocSection[] = [
             ["downloads\\", "Temporary downloads, which Zefaro removes after installing."],
           ]}
         />
+      </>
+    ),
+  },
+  {
+    id: "site-kinds",
+    title: "WordPress, PHP and dev servers",
+    icon: "shapes",
+    group: "Sites and runtimes",
+    summary: "New sites that aren't Laravel apps.",
+    body: (go) => (
+      <>
+        <P>
+          <em>New site</em> on the Sites page makes more than Laravel apps. Pick what to make at the top.
+          <GoTo page="sites" label="Open Sites" go={go} />
+        </P>
+        <Rows
+          rows={[
+            ["WordPress", <>Downloads the latest release from WordPress.org, checks it against WordPress.org's checksum, creates a MariaDB database and writes <C>wp-config.php</C>. MariaDB must be running. Open the site to choose its title and make the admin account.</>],
+            ["PHP", <>A folder with one <C>index.php</C>, served with the PHP version you pick.</>],
+            ["Dev server", <>A <C>.test</C> address for a project that runs its own dev server, such as Vite (port 5173) or Next.js (port 3000). nginx forwards the address to that port, WebSocket included, so hot reload works. Start the dev server yourself, as usual.</>],
+          ]}
+        />
+        <Note title="Why localhost">
+          Dev servers often only answer to <C>localhost</C>, so Zefaro forwards with that Host header and passes the
+          address you typed in <C>X-Forwarded-Host</C>.
+        </Note>
+      </>
+    ),
+  },
+  {
+    id: "project-file",
+    title: "zefaro.json",
+    icon: "file-code",
+    group: "Sites and runtimes",
+    summary: "Keep a project's Zefaro settings in the project.",
+    body: () => (
+      <>
+        <P>
+          A <C>zefaro.json</C> in a project's folder says how Zefaro should set the site up, so everyone on a team gets
+          the same setup. Commit it with the project.
+        </P>
+        <List
+          items={[
+            <>
+              <strong>Write one:</strong> on a site's page, click the file button next to <em>Open in</em>. Zefaro writes
+              the site's PHP version, HTTPS, workers, and the services and database its <C>.env</C> points at on this
+              computer.
+            </>,
+            <>
+              <strong>Use one:</strong> link the folder (<em>Link folder</em>). Zefaro shows what the file asks for and
+              offers <em>Link and apply</em>. A PHP version that isn't installed, or a service that won't start, is
+              reported and the rest still happens.
+            </>,
+          ]}
+        />
+        <CodeBlock
+          label="zefaro.json"
+          code={`{
+  "name": "shop",
+  "php": "8.4",
+  "https": true,
+  "services": ["mariadb", "redis", "mailpit"],
+  "database": { "driver": "mariadb", "name": "shop" },
+  "workers": [
+    { "label": "Queue", "command": "php artisan queue:work" }
+  ]
+}`}
+        />
+        <Rows
+          rows={[
+            ["name", "The site name; the folder's name when missing."],
+            ["php", <>A PHP line such as <C>8.4</C>.</>],
+            ["https", "Serve the site over HTTPS."],
+            ["proxy", "A dev server's port, for a site that forwards instead of running PHP."],
+            ["services", <><C>mariadb</C>, <C>postgresql</C>, <C>redis</C> or <C>mailpit</C>, started when the folder is linked.</>],
+            ["database", <>A database to create when it doesn't exist (<C>mariadb</C> or <C>pgsql</C>).</>],
+            ["workers", "Commands Zefaro keeps running for the site, as on the Workers tab."],
+          ]}
+        />
+      </>
+    ),
+  },
+  {
+    id: "debugging",
+    title: "Dumps and Xdebug",
+    icon: "bug",
+    group: "Sites and runtimes",
+    summary: "See dump() output in Zefaro, and step through code.",
+    body: (go) => (
+      <>
+        <H3>Dumps</H3>
+        <P>
+          Turn on <em>Catch dumps</em> on the Dumps page and <C>dump()</C> and <C>dd()</C> from your sites appear there,
+          newest first, with the file and line they came from, instead of in the page.
+          <GoTo page="dumps" label="Open Dumps" go={go} />
+        </P>
+        <P>
+          Zefaro sets <C>VAR_DUMPER_FORMAT=tcp://127.0.0.1:9912</C> for every site and runs a small receiver on that port
+          with the active PHP version. This works for apps that use Symfony's VarDumper: Laravel, Symfony and most Composer
+          projects. Plain <C>var_dump()</C> still prints into the page, and so does everything when catching is off.
+        </P>
+        <H3>Xdebug</H3>
+        <Steps
+          items={[
+            <>Open a PHP version's settings (the gear on the PHP page) and click <em>Download Xdebug</em>. Zefaro checks the file against its SHA-256 before using it.</>,
+            <>Turn on <C>xdebug</C> in the extension list and save. Zefaro adds the settings below to that version's php.ini.</>,
+            <>In VS Code, install the PHP Debug extension, paste the launch.json Zefaro copies for you, and start <em>Listen for Xdebug</em>.</>,
+            <>Start a request with the <C>XDEBUG_TRIGGER</C> cookie or query parameter (a browser extension such as Xdebug Helper sets it).</>,
+          ]}
+        />
+        <CodeBlock label="php.ini" code={"xdebug.mode = debug\nxdebug.start_with_request = trigger\nxdebug.client_host = 127.0.0.1\nxdebug.client_port = 9003"} />
+        <Note title="Fast pages">Xdebug only starts when asked, so pages stay fast while it is on.</Note>
+      </>
+    ),
+  },
+  {
+    id: "moving",
+    title: "Diagnostics, importing and updates",
+    icon: "stethoscope",
+    group: "Reference",
+    summary: "Find what's wrong, move from XAMPP or Laragon, and stay up to date.",
+    body: (go) => (
+      <>
+        <H3>Diagnostics</H3>
+        <P>
+          The Diagnostics page checks what most often stops a local PHP setup on Windows: a missing Visual C++ runtime,
+          ports held by another program (it names the program), the <C>.test</C> rule, the hosts file, an untrusted
+          certificate, PATH, and site folders that have moved. Each finding has a button to the place that fixes it.
+          <GoTo page="doctor" label="Open Diagnostics" go={go} />
+        </P>
+        <H3>Importing from XAMPP or Laragon</H3>
+        <P>
+          On the Sites page, <em>Import from XAMPP or Laragon</em> lists the projects in XAMPP's <C>htdocs</C> or
+          Laragon's <C>www</C> (or any folder you pick). The ones you choose are linked where they are; nothing is moved
+          or copied, and the old tool can stay installed.
+        </P>
+        <Steps
+          items={[
+            <>Stop Zefaro's MariaDB and start MySQL in XAMPP or Laragon.</>,
+            <>Pick databases and click <em>Copy out</em>. Zefaro dumps them (as root without a password, both tools' default) into compressed files.</>,
+            <>Stop the old MySQL, start Zefaro's MariaDB, and click <em>Load into Zefaro</em>.</>,
+          ]}
+        />
+        <H3>Updates</H3>
+        <P>
+          When Zefaro starts, it asks GitHub for its latest release and tells you when a new one is out, with a link to
+          download it. It never downloads or installs anything by itself. Turn this off in Settings, under Updates.
+        </P>
       </>
     ),
   },

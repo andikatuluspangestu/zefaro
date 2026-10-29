@@ -24,6 +24,33 @@ const messages = defineMessages({
     title: "New site",
     description: "Zefaro makes a Laravel app with the Laravel installer, links it, and points its .env at Zefaro's services.",
     project: "Project",
+    kind: "What to make",
+    kinds: {
+      laravel: { label: "Laravel", hint: "A new app from the Laravel installer" },
+      wordpress: { label: "WordPress", hint: "The latest release, with a MariaDB database" },
+      php: { label: "PHP", hint: "A folder with one index.php to start from" },
+      proxy: { label: "Dev server", hint: "A .test name for Vite, Next.js or another dev server" },
+    },
+    descriptions: {
+      laravel: "Zefaro makes a Laravel app with the Laravel installer, links it, and points its .env at Zefaro's services.",
+      wordpress: "Zefaro downloads WordPress from WordPress.org, checks it, creates its database and writes wp-config.php.",
+      php: "Zefaro makes a folder with an index.php and serves it with the PHP version you pick.",
+      proxy: "Zefaro gives a project you already have a .test address and forwards it to the dev server it runs.",
+    },
+    projectFolder: "Project folder",
+    projectFolderHint: "The folder you run the dev server in. It is linked as it is.",
+    chooseProject: "Choose the project's folder",
+    port: "Dev server port",
+    portHint: "The port your dev server prints when it starts: 5173 for Vite, 3000 for Next.js.",
+    proxyWill: (name: string, port: number) => `Serves ${name} by forwarding to localhost:${port}`,
+    wpNeedsMariadb: "WordPress keeps its content in MariaDB.",
+    durations: {
+      laravel: "This takes a few minutes: Composer downloads Laravel and its packages.",
+      wordpress: "This takes a minute: WordPress is about 30 MB.",
+      php: "This takes a moment.",
+      proxy: "This takes a moment.",
+    },
+    wpNext: "Open the site to choose its title and make the admin account.",
     name: "Name",
     nameHint: "Lowercase letters, digits and hyphens. It becomes the folder and the address.",
     folder: "Folder",
@@ -92,6 +119,33 @@ const messages = defineMessages({
     title: "Situs baru",
     description: "Zefaro membuat aplikasi Laravel dengan installer Laravel, menautkannya, dan mengarahkan .env-nya ke layanan Zefaro.",
     project: "Proyek",
+    kind: "Yang dibuat",
+    kinds: {
+      laravel: { label: "Laravel", hint: "Aplikasi baru dari installer Laravel" },
+      wordpress: { label: "WordPress", hint: "Rilis terbaru, dengan database MariaDB" },
+      php: { label: "PHP", hint: "Folder berisi satu index.php untuk memulai" },
+      proxy: { label: "Dev server", hint: "Alamat .test untuk Vite, Next.js, atau dev server lain" },
+    },
+    descriptions: {
+      laravel: "Zefaro membuat aplikasi Laravel dengan installer Laravel, menautkannya, dan mengarahkan .env-nya ke layanan Zefaro.",
+      wordpress: "Zefaro mengunduh WordPress dari WordPress.org, memeriksanya, membuat database-nya, dan menulis wp-config.php.",
+      php: "Zefaro membuat folder berisi index.php dan menyajikannya dengan versi PHP yang Anda pilih.",
+      proxy: "Zefaro memberi proyek yang sudah ada alamat .test dan meneruskannya ke dev server yang dijalankan proyek itu.",
+    },
+    projectFolder: "Folder proyek",
+    projectFolderHint: "Folder tempat Anda menjalankan dev server. Folder ditautkan apa adanya.",
+    chooseProject: "Pilih folder proyek",
+    port: "Port dev server",
+    portHint: "Port yang ditampilkan dev server saat dimulai: 5173 untuk Vite, 3000 untuk Next.js.",
+    proxyWill: (name: string, port: number) => `Menyajikan ${name} dengan meneruskan ke localhost:${port}`,
+    wpNeedsMariadb: "WordPress menyimpan isinya di MariaDB.",
+    durations: {
+      laravel: "Butuh beberapa menit: Composer mengunduh Laravel dan paketnya.",
+      wordpress: "Butuh sekitar satu menit: WordPress berukuran sekitar 30 MB.",
+      php: "Hanya sebentar.",
+      proxy: "Hanya sebentar.",
+    },
+    wpNext: "Buka situsnya untuk memilih judul dan membuat akun admin.",
     name: "Nama",
     nameHint: "Huruf kecil, angka, dan tanda hubung. Menjadi nama folder dan alamat.",
     folder: "Folder",
@@ -157,6 +211,15 @@ const messages = defineMessages({
   },
 });
 
+type Kind = NewSite["kind"];
+const KINDS: { id: Kind; icon: string; brand?: boolean }[] = [
+  { id: "laravel", icon: "laravel", brand: true },
+  { id: "wordpress", icon: "wordpress", brand: true },
+  { id: "php", icon: "php", brand: true },
+  { id: "proxy", icon: "node-js", brand: true },
+];
+const NAME_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+
 type Kit = NewSite["kit"];
 const KITS: { id: Kit; icon: string; brand?: boolean }[] = [
   { id: "none", icon: "laravel", brand: true },
@@ -185,6 +248,9 @@ export function NewSitePage({ onBack, onOpenSite }: { onBack: () => void; onOpen
         setForm(
           (f) =>
             f ?? {
+              kind: "laravel",
+              proxyPort: 5173,
+              folder: "",
               name: "",
               parent: d.parent,
               php: d.activePhp ?? d.phpVersions[0] ?? "",
@@ -208,9 +274,10 @@ export function NewSitePage({ onBack, onOpenSite }: { onBack: () => void; onOpen
     load();
   }, []);
 
-  // Check the name and folder as the user types.
+  // Check the name and folder as the user types. A dev server site links a
+  // folder that already exists, so there is nothing to check on disk.
   useEffect(() => {
-    if (!form || form.name === "") {
+    if (!form || form.name === "" || form.kind === "proxy") {
       setTarget(null);
       setProblem(null);
       return;
@@ -228,7 +295,7 @@ export function NewSitePage({ onBack, onOpenSite }: { onBack: () => void; onOpen
         });
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [form?.name, form?.parent]);
+  }, [form?.name, form?.parent, form?.kind]);
 
   if (!defaults || !form)
     return (
@@ -240,11 +307,24 @@ export function NewSitePage({ onBack, onOpenSite }: { onBack: () => void; onOpen
     );
 
   const set = <K extends keyof NewSite>(key: K, value: NewSite[K]) => setForm((f) => (f ? { ...f, [key]: value } : f));
+  const kind = form.kind;
   const isKit = form.kit !== "none";
   const officialKit = isKit && form.kit !== "community";
-  const toolsMissing = !defaults.installer || !defaults.composer;
+  const toolsMissing = kind === "laravel" && (!defaults.installer || !defaults.composer);
+  const scheme = form.https ? "https" : "http";
+  const proxyUrl = `${scheme}://${form.name || "my-app"}.${defaults.tld}`;
   const canCreate =
-    !!target && !problem && !!form.php && !toolsMissing && (form.kit !== "community" || form.community.includes("/")) && (form.database !== "mariadb" || defaults.mariadbRunning) && (form.database !== "pgsql" || defaults.postgresRunning);
+    kind === "proxy"
+      ? NAME_RE.test(form.name) && form.folder.trim() !== "" && form.proxyPort > 0 && form.proxyPort < 65536
+      : !!target &&
+        !problem &&
+        !!form.php &&
+        !toolsMissing &&
+        (kind !== "wordpress" || defaults.mariadbRunning) &&
+        (kind !== "laravel" ||
+          ((form.kit !== "community" || form.community.includes("/")) &&
+            (form.database !== "mariadb" || defaults.mariadbRunning) &&
+            (form.database !== "pgsql" || defaults.postgresRunning)));
 
   const run = async (key: string, work: () => Promise<unknown>, done?: string) => {
     setBusy(key);
@@ -273,14 +353,22 @@ export function NewSitePage({ onBack, onOpenSite }: { onBack: () => void; onOpen
     if (typeof dir === "string") set("parent", dir);
   };
 
+  const browseProject = async () => {
+    const dir = await openDialog({ directory: true, title: t.chooseProject, defaultPath: form.folder || form.parent });
+    if (typeof dir !== "string") return;
+    // The folder's name is a good first guess for the site name.
+    const guess = (dir.split(/[\\/]/).pop() ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    setForm((f) => (f ? { ...f, folder: dir, name: f.name || guess } : f));
+  };
+
   // While or after creating: the console and what to do next.
   if (jobId !== null) {
-    const url = target?.url ?? "";
+    const url = kind === "proxy" ? proxyUrl : (target?.url ?? "");
     return (
       <>
         <BackButton label={t.back} onClick={onBack} />
         <h2 className="mb-1 text-xl font-semibold tracking-tight">{form.name}</h2>
-        <p className="mb-4 text-sm text-muted-foreground">{job?.state === "running" ? t.duration : null}</p>
+        <p className="mb-4 text-sm text-muted-foreground">{job?.state === "running" ? t.durations[kind] : null}</p>
         <JobConsole jobId={jobId} className="[&_pre]:max-h-[26rem]" />
         {job?.state === "done" && (
           <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -288,11 +376,13 @@ export function NewSitePage({ onBack, onOpenSite }: { onBack: () => void; onOpen
               <Icon name="circle-check" />
               {t.done(url)}
             </span>
-            <Button onClick={() => onOpenSite(form.name)}>
-              <Icon name="screwdriver-wrench" />
-              {t.openTools}
-            </Button>
-            <Button variant="outline" onClick={() => openUrl(form.https ? url.replace(/^http:/, "https:") : url)}>
+            {kind === "laravel" && (
+              <Button onClick={() => onOpenSite(form.name)}>
+                <Icon name="screwdriver-wrench" />
+                {t.openTools}
+              </Button>
+            )}
+            <Button variant={kind === "laravel" ? "outline" : "default"} onClick={() => openUrl(form.https ? url.replace(/^http:/, "https:") : url)}>
               <Icon name="arrow-up-right-from-square" />
               {t.openBrowser}
             </Button>
@@ -324,10 +414,10 @@ export function NewSitePage({ onBack, onOpenSite }: { onBack: () => void; onOpen
       <BackButton label={t.back} onClick={onBack} />
       <div className="mb-6 space-y-1">
         <h2 className="text-xl font-semibold tracking-tight">{t.title}</h2>
-        <p className="text-sm text-muted-foreground">{t.description}</p>
+        <p className="text-sm text-muted-foreground">{t.descriptions[kind]}</p>
       </div>
 
-      {defaults.phpVersions.length === 0 && <IconAlert icon="triangle-exclamation" className="mb-4 border-warning/40 text-warning" title={t.noPhp} />}
+      {defaults.phpVersions.length === 0 && kind !== "proxy" && <IconAlert icon="triangle-exclamation" className="mb-4 border-warning/40 text-warning" title={t.noPhp} />}
       {toolsMissing && defaults.phpVersions.length > 0 && (
         <IconAlert
           icon="box-open"
@@ -358,8 +448,52 @@ export function NewSitePage({ onBack, onOpenSite }: { onBack: () => void; onOpen
       )}
 
       <div className="space-y-4">
+        <Section title={t.kind}>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {KINDS.map((k) => (
+              <button
+                key={k.id}
+                type="button"
+                aria-pressed={kind === k.id}
+                onClick={() => set("kind", k.id)}
+                className={cn(
+                  "flex items-start gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted/50",
+                  kind === k.id && "border-primary bg-primary/5",
+                )}
+              >
+                <Icon name={k.icon} variant={k.brand ? "brands" : "solid"} className={cn("mt-0.5 text-muted-foreground", kind === k.id && "text-primary")} />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium">{t.kinds[k.id].label}</span>
+                  <span className="block text-xs text-muted-foreground">{t.kinds[k.id].hint}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </Section>
+
         <Section title={t.project}>
-          <Field label={t.name} hint={problem ?? (target ? t.willMake(target.path, form.https ? target.url.replace(/^http:/, "https:") : target.url) : t.nameHint)} error={!!problem}>
+          {kind === "proxy" && (
+            <Field label={t.projectFolder} hint={t.projectFolderHint}>
+              <div className="flex max-w-xl gap-2">
+                <Input value={form.folder} onChange={(e) => set("folder", e.target.value)} className="font-mono text-xs" spellCheck={false} />
+                <Button variant="outline" onClick={browseProject}>
+                  <Icon name="folder-open" />
+                  {t.browse}
+                </Button>
+              </div>
+            </Field>
+          )}
+          <Field
+            label={t.name}
+            hint={
+              kind === "proxy"
+                ? form.name && !NAME_RE.test(form.name)
+                  ? t.nameHint
+                  : t.proxyWill(proxyUrl, form.proxyPort)
+                : (problem ?? (target ? t.willMake(target.path, form.https ? target.url.replace(/^http:/, "https:") : target.url) : t.nameHint))
+            }
+            error={kind === "proxy" ? !!form.name && !NAME_RE.test(form.name) : !!problem}
+          >
             <Input
               autoFocus
               value={form.name}
@@ -369,15 +503,29 @@ export function NewSitePage({ onBack, onOpenSite }: { onBack: () => void; onOpen
               spellCheck={false}
             />
           </Field>
-          <Field label={t.folder}>
-            <div className="flex max-w-xl gap-2">
-              <Input value={form.parent} onChange={(e) => set("parent", e.target.value)} className="font-mono text-xs" spellCheck={false} />
-              <Button variant="outline" onClick={browse}>
-                <Icon name="folder-open" />
-                {t.browse}
-              </Button>
-            </div>
-          </Field>
+          {kind === "proxy" ? (
+            <Field label={t.port} hint={t.portHint}>
+              <Input
+                type="number"
+                min={1}
+                max={65535}
+                value={form.proxyPort || ""}
+                onChange={(e) => set("proxyPort", Number(e.target.value) || 0)}
+                className="w-32 font-mono"
+              />
+            </Field>
+          ) : (
+            <Field label={t.folder}>
+              <div className="flex max-w-xl gap-2">
+                <Input value={form.parent} onChange={(e) => set("parent", e.target.value)} className="font-mono text-xs" spellCheck={false} />
+                <Button variant="outline" onClick={browse}>
+                  <Icon name="folder-open" />
+                  {t.browse}
+                </Button>
+              </div>
+            </Field>
+          )}
+          {kind !== "proxy" && (
           <Field label={t.php}>
             <Select value={form.php} onValueChange={(v) => set("php", v)} disabled={defaults.phpVersions.length === 0}>
               <SelectTrigger className="w-32">
@@ -392,8 +540,22 @@ export function NewSitePage({ onBack, onOpenSite }: { onBack: () => void; onOpen
               </SelectContent>
             </Select>
           </Field>
+          )}
+          {kind !== "laravel" && <Toggle label={t.https} hint={t.httpsHint} checked={form.https} onChange={(v) => set("https", v)} />}
+          {kind === "wordpress" && !defaults.mariadbRunning && (
+            <div className="flex flex-wrap items-center gap-3 text-sm text-warning">
+              <Icon name="triangle-exclamation" />
+              {t.wpNeedsMariadb} {t.mariadbDown}
+              <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => run("mariadb", () => api.startService("mariadb"))}>
+                {busy === "mariadb" && <Spinner className="size-3" />}
+                {t.startMariadb}
+              </Button>
+            </div>
+          )}
         </Section>
 
+        {kind === "laravel" && (
+        <>
         <Section title={t.kit}>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {KITS.map((k) => (
@@ -498,13 +660,15 @@ export function NewSitePage({ onBack, onOpenSite }: { onBack: () => void; onOpen
           <Toggle label={t.https} hint={t.httpsHint} checked={form.https} onChange={(v) => set("https", v)} />
           <Toggle label={t.mailpit} hint={t.mailpitHint} checked={form.mailpit} onChange={(v) => set("mailpit", v)} />
         </Section>
+        </>
+        )}
 
         <div className="flex flex-wrap items-center gap-3 pb-2">
           <Button size="lg" onClick={create} disabled={!canCreate}>
             <Icon name="plus" />
             {t.create}
           </Button>
-          <span className="text-xs text-muted-foreground">{t.duration}</span>
+          <span className="text-xs text-muted-foreground">{t.durations[kind]}</span>
         </div>
       </div>
     </>

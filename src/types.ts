@@ -9,6 +9,8 @@ export interface Site {
   kind: "linked" | "parked";
   /** What the folder holds: "laravel", "wordpress", "php", "static", … */
   framework?: string;
+  /** Forwarded to a dev server on this port (Vite, Next.js) instead of PHP. */
+  proxy?: number;
 }
 
 /** One PHP release line, e.g. "8.5". */
@@ -176,6 +178,8 @@ export interface AppInfo {
   language: string;
   /** Closing the window keeps Zefaro running in the system tray. */
   closeToTray: boolean;
+  /** Look for a newer Zefaro when it starts. */
+  checkUpdates: boolean;
 }
 
 export interface Component {
@@ -392,4 +396,97 @@ export interface MailMessage {
   size: number;
   inline: MailPart[];
   attachments: MailPart[];
+}
+
+/** The latest release on GitHub, compared with this copy of Zefaro. */
+export interface UpdateInfo {
+  current: string;
+  latest: string;
+  newer: boolean;
+  /** The release page, with the installer and notes. */
+  url: string;
+  published: string | null;
+}
+
+/** A project's zefaro.json. */
+export interface ProjectFile {
+  name?: string;
+  php?: string;
+  https?: boolean;
+  proxy?: number;
+  services?: string[];
+  database?: { driver: string; name: string };
+  workers?: { label: string; command: string; autostart?: boolean }[];
+}
+
+/** What linking a folder with a zefaro.json would do. */
+export interface ProjectPreview {
+  file: ProjectFile;
+  name: string;
+  nameTaken: boolean;
+  phpInstalled: boolean;
+}
+
+export interface ProjectReport {
+  site: Site;
+  done: string[];
+  warnings: string[];
+}
+
+/** One finding on the Diagnostics page. */
+export interface DoctorCheck {
+  id: string;
+  level: "ok" | "info" | "warn" | "error";
+  title: string;
+  detail: string;
+  /** "services", "nginx", "php", "sites", "import", or "url:<address>". */
+  action: string | null;
+}
+
+/** XAMPP's htdocs, Laragon's www, or a folder the user picked. */
+export interface ImportSource {
+  kind: "xampp" | "laragon" | "folder";
+  root: string;
+  projects: {
+    folder: string;
+    path: string;
+    framework: string | null;
+    /** The site name it would get. */
+    site: string;
+    linked: boolean;
+  }[];
+}
+
+export interface ImportLinkResult {
+  path: string;
+  site: Site | null;
+  error: string | null;
+}
+
+/** The old MySQL of XAMPP or Laragon on port 3306. */
+export interface OldServer {
+  running: boolean;
+  zefaroRunning: boolean;
+  databases: DbInfo[];
+  /** Dumps copied out and not yet loaded. */
+  waiting: string[];
+  error: string | null;
+}
+
+/** One dump() that arrived from a site. */
+export interface DumpEntry {
+  id: string;
+  /** Unix seconds. */
+  time: number;
+  file: string | null;
+  line: number | null;
+  name: string | null;
+  /** The command line, for dumps from artisan or other PHP scripts. */
+  command: string | null;
+  node: import("./pages/site/types").DumpNode;
+}
+
+export interface DumpsStatus {
+  enabled: boolean;
+  running: boolean;
 }

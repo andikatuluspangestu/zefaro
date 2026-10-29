@@ -36,11 +36,22 @@ pub fn list_sites(state: State<AppState>) -> AppResult<Vec<Site>> {
 /// Link a project directory as a served site.
 #[tauri::command]
 pub fn link_site(path: String, state: State<AppState>) -> AppResult<Site> {
-    link(&state, path, None)
+    link(&state, path, Link::default())
 }
 
-/// Link a folder, with `php` as its PHP line (the active one when None).
-pub(crate) fn link(state: &AppState, path: String, php: Option<String>) -> AppResult<Site> {
+/// Choices for a new link; each falls back to Zefaro's default when None.
+#[derive(Default)]
+pub(crate) struct Link {
+    /// The PHP line (the active one when None).
+    pub php: Option<String>,
+    /// The site name (the folder's name when None).
+    pub name: Option<String>,
+    /// Forward to a dev server on this port instead of serving files with PHP.
+    pub proxy: Option<u16>,
+}
+
+/// Link a folder as a site.
+pub(crate) fn link(state: &AppState, path: String, opts: Link) -> AppResult<Site> {
     let folder = Path::new(&path)
         .file_name()
         .and_then(|s| s.to_str())
@@ -50,7 +61,7 @@ pub(crate) fn link(state: &AppState, path: String, php: Option<String>) -> AppRe
                 "Itu bukan path folder yang bisa dipakai Zefaro."
             ))
         })?;
-    let name = slug(folder);
+    let name = slug(opts.name.as_deref().unwrap_or(folder));
     if name.is_empty() {
         return Err(AppError::msg(crate::tr!(
             format!("Zefaro can't make a site name from the folder name {folder}."),
@@ -70,9 +81,10 @@ pub(crate) fn link(state: &AppState, path: String, php: Option<String>) -> AppRe
         path,
         url: cfg.url_for(&format!("{name}.{}", cfg.tld), false),
         secured: false,
-        php_version: php.unwrap_or_else(|| cfg.default_php.clone()),
+        php_version: opts.php.unwrap_or_else(|| cfg.default_php.clone()),
         kind: "linked".into(),
         framework: None,
+        proxy: opts.proxy,
     };
     // A project still pointing at localhost gets its new address.
     laravel::sync_app_url(Path::new(&site.path), &site.url, &cfg.tld);

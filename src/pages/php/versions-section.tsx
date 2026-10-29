@@ -2,6 +2,7 @@ import type { InstallProgress, PhpVersion, PhpVersionsResponse } from "@/types";
 import { Icon } from "@/components/icon";
 import { IconAlert } from "@/components/icon-alert";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -38,7 +39,7 @@ const messages = defineMessages({
     installed: "Installed",
     update: "Update",
     updateTo: (v: string) => `Update to ${v}`,
-    active: "Active",
+    activeHint: "Active. Turn on another version to switch.",
     activate: "Activate",
     settings: (v: string) => `PHP ${v} settings`,
   },
@@ -60,7 +61,7 @@ const messages = defineMessages({
     installed: "Terpasang",
     update: "Perbarui",
     updateTo: (v: string) => `Perbarui ke ${v}`,
-    active: "Aktif",
+    activeHint: "Aktif. Aktifkan versi lain untuk berganti.",
     activate: "Aktifkan",
     settings: (v: string) => `Pengaturan PHP ${v}`,
   },
@@ -184,12 +185,21 @@ export function VersionsSection({
                       )}
                     </TableCell>
                     <TableCell>
-                      {v.isActive ? (
-                        <Badge>{t.active}</Badge>
-                      ) : v.installed && !busy ? (
-                        <Button size="sm" variant="ghost" onClick={() => onActivate(v)}>
-                          {t.activate}
-                        </Button>
+                      {v.installed && !busy ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            {/* A span, so the tooltip's attributes don't land on the switch. One version is
+                                always active, so turning the active one off does nothing. */}
+                            <span className="inline-flex">
+                              <Switch
+                                checked={v.isActive}
+                                onCheckedChange={(on) => on && !v.isActive && onActivate(v)}
+                                aria-label={`${t.activate} PHP ${v.version}`}
+                              />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>{v.isActive ? t.activeHint : `${t.activate} PHP ${v.version}`}</TooltipContent>
+                        </Tooltip>
                       ) : null}
                     </TableCell>
                     <TableCell className="pr-3 text-right">

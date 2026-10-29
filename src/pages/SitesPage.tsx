@@ -4,7 +4,7 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 import { api } from "@/api";
-import type { Site } from "@/types";
+import type { ProjectPreview, Site } from "@/types";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
 import { IconAlert } from "@/components/icon-alert";
@@ -45,6 +45,8 @@ import { defineMessages, useT } from "@/i18n";
 import { common } from "@/i18n/common";
 import { SitePage } from "@/pages/site/SitePage";
 import { NewSitePage } from "@/pages/site/NewSitePage";
+import { ProjectLinkDialog } from "@/pages/site/project-dialog";
+import { ImportPage } from "@/pages/site/ImportPage";
 import { frameworkInfo } from "@/lib/frameworks";
 
 const messages = defineMessages({
@@ -74,6 +76,8 @@ const messages = defineMessages({
     unlinkSite: "Unlink site",
     unlinkTitle: (name: string) => `Unlink ${name}?`,
     unlinkBody: (url: string) => `Zefaro stops serving ${url}. Your project files stay as they are.`,
+    proxyTitle: "Forwarded to a dev server on this port",
+    import: "Import from XAMPP or Laragon",
   },
   id: {
     title: "Situs",
@@ -101,6 +105,8 @@ const messages = defineMessages({
     unlinkSite: "Lepas tautan situs",
     unlinkTitle: (name: string) => `Lepas tautan ${name}?`,
     unlinkBody: (url: string) => `Zefaro berhenti menyajikan ${url}. File proyek Anda tetap seperti semula.`,
+    proxyTitle: "Diteruskan ke dev server di port ini",
+    import: "Impor dari XAMPP atau Laragon",
   },
 });
 
@@ -111,6 +117,9 @@ export function SitesPage({ intent, onIntentDone }: { intent?: Intent | null; on
   const ca = useCaStatus();
   const [open, setOpen] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
+  // A chosen folder that has a zefaro.json, waiting for the user's answer.
+  const [project, setProject] = useState<{ path: string; preview: ProjectPreview } | null>(null);
   const needsTrust = !!sites?.some((s) => s.secured) && !!ca?.created && !ca.trusted;
 
   const refresh = () =>
@@ -130,14 +139,13 @@ export function SitesPage({ intent, onIntentDone }: { intent?: Intent | null; on
   useEffect(() => {
     if (!intent) return;
     if (intent.type === "new-site") setCreating(true);
+    else if (intent.type === "import") setImporting(true);
     else if (intent.type === "open-site") setOpen(intent.name);
     else return;
     onIntentDone?.();
   }, [intent, onIntentDone]);
 
-  const link = async () => {
-    const dir = await openDialog({ directory: true, title: t.chooseFolder });
-    if (typeof dir !== "string") return;
+  const linkPlain = async (dir: string) => {
     try {
       const s = await api.linkSite(dir);
       toast.success(t.linked(s.name), { description: s.url });
@@ -145,6 +153,21 @@ export function SitesPage({ intent, onIntentDone }: { intent?: Intent | null; on
       toast.error(String(e));
     }
     refresh();
+  };
+
+  const link = async () => {
+    const dir = await openDialog({ directory: true, title: t.chooseFolder });
+    if (typeof dir !== "string") return;
+    // A zefaro.json in the folder: ask whether to apply it. One that can't be
+    // read is reported, and the folder is linked as usual.
+    let preview: ProjectPreview | null = null;
+    try {
+      preview = await api.projectRead(dir);
+    } catch (e) {
+      toast.warning(String(e));
+    }
+    if (preview) setProject({ path: dir, preview });
+    else await linkPlain(dir);
   };
 
   const toggleSecure = async (s: Site) => {
@@ -166,6 +189,17 @@ export function SitesPage({ intent, onIntentDone }: { intent?: Intent | null; on
     }
     refresh();
   };
+
+  if (importing) {
+    return (
+      <ImportPage
+        onBack={() => {
+          setImporting(false);
+          refresh();
+        }}
+      />
+    );
+  }
 
   if (creating) {
     return (
@@ -189,6 +223,10 @@ export function SitesPage({ intent, onIntentDone }: { intent?: Intent | null; on
 
   const linkButton = (
     <>
+      <Button variant="ghost" onClick={() => setImporting(true)}>
+        <Icon name="file-import" />
+        {t.import}
+      </Button>
       <Button variant="outline" onClick={link}>
         <Icon name="folder-plus" />
         {t.linkFolder}
@@ -202,6 +240,15 @@ export function SitesPage({ intent, onIntentDone }: { intent?: Intent | null; on
 
   return (
     <>
+      {project && (
+        <ProjectLinkDialog
+          path={project.path}
+          preview={project.preview}
+          onClose={() => setProject(null)}
+          onLinkPlain={() => linkPlain(project.path)}
+          onLinked={() => refresh()}
+        />
+      )}
       <PageHeader
         title={t.title}
         description={t.description(
@@ -287,10 +334,16 @@ export function SitesPage({ intent, onIntentDone }: { intent?: Intent | null; on
                     {s.path}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary">
-                      <Icon name="php" variant="brands" className="w-3" />
-                      {s.phpVersion}
-                    </Badge>
+                    {s.proxy ? (
+                      <Badge variant="secondary" title={t.proxyTitle}>
+                        <Icon name="right-left" className="w-3" />:{s.proxy}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">
+                        <Icon name="php" variant="brands" className="w-3" />
+                        {s.phpVersion}
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Button

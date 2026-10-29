@@ -140,6 +140,46 @@ fn extract_except(zip: &mut zip::ZipArchive<fs::File>, to: &Path, inner: &str, s
     Ok(())
 }
 
+/// Unpack what's inside `inner/` of a zip into `dest` (the `inner` folder
+/// itself left out). Paths that would land outside `dest` are skipped.
+pub fn extract_inner(zip_path: &Path, inner: &str, dest: &Path) -> AppResult<()> {
+    let mut zip = zip::ZipArchive::new(fs::File::open(zip_path)?)?;
+    for i in 0..zip.len() {
+        let mut entry = zip.by_index(i)?;
+        let Some(rel) = entry.enclosed_name() else { continue };
+        let Ok(rest) = rel.strip_prefix(inner) else { continue };
+        if rest.as_os_str().is_empty() {
+            continue;
+        }
+        let out = dest.join(rest);
+        if entry.is_dir() {
+            fs::create_dir_all(&out)?;
+            continue;
+        }
+        if let Some(parent) = out.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        std::io::copy(&mut entry, &mut fs::File::create(&out)?)?;
+    }
+    Ok(())
+}
+
+/// Lowercase hex SHA-1 of a file, streamed. Only for checking downloads
+/// against a publisher's own checksum when SHA-1 is all they publish.
+pub fn sha1_file(path: &Path) -> AppResult<String> {
+    let mut file = fs::File::open(path)?;
+    let mut ctx = ring::digest::Context::new(&ring::digest::SHA1_FOR_LEGACY_USE_ONLY);
+    let mut buf = vec![0u8; 64 * 1024];
+    loop {
+        let n = file.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        ctx.update(&buf[..n]);
+    }
+    Ok(ctx.finish().as_ref().iter().map(|b| format!("{b:02x}")).collect())
+}
+
 /// Lowercase hex SHA-256 of a file, streamed.
 pub fn sha256_file(path: &Path) -> AppResult<String> {
     let mut file = fs::File::open(path)?;

@@ -70,6 +70,36 @@ function zefaro_boot()
 
 // ---------------------------------------------------------------- one-shot --
 
+/**
+ * Why nothing could answer on the database's host and port, or null when something
+ * does (or the connection isn't TCP). Windows takes about four seconds to report a
+ * refused connection, so a stopped database would hold the page that long; a short
+ * connect with its own timeout finds out in a fraction of a second.
+ */
+function zefaro_db_unreachable(array $db): ?string
+{
+    $driver = $db['driver'] ?? '';
+    if (!in_array($driver, ['mysql', 'mariadb', 'pgsql'], true)) {
+        return null;
+    }
+    $host = $db['host'] ?? '127.0.0.1';
+    if (is_array($host)) {
+        $host = $host[0] ?? '127.0.0.1';
+    }
+    $host = (string) $host;
+    if ($host === '' || $host[0] === '/') {
+        return null;
+    }
+    $port = (int) ($db['port'] ?? ($driver === 'pgsql' ? 5432 : 3306));
+    $local = in_array($host, ['127.0.0.1', 'localhost', '::1'], true);
+    $socket = @fsockopen($local ? '127.0.0.1' : $host, $port, $errno, $error, $local ? 0.4 : 3.0);
+    if ($socket === false) {
+        return "Nothing answered on $host:$port" . ($error !== '' ? " ($error)" : '');
+    }
+    fclose($socket);
+    return null;
+}
+
 function zefaro_overview($app): array
 {
     $config = $app['config'];
@@ -79,11 +109,16 @@ function zefaro_overview($app): array
     $mail = $config->get("mail.mailers.$mailer", []);
 
     $database = ['connected' => false, 'error' => null];
-    try {
-        Illuminate\Support\Facades\DB::connection()->getPdo();
-        $database['connected'] = true;
-    } catch (Throwable $e) {
-        $database['error'] = $e->getMessage();
+    $unreachable = zefaro_db_unreachable($db);
+    if ($unreachable !== null) {
+        $database['error'] = $unreachable;
+    } else {
+        try {
+            Illuminate\Support\Facades\DB::connection()->getPdo();
+            $database['connected'] = true;
+        } catch (Throwable $e) {
+            $database['error'] = $e->getMessage();
+        }
     }
 
     $pending = null;

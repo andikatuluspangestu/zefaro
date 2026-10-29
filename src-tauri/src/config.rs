@@ -141,6 +141,10 @@ pub struct ZefaroConfig {
     pub workers: Vec<crate::engine::laravel::Worker>,
     /// Folder the new site wizard last made a project in.
     pub new_site_parent: String,
+    /// Ask GitHub whether a newer Zefaro exists when Zefaro starts.
+    pub check_updates: bool,
+    /// Send `dump()` and `dd()` output from sites to Zefaro's Dumps page.
+    pub dumps: bool,
 }
 
 impl ZefaroConfig {
@@ -177,6 +181,8 @@ impl Default for ZefaroConfig {
             close_asked: false,
             workers: Vec::new(),
             new_site_parent: String::new(),
+            check_updates: true,
+            dumps: false,
         }
     }
 }
@@ -333,6 +339,7 @@ fn seed_sites() -> Vec<Site> {
             php_version: "8.3".into(),
             kind: "linked".into(),
             framework: None,
+            proxy: None,
         },
         Site {
             name: "shop".into(),
@@ -342,6 +349,7 @@ fn seed_sites() -> Vec<Site> {
             php_version: "8.3".into(),
             kind: "linked".into(),
             framework: None,
+            proxy: None,
         },
     ]
 }

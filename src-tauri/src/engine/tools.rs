@@ -8,13 +8,68 @@ use crate::engine::{net, paths, php, process};
 use crate::error::{AppError, AppResult};
 use crate::model::{ToolStatus, ToolsStatus};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Mutex;
+use std::time::{Duration, Instant, SystemTime};
 
 const COMPOSER_VERSIONS_URL: &str = "https://getcomposer.org/versions";
 const COMPOSER_PHAR_URL: &str = "https://getcomposer.org/download/latest-stable/composer.phar";
 const LARAVEL_PACKAGIST_URL: &str = "https://repo.packagist.org/p2/laravel/installer.json";
 const LARAVEL_PACKAGE: &str = "laravel/installer";
+
+/// The active PHP line when it's installed. A file check, with nothing to run.
+pub fn active_php_line(active: &str) -> Option<String> {
+    php::is_installed(active).then(|| active.to_owned())
+}
+
+/// What the Composer and Laravel installer lookups last returned.
+#[derive(Clone)]
+struct Latest {
+    composer: Option<String>,
+    laravel: Option<(String, Option<String>)>,
+}
+
+static LATEST: Mutex<Option<(Instant, Latest)>> = Mutex::new(None);
+/// Published versions rarely change, so one lookup serves the whole session's pages.
+const LATEST_FRESH: Duration = Duration::from_secs(6 * 3600);
+/// A lookup that failed (offline) is tried again sooner.
+const LATEST_RETRY: Duration = Duration::from_secs(120);
+
+/// The latest published versions, from the network at most once per `LATEST_FRESH`.
+/// Each lookup takes a second or more, so the two run at the same time.
+fn latest() -> Latest {
+    if let Some((at, known)) = LATEST.lock().unwrap().as_ref() {
+        let complete = known.composer.is_some() && known.laravel.is_some();
+        if at.elapsed() < if complete { LATEST_FRESH } else { LATEST_RETRY } {
+            return known.clone();
+        }
+    }
+    let (composer, laravel) = std::thread::scope(|s| {
+        let composer = s.spawn(composer_latest);
+        let laravel = laravel_latest();
+        (composer.join().unwrap_or(None), laravel)
+    });
+    let fresh = Latest { composer, laravel };
+    *LATEST.lock().unwrap() = Some((Instant::now(), fresh.clone()));
+    fresh
+}
+
+/// The installed Composer's version, asked once per composer.phar and PHP: running
+/// it starts PHP, so repeat asks read this instead.
+static COMPOSER_SEEN: Mutex<Option<(PathBuf, SystemTime, String)>> = Mutex::new(None);
+
+fn composer_version_cached(php_exe: &Path) -> Option<String> {
+    let modified = fs::metadata(paths::composer_phar()).and_then(|m| m.modified()).ok()?;
+    if let Some((exe, at, version)) = COMPOSER_SEEN.lock().unwrap().as_ref() {
+        if exe == php_exe && *at == modified {
+            return Some(version.clone());
+        }
+    }
+    let version = composer_version(php_exe)?;
+    *COMPOSER_SEEN.lock().unwrap() = Some((php_exe.to_path_buf(), modified, version.clone()));
+    Some(version)
+}
 
 /// Gather everything the PHP versions list shows about tooling. Network lookups that
 /// fail (offline) simply leave `latest` empty.
@@ -24,14 +79,15 @@ pub fn status(active: &str) -> ToolsStatus {
     let composer_installed = paths::composer_phar().is_file().then(|| {
         php_exe
             .as_deref()
-            .and_then(composer_version)
+            .and_then(composer_version_cached)
             // Present but no PHP to ask it with yet.
             .unwrap_or_else(|| "installed".into())
     });
-    let laravel_latest = laravel_latest();
+    let latest = latest();
+    let laravel_latest = latest.laravel;
 
     ToolsStatus {
-        composer: tool(composer_installed, composer_latest()),
+        composer: tool(composer_installed, latest.composer),
         laravel: tool(
             laravel_installed(),
             laravel_latest.as_ref().map(|(v, _)| v.clone()),

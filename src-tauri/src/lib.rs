@@ -60,6 +60,12 @@ pub fn run() {
         engine::cabundle::rebuild();
         engine::php::refresh_inis(&cfg);
         commands::laravel::autostart(&cfg, &workers);
+        // The dump receiver, when the Dumps page has it on.
+        if cfg.dumps {
+            if let Ok(spec) = engine::dumps::spec(&cfg) {
+                let _ = workers.start(spec);
+            }
+        }
         // Mozilla's CA list goes stale; download it again after a month.
         engine::cabundle::refresh_if_stale();
     });
@@ -98,6 +104,21 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::sites::list_sites,
             commands::sites::link_site,
+            commands::project::project_read,
+            commands::project::project_link,
+            commands::project::project_save,
+            commands::doctor::doctor_run,
+            commands::php::php_xdebug_install,
+            commands::php::php_xdebug_version,
+            commands::dumps::dumps_status,
+            commands::dumps::dumps_set_enabled,
+            commands::dumps::dumps_list,
+            commands::dumps::dumps_clear,
+            commands::doctor::import_scan,
+            commands::doctor::import_link,
+            commands::doctor::import_db_status,
+            commands::doctor::import_db_dump,
+            commands::doctor::import_db_load,
             commands::sites::unlink_site,
             commands::sites::secure_site,
             commands::sites::set_site_php,
@@ -118,6 +139,10 @@ pub fn run() {
             commands::node::node_activate,
             commands::node::node_uninstall,
             commands::tools::tools_status,
+            commands::system::check_update,
+            commands::system::set_check_updates,
+            commands::tools::tools_active_php,
+            commands::tools::tools_bin_on_path,
             commands::tools::tools_install_composer,
             commands::tools::tools_install_laravel,
             commands::tools::path_add_bin,

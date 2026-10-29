@@ -19,8 +19,9 @@ const FAQ: [string, ReactNode][] = [
   [
     "Apakah Zefaro mengirim data ke mana pun?",
     <>Zefaro tidak memakai akun dan tidak mengirim analitik. Zefaro hanya terhubung ke internet untuk
-    memeriksa versi baru dan mengunduh software yang tercantum di halaman Tentang, dari sumber
-    resmi setiap proyek.</>,
+    menanyakan rilis Zefaro terbaru ke GitHub saat dimulai (bisa dimatikan di Pengaturan), memeriksa
+    versi software yang dipasangnya, dan mengunduh software itu dari sumber resmi setiap proyek:
+    alat di halaman Tentang, serta WordPress atau Xdebug saat Anda memintanya.</>,
   ],
   [
     "Apakah Zefaro akan mengganggu PHP atau Composer yang sudah saya punya?",
@@ -1004,6 +1005,156 @@ export const SECTIONS_ID: DocSection[] = [
             ["downloads\\", "Unduhan sementara, yang dihapus Zefaro setelah instalasi selesai."],
           ]}
         />
+      </>
+    ),
+  },
+  {
+    id: "site-kinds",
+    title: "WordPress, PHP, dan dev server",
+    icon: "shapes",
+    group: "Situs dan runtime",
+    summary: "Situs baru yang bukan aplikasi Laravel.",
+    body: (go) => (
+      <>
+        <P>
+          <em>Situs baru</em> di halaman Situs bisa membuat lebih dari aplikasi Laravel. Pilih yang ingin dibuat di bagian atas.
+          <GoTo page="sites" label="Buka Situs" go={go} />
+        </P>
+        <Rows
+          rows={[
+            ["WordPress", <>Mengunduh rilis terbaru dari WordPress.org, memeriksanya dengan checksum WordPress.org, membuat database MariaDB, dan menulis <C>wp-config.php</C>. MariaDB harus berjalan. Buka situsnya untuk memilih judul dan membuat akun admin.</>],
+            ["PHP", <>Folder berisi satu <C>index.php</C>, disajikan dengan versi PHP yang Anda pilih.</>],
+            ["Dev server", <>Alamat <C>.test</C> untuk proyek yang menjalankan dev server sendiri, misalnya Vite (port 5173) atau Next.js (port 3000). nginx meneruskan alamat itu ke port tersebut, termasuk WebSocket, jadi hot reload tetap jalan. Jalankan dev server-nya sendiri seperti biasa.</>],
+          ]}
+        />
+        <Note title="Kenapa localhost">
+          Dev server sering hanya menjawab <C>localhost</C>, jadi Zefaro meneruskan dengan header Host itu dan mengirim
+          alamat yang Anda ketik di <C>X-Forwarded-Host</C>.
+        </Note>
+      </>
+    ),
+  },
+  {
+    id: "project-file",
+    title: "zefaro.json",
+    icon: "file-code",
+    group: "Situs dan runtime",
+    summary: "Simpan pengaturan Zefaro sebuah proyek di dalam proyeknya.",
+    body: () => (
+      <>
+        <P>
+          <C>zefaro.json</C> di folder proyek memberi tahu Zefaro cara menyiapkan situsnya, jadi semua orang di tim
+          mendapat pengaturan yang sama. Commit bersama proyeknya.
+        </P>
+        <List
+          items={[
+            <>
+              <strong>Menulis:</strong> di halaman situs, klik tombol file di samping <em>Buka di</em>. Zefaro menulis
+              versi PHP, HTTPS, worker, serta layanan dan database yang ditunjuk <C>.env</C> situs itu di komputer ini.
+            </>,
+            <>
+              <strong>Memakai:</strong> tautkan foldernya (<em>Tautkan folder</em>). Zefaro menampilkan isi file itu dan
+              menawarkan <em>Tautkan dan terapkan</em>. Versi PHP yang belum terpasang atau layanan yang gagal dimulai
+              dilaporkan, dan sisanya tetap dijalankan.
+            </>,
+          ]}
+        />
+        <CodeBlock
+          label="zefaro.json"
+          code={`{
+  "name": "shop",
+  "php": "8.4",
+  "https": true,
+  "services": ["mariadb", "redis", "mailpit"],
+  "database": { "driver": "mariadb", "name": "shop" },
+  "workers": [
+    { "label": "Queue", "command": "php artisan queue:work" }
+  ]
+}`}
+        />
+        <Rows
+          rows={[
+            ["name", "Nama situs; nama folder bila kosong."],
+            ["php", <>Versi PHP, misalnya <C>8.4</C>.</>],
+            ["https", "Sajikan situs lewat HTTPS."],
+            ["proxy", "Port dev server, untuk situs yang meneruskan alih-alih menjalankan PHP."],
+            ["services", <><C>mariadb</C>, <C>postgresql</C>, <C>redis</C>, atau <C>mailpit</C>, dimulai saat folder ditautkan.</>],
+            ["database", <>Database yang dibuat bila belum ada (<C>mariadb</C> atau <C>pgsql</C>).</>],
+            ["workers", "Perintah yang dijaga tetap berjalan oleh Zefaro, seperti di tab Worker."],
+          ]}
+        />
+      </>
+    ),
+  },
+  {
+    id: "debugging",
+    title: "Dump dan Xdebug",
+    icon: "bug",
+    group: "Situs dan runtime",
+    summary: "Lihat hasil dump() di Zefaro, dan jalankan kode langkah demi langkah.",
+    body: (go) => (
+      <>
+        <H3>Dump</H3>
+        <P>
+          Nyalakan <em>Tangkap dump</em> di halaman Dump, lalu <C>dump()</C> dan <C>dd()</C> dari situs Anda muncul di sana,
+          yang terbaru di atas, lengkap dengan file dan barisnya, bukan di halaman.
+          <GoTo page="dumps" label="Buka Dump" go={go} />
+        </P>
+        <P>
+          Zefaro mengisi <C>VAR_DUMPER_FORMAT=tcp://127.0.0.1:9912</C> untuk setiap situs dan menjalankan penerima kecil di
+          port itu dengan versi PHP aktif. Ini bekerja untuk aplikasi yang memakai VarDumper dari Symfony: Laravel,
+          Symfony, dan kebanyakan proyek Composer. <C>var_dump()</C> biasa tetap tampil di halaman, begitu pula semua dump
+          saat penangkapan dimatikan.
+        </P>
+        <H3>Xdebug</H3>
+        <Steps
+          items={[
+            <>Buka pengaturan sebuah versi PHP (ikon roda gigi di halaman PHP) lalu klik <em>Unduh Xdebug</em>. Zefaro memeriksa file itu dengan SHA-256-nya sebelum dipakai.</>,
+            <>Nyalakan <C>xdebug</C> di daftar ekstensi lalu simpan. Zefaro menambahkan pengaturan di bawah ke php.ini versi itu.</>,
+            <>Di VS Code, pasang ekstensi PHP Debug, tempel launch.json yang disalin Zefaro, lalu jalankan <em>Listen for Xdebug</em>.</>,
+            <>Mulai request dengan cookie atau parameter <C>XDEBUG_TRIGGER</C> (ekstensi browser seperti Xdebug Helper mengisinya).</>,
+          ]}
+        />
+        <CodeBlock label="php.ini" code={"xdebug.mode = debug\nxdebug.start_with_request = trigger\nxdebug.client_host = 127.0.0.1\nxdebug.client_port = 9003"} />
+        <Note title="Halaman tetap cepat">Xdebug hanya mulai saat diminta, jadi halaman tetap cepat selama Xdebug aktif.</Note>
+      </>
+    ),
+  },
+  {
+    id: "moving",
+    title: "Pemeriksa, impor, dan pembaruan",
+    icon: "stethoscope",
+    group: "Referensi",
+    summary: "Temukan masalah, pindah dari XAMPP atau Laragon, dan tetap mutakhir.",
+    body: (go) => (
+      <>
+        <H3>Pemeriksa</H3>
+        <P>
+          Halaman Pemeriksa mengecek hal yang paling sering membuat PHP lokal di Windows tidak jalan: runtime Visual C++
+          yang tidak ada, port yang dipakai program lain (lengkap dengan nama programnya), aturan <C>.test</C>, file hosts,
+          sertifikat yang belum dipercaya, PATH, dan folder situs yang sudah pindah. Setiap temuan punya tombol ke tempat
+          perbaikannya.
+          <GoTo page="doctor" label="Buka Pemeriksa" go={go} />
+        </P>
+        <H3>Impor dari XAMPP atau Laragon</H3>
+        <P>
+          Di halaman Situs, <em>Impor dari XAMPP atau Laragon</em> menampilkan proyek di <C>htdocs</C> milik XAMPP atau{" "}
+          <C>www</C> milik Laragon (atau folder lain yang Anda pilih). Proyek yang dipilih ditautkan di tempatnya; tidak
+          ada yang dipindah atau disalin, dan alat lama boleh tetap terpasang.
+        </P>
+        <Steps
+          items={[
+            <>Hentikan MariaDB milik Zefaro dan jalankan MySQL di XAMPP atau Laragon.</>,
+            <>Pilih database lalu klik <em>Salin keluar</em>. Zefaro membuat dump-nya (sebagai root tanpa password, bawaan kedua alat) menjadi file terkompresi.</>,
+            <>Hentikan MySQL lama, mulai MariaDB milik Zefaro, lalu klik <em>Muat ke Zefaro</em>.</>,
+          ]}
+        />
+        <H3>Pembaruan</H3>
+        <P>
+          Saat dimulai, Zefaro menanyakan rilis terbarunya ke GitHub dan memberi tahu bila ada versi baru, lengkap dengan
+          tautan unduhnya. Zefaro tidak pernah mengunduh atau memasang apa pun sendiri. Matikan ini di Pengaturan, bagian
+          Pembaruan.
+        </P>
       </>
     ),
   },

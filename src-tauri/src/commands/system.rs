@@ -37,9 +37,9 @@ fn components() -> Vec<Component> {
 
 #[tauri::command]
 pub fn app_info(state: State<AppState>) -> AppResult<AppInfo> {
-    let (tld, language, close_to_tray) = {
+    let (tld, language, close_to_tray, check_updates) = {
         let cfg = state.config.lock().unwrap();
-        (cfg.tld.clone(), cfg.language.clone(), cfg.close_to_tray)
+        (cfg.tld.clone(), cfg.language.clone(), cfg.close_to_tray, cfg.check_updates)
     };
     Ok(AppInfo {
         name: "Zefaro".into(),
@@ -51,7 +51,23 @@ pub fn app_info(state: State<AppState>) -> AppResult<AppInfo> {
         components: components(),
         language,
         close_to_tray,
+        check_updates,
     })
+}
+
+/// Look for a newer Zefaro on its GitHub releases page.
+#[tauri::command]
+pub async fn check_update() -> AppResult<crate::engine::update::UpdateInfo> {
+    super::blocking(crate::engine::update::check).await
+}
+
+/// Whether Zefaro looks for a newer version when it starts.
+#[tauri::command]
+pub fn set_check_updates(state: State<AppState>, on: bool) -> AppResult<()> {
+    let mut cfg = state.config.lock().unwrap();
+    cfg.check_updates = on;
+    crate::config::save(&cfg)?;
+    Ok(())
 }
 
 /// Settings are waiting for config.json to be free (another program has it open).

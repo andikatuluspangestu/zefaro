@@ -3,10 +3,9 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 import { api } from "@/api";
 import type { Intent, PageId } from "@/App";
-import type { DnsSettingsView, Service, Site, ToolsStatus } from "@/types";
+import type { DnsSettingsView, Service, Site } from "@/types";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
-import { StatusDot } from "@/components/status-dot";
 import { useCaStatus } from "@/components/https-trust";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +17,6 @@ import { common } from "@/i18n/common";
 const messages = defineMessages({
   en: {
     description: "Your local PHP environment at a glance.",
-    startAll: "Start all",
     newSite: "New site",
     stats: {
       services: "Services",
@@ -28,11 +26,6 @@ const messages = defineMessages({
       php: "PHP",
       phpNone: "Not installed",
       domain: "Local domain",
-    },
-    services: {
-      title: "Services",
-      all: "All services",
-      none: "No services are set up yet.",
     },
     sites: {
       title: "Your sites",
@@ -47,7 +40,7 @@ const messages = defineMessages({
       description: "Four steps and your first site is live.",
       steps: {
         php: { title: "Install PHP", text: "Pick a PHP version on the Services page.", action: "Services" },
-        start: { title: "Start the services", text: "nginx and PHP are what serve your sites.", action: "Start all" },
+        start: { title: "Start the services", text: "nginx and PHP are what serve your sites. Start them on the Services page.", action: "Services" },
         dns: { title: "Set up the .test domain", text: "One Windows rule, with one administrator prompt.", action: "Set up" },
         site: { title: "Add your first site", text: "Create a Laravel app, or link a folder you already have.", action: "New site" },
       },
@@ -71,7 +64,6 @@ const messages = defineMessages({
   },
   id: {
     description: "Ringkasan lingkungan PHP lokal Anda.",
-    startAll: "Mulai semua",
     newSite: "Situs baru",
     stats: {
       services: "Layanan",
@@ -81,11 +73,6 @@ const messages = defineMessages({
       php: "PHP",
       phpNone: "Belum terpasang",
       domain: "Domain lokal",
-    },
-    services: {
-      title: "Layanan",
-      all: "Semua layanan",
-      none: "Belum ada layanan yang disiapkan.",
     },
     sites: {
       title: "Situs Anda",
@@ -100,7 +87,7 @@ const messages = defineMessages({
       description: "Empat langkah, lalu situs pertama Anda sudah jalan.",
       steps: {
         php: { title: "Pasang PHP", text: "Pilih versi PHP di halaman Layanan.", action: "Layanan" },
-        start: { title: "Jalankan layanan", text: "nginx dan PHP yang menyajikan situs Anda.", action: "Mulai semua" },
+        start: { title: "Jalankan layanan", text: "nginx dan PHP yang menyajikan situs Anda. Jalankan di halaman Layanan.", action: "Layanan" },
         dns: { title: "Siapkan domain .test", text: "Satu aturan Windows, dengan satu permintaan hak administrator.", action: "Siapkan" },
         site: { title: "Tambahkan situs pertama", text: "Buat aplikasi Laravel, atau tautkan folder yang sudah ada.", action: "Situs baru" },
       },
@@ -127,7 +114,9 @@ const messages = defineMessages({
 type Snapshot = {
   sites: Site[];
   services: Service[];
-  tools: ToolsStatus | null;
+  activePhp: string | null;
+  /** Null until the PATH check, which asks PowerShell, has answered. */
+  binOnPath: boolean | null;
   dns: DnsSettingsView | null;
 };
 
@@ -158,13 +147,23 @@ export function HomePage({ onNavigate }: { onNavigate: (page: PageId, intent?: I
 
   const load = useCallback(async () => {
     try {
-      const [sites, services] = await Promise.all([api.listSites(), api.listServices()]);
-      const [tools, dns] = await Promise.all([api.toolsStatus().catch(() => null), api.dnsSettings().catch(() => null)]);
-      setData({ sites, services, tools, dns });
+      // All four answer quickly, so the page doesn't wait on one after another.
+      const [sites, services, activePhp, dns] = await Promise.all([
+        api.listSites(),
+        api.listServices(),
+        api.toolsActivePhp().catch(() => null),
+        api.dnsSettings().catch(() => null),
+      ]);
+      setData((prev) => ({ sites, services, activePhp, dns, binOnPath: prev?.binOnPath ?? null }));
     } catch (e) {
       toast.error(String(e));
-      setData((prev) => prev ?? { sites: [], services: [], tools: null, dns: null });
+      setData((prev) => prev ?? { sites: [], services: [], activePhp: null, binOnPath: null, dns: null });
     }
+    // The PATH check starts PowerShell; it fills in once the page is already up.
+    api
+      .toolsBinOnPath()
+      .then((binOnPath) => setData((prev) => (prev ? { ...prev, binOnPath } : prev)))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -189,20 +188,10 @@ export function HomePage({ onNavigate }: { onNavigate: (page: PageId, intent?: I
       description={t.description}
       actions={
         data && (
-          <>
-            <Button
-              variant="outline"
-              disabled={!data.services.some((s) => s.available && !s.tool && s.status !== "running")}
-              onClick={() => onNavigate("services", { type: "start-all" })}
-            >
-              <Icon name="play" />
-              {t.startAll}
-            </Button>
-            <Button onClick={() => onNavigate("sites", { type: "new-site" })}>
-              <Icon name="plus" />
-              {t.newSite}
-            </Button>
-          </>
+          <Button onClick={() => onNavigate("sites", { type: "new-site" })}>
+            <Icon name="plus" />
+            {t.newSite}
+          </Button>
         )
       }
     />
@@ -225,16 +214,15 @@ export function HomePage({ onNavigate }: { onNavigate: (page: PageId, intent?: I
     );
   }
 
-  const { sites, services, tools, dns } = data;
+  const { sites, services, activePhp, binOnPath, dns } = data;
   const usable = services.filter((s) => s.available && !s.tool);
   const running = usable.filter((s) => s.status === "running").length;
   const core = usable.filter((s) => s.category === "core");
-  const activePhp = tools?.activePhp ?? null;
   const tld = dns?.tld ?? "test";
 
   const steps: Step[] = [
     { id: "php", icon: "php", done: !!activePhp, go: () => onNavigate("services") },
-    { id: "start", icon: "play", done: core.some((s) => s.status === "running"), go: () => onNavigate("services", { type: "start-all" }) },
+    { id: "start", icon: "play", done: core.some((s) => s.status === "running"), go: () => onNavigate("services") },
     { id: "dns", icon: "globe", done: dns?.ruleInstalled !== false, go: () => onNavigate("services") },
     { id: "site", icon: "folder-plus", done: sites.length > 0, go: () => onNavigate("sites", { type: "new-site" }) },
   ];
@@ -268,7 +256,7 @@ export function HomePage({ onNavigate }: { onNavigate: (page: PageId, intent?: I
       go: () => onNavigate("sites"),
     });
   }
-  if (activePhp && tools && !tools.binOnPath) {
+  if (activePhp && binOnPath === false) {
     attention.push({
       key: "path",
       title: t.attention.path,
@@ -277,9 +265,6 @@ export function HomePage({ onNavigate }: { onNavigate: (page: PageId, intent?: I
       go: () => onNavigate("services"),
     });
   }
-
-  const statusLabel = (s: Service) =>
-    s.status === "running" ? c.running : s.status === "starting" ? c.starting : s.status === "error" ? c.failed : c.stopped;
 
   return (
     <>
@@ -336,41 +321,7 @@ export function HomePage({ onNavigate }: { onNavigate: (page: PageId, intent?: I
         </Card>
       )}
 
-      <div className="mt-4 grid items-start gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>{t.services.title}</CardTitle>
-            <CardAction>
-              <Button size="sm" variant="ghost" onClick={() => onNavigate("services")}>
-                {t.services.all}
-                <Icon name="arrow-right" />
-              </Button>
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            {usable.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t.services.none}</p>
-            ) : (
-              <ul className="-my-1.5">
-                {usable.map((s) => (
-                  <li key={s.id}>
-                    <button
-                      type="button"
-                      onClick={() => onNavigate("services")}
-                      className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-muted"
-                    >
-                      <StatusDot status={s.status} />
-                      <span className="min-w-0 flex-1 truncate font-medium">{s.name}</span>
-                      {s.port && <span className="font-mono text-xs text-muted-foreground">:{s.port}</span>}
-                      <span className="w-20 text-right text-xs text-muted-foreground">{statusLabel(s)}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
+      <div className="mt-4">
         <Card>
           <CardHeader>
             <CardTitle>{t.sites.title}</CardTitle>

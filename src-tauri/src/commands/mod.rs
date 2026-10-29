@@ -3,6 +3,8 @@
 pub mod certs;
 pub mod db;
 pub mod dns;
+pub mod doctor;
+pub mod dumps;
 pub mod laravel;
 pub mod logs;
 pub mod mail;
@@ -10,6 +12,7 @@ pub mod new_site;
 pub mod nginx;
 pub mod node;
 pub mod php;
+pub mod project;
 pub mod services;
 pub mod sites;
 pub mod system;

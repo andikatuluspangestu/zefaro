@@ -34,6 +34,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { defineMessages, useT } from "@/i18n";
 import { common } from "@/i18n/common";
 import { ExtensionsSection } from "@/pages/php/extensions-section";
+import { XdebugCard } from "@/pages/php/xdebug-card";
 
 type LimitKey = keyof PhpLimits;
 /** Numbers are edited as text so a field can be empty while typing. */
@@ -371,6 +372,8 @@ export function PhpSettingsPage({
               </SettingRow>,
             ]}
           </SettingGroup>
+
+          <XdebugCard version={view.version} extensions={exts} onInstalled={setExts} />
 
           <ExtensionsSection
             version={view.version}

@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 import { api } from "@/api";
-import type { Intent } from "@/App";
 import type { Service } from "@/types";
 import { cn } from "@/lib/utils";
 import { Icon } from "@/components/icon";
@@ -333,7 +332,7 @@ function ServiceCard({
   );
 }
 
-export function ServicesPage({ intent, onIntentDone }: { intent?: Intent | null; onIntentDone?: () => void }) {
+export function ServicesPage() {
   /** The card list, or the page a card's gear opened. */
   const t = useT(messages);
   const cm = useT(common);
@@ -435,15 +434,6 @@ export function ServicesPage({ intent, onIntentDone }: { intent?: Intent | null;
     toast.success(t.coreStopped);
     setBulk(false);
   };
-
-  // Sent here from Home: start everything once the list has loaded.
-  const startAllRef = useRef(startAll);
-  startAllRef.current = startAll;
-  useEffect(() => {
-    if (intent?.type !== "start-all" || services === null) return;
-    onIntentDone?.();
-    void startAllRef.current();
-  }, [intent, services, onIntentDone]);
 
   const back = () => {
     setView("list");

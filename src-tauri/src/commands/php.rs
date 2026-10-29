@@ -259,6 +259,25 @@ pub async fn php_save_extensions(
     .await
 }
 
+/// The Xdebug version Zefaro can install for a line, if any.
+#[tauri::command]
+pub fn php_xdebug_version(version: String) -> Option<&'static str> {
+    php::xdebug_version(&version)
+}
+
+/// Download Xdebug for one line. It then appears with the line's extensions,
+/// off until switched on.
+#[tauri::command]
+pub async fn php_xdebug_install(state: State<'_, AppState>, version: String) -> AppResult<Vec<php::PhpExtension>> {
+    require_installed(&version)?;
+    let choices = state.config.lock().unwrap().php.extensions_for(&version);
+    blocking(move || {
+        php::install_xdebug(&version)?;
+        Ok(php::extension_list(&paths::php_dir(&version), &choices))
+    })
+    .await
+}
+
 /// One line's php.ini, as php-cgi reads it.
 #[tauri::command]
 pub fn php_ini_text(version: String) -> AppResult<String> {

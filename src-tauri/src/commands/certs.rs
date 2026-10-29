@@ -11,7 +11,7 @@ use crate::state::AppState;
 use tauri::State;
 use tauri_plugin_opener::OpenerExt;
 
-fn status(tld: String) -> CaStatus {
+pub(crate) fn status(tld: String) -> CaStatus {
     let l = certs::Layout::standard();
     let meta = certs::read_meta(&l).filter(|m| m.tld == tld);
     CaStatus {

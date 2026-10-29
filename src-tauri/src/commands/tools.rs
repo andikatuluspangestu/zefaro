@@ -28,6 +28,19 @@ fn end(state: &AppState) {
     *state.tool_busy.lock().unwrap() = false;
 }
 
+/// The active PHP line, when installed. Nothing to run, so Home can show it at once.
+#[tauri::command]
+pub fn tools_active_php(state: State<AppState>) -> Option<String> {
+    tools::active_php_line(&active_php(&state))
+}
+
+/// Is Zefaro's bin folder on the user PATH? Asks PowerShell, so it's kept apart
+/// from the quick facts above.
+#[tauri::command]
+pub async fn tools_bin_on_path() -> AppResult<bool> {
+    blocking(|| Ok(tools::bin_on_path())).await
+}
+
 #[tauri::command]
 pub async fn tools_status(state: State<'_, AppState>) -> AppResult<ToolsStatus> {
     let active = active_php(&state);

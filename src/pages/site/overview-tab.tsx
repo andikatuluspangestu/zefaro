@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { api } from "@/api";
 import { Icon } from "@/components/icon";
 import { IconAlert } from "@/components/icon-alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,9 +19,20 @@ const messages = defineMessages({
     reload: "Reload",
     loadFailed: "Zefaro couldn't start this app",
     application: "Application",
-    drivers: "Drivers",
-    status: "State",
+    drivers: "Drivers and state",
     packages: "Packages",
+    pkg: {
+      horizon: "Queue dashboard",
+      reverb: "WebSocket server",
+      octane: "Fast app server",
+      pulse: "Performance monitor",
+      telescope: "Debug assistant",
+    },
+    healthy: "Everything looks good",
+    checks: (n: number) => `${n} ${n === 1 ? "thing" : "things"} to check`,
+    connected: "Connected",
+    notConnected: "Not connected",
+    goTo: "Open",
     rows: {
       name: "Name",
       environment: "Environment",
@@ -118,9 +130,20 @@ const messages = defineMessages({
     reload: "Muat ulang",
     loadFailed: "Zefaro tidak bisa menjalankan aplikasi ini",
     application: "Aplikasi",
-    drivers: "Driver",
-    status: "Kondisi",
+    drivers: "Driver dan kondisi",
     packages: "Paket",
+    pkg: {
+      horizon: "Dasbor antrean",
+      reverb: "Server WebSocket",
+      octane: "Server aplikasi cepat",
+      pulse: "Pemantau performa",
+      telescope: "Asisten debug",
+    },
+    healthy: "Semuanya baik-baik saja",
+    checks: (n: number) => `${n} hal perlu dicek`,
+    connected: "Terhubung",
+    notConnected: "Tidak terhubung",
+    goTo: "Buka",
     rows: {
       name: "Nama",
       environment: "Environment",
@@ -215,6 +238,14 @@ const messages = defineMessages({
     },
   },
 });
+
+const PACKAGE_ICON: Record<string, string> = {
+  horizon: "layer-group",
+  reverb: "tower-broadcast",
+  octane: "bolt",
+  pulse: "heart-pulse",
+  telescope: "binoculars",
+};
 
 type Warning = { id: string; icon: string; title: string; body: ReactNode; action?: { label: string; run: () => Promise<void> } };
 
@@ -391,42 +422,85 @@ export function OverviewTab({
   };
 
   const cached = [overview.configCached && "config", overview.routesCached && "routes", overview.eventsCached && "events"].filter(Boolean).join(", ");
-  const dbLabel = [d.databaseDriver, d.databaseName && (d.databaseDriver === "sqlite" ? d.databaseName.split(/[\\/]/).pop() : d.databaseName)].filter(Boolean).join(" · ");
+  const dbName = d.databaseName && (d.databaseDriver === "sqlite" ? d.databaseName.split(/[\\/]/).pop() : d.databaseName);
+  const dbNote = [d.databaseDriver, overview.database.connected ? t.connected : t.notConnected].filter(Boolean).join(" · ");
+  const pending = overview.pendingMigrations;
+  const migrationsValue = pending === null ? t.unknown : pending.length === 0 ? t.upToDate : t.pending(pending.length);
+  const packages = (Object.entries(overview.packages) as [string, boolean][]).filter(([, on]) => on).map(([name]) => name);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {overview.maintenance && (
         <IconAlert icon="screwdriver-wrench" className="border-warning/40 text-warning" title={t.maintenance} />
       )}
-      {warnings.length > 0 && (
-        <section className="space-y-2">
-          <h3 className="text-sm font-medium">{t.warnings}</h3>
-          {warnings.map((w) => (
-            <IconAlert
-              key={w.id}
-              icon={w.icon}
-              className="border-warning/40 text-warning *:data-[slot=alert-description]:text-muted-foreground"
-              title={w.title}
-            >
-              {w.body}
-              {w.action && (
-                <div className="mt-2">
-                  <Button size="sm" variant="outline" disabled={running !== null} onClick={() => run(w)}>
-                    {running === w.id ? <Spinner className="size-3" /> : null}
-                    {w.action.label}
-                  </Button>
-                </div>
-              )}
-            </IconAlert>
-          ))}
-        </section>
-      )}
 
-      <div className="flex items-center justify-end">
-        <Button size="sm" variant="ghost" onClick={onReload} disabled={loading}>
-          {loading ? <Spinner className="size-3" /> : <Icon name="rotate" className="w-3" />}
-          {t.reload}
-        </Button>
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="flex items-center gap-2 text-sm font-semibold">
+            {warnings.length === 0 ? (
+              <>
+                <span className="grid size-6 place-items-center rounded-full bg-success/10 text-success">
+                  <Icon name="check" className="w-3 text-xs" />
+                </span>
+                {t.healthy}
+              </>
+            ) : (
+              <>
+                <span className="grid size-6 place-items-center rounded-full bg-warning/10 text-warning">
+                  <Icon name="exclamation" className="w-3 text-xs" />
+                </span>
+                {t.checks(warnings.length)}
+              </>
+            )}
+          </h3>
+          <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={onReload} disabled={loading}>
+            {loading ? <Spinner className="size-3" /> : <Icon name="rotate" className="w-3" />}
+            {t.reload}
+          </Button>
+        </div>
+        {warnings.map((w) => (
+          <IconAlert
+            key={w.id}
+            icon={w.icon}
+            className="border-warning/40 bg-warning/5 text-warning *:data-[slot=alert-description]:text-muted-foreground"
+            title={w.title}
+          >
+            {w.body}
+            {w.action && (
+              <div className="mt-2">
+                <Button size="sm" variant="outline" disabled={running !== null} onClick={() => run(w)}>
+                  {running === w.id ? <Spinner className="size-3" /> : null}
+                  {w.action.label}
+                </Button>
+              </div>
+            )}
+          </IconAlert>
+        ))}
+      </section>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Tile
+          icon="database"
+          label={t.rows.database}
+          value={dbName || d.databaseDriver || "-"}
+          note={dbNote}
+          tone={overview.database.connected ? "ok" : "warn"}
+          onClick={() => onTab("data")}
+        />
+        <Tile
+          icon="table-list"
+          label={t.rows.migrations}
+          value={migrationsValue}
+          tone={pending === null ? undefined : pending.length > 0 ? "warn" : "ok"}
+          onClick={() => onTab("artisan")}
+        />
+        <Tile icon="list-check" label={t.rows.queue} value={d.queue || "-"} onClick={() => onTab("workers")} />
+        <Tile
+          icon="envelope"
+          label={t.rows.mail}
+          value={d.mail || "-"}
+          tone={d.mail && d.mail !== "array" ? (pointsAtMailpit ? "ok" : "warn") : undefined}
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -439,34 +513,79 @@ export function OverviewTab({
           <Row label={t.rows.locale} value={overview.locale} />
         </Group>
         <Group title={t.drivers}>
-          <Row label={t.rows.database} value={dbLabel} tone={overview.database.connected ? "ok" : "warn"} mono />
           <Row label={t.rows.cache} value={d.cache} />
           <Row label={t.rows.session} value={d.session} />
-          <Row label={t.rows.queue} value={d.queue} />
-          <Row label={t.rows.mail} value={d.mail} />
           <Row label={t.rows.filesystem} value={d.filesystem} />
-        </Group>
-        <Group title={t.status}>
           <Row label={t.rows.key} value={overview.keySet ? t.set : t.notSet} tone={overview.keySet ? "ok" : "warn"} />
-          <Row
-            label={t.rows.migrations}
-            value={overview.pendingMigrations === null ? t.unknown : overview.pendingMigrations.length === 0 ? t.upToDate : t.pending(overview.pendingMigrations.length)}
-            tone={overview.pendingMigrations && overview.pendingMigrations.length > 0 ? "warn" : undefined}
-          />
           <Row label={t.rows.storage} value={overview.storageLinked ? t.linked : t.notLinked} />
           <Row label={t.rows.caches} value={cached || t.nothingCached} />
         </Group>
-        <Group title={t.packages}>
-          {(Object.entries(overview.packages) as [string, boolean][]).filter(([, on]) => on).length === 0 ? (
-            <Row label="" value={c.none} />
-          ) : (
-            (Object.entries(overview.packages) as [string, boolean][])
-              .filter(([, on]) => on)
-              .map(([name]) => <Row key={name} label={name.charAt(0).toUpperCase() + name.slice(1)} value={t.on} />)
-          )}
-        </Group>
       </div>
+
+      {packages.length > 0 && (
+        <Card className="gap-0 py-0">
+          <div className="flex items-center justify-between border-b px-4 py-2.5">
+            <h3 className="text-sm font-medium">{t.packages}</h3>
+            <Badge variant="secondary">{packages.length}</Badge>
+          </div>
+          <ul className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3">
+            {packages.map((name) => (
+              <li key={name} className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
+                <span className="grid size-9 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                  <Icon name={PACKAGE_ICON[name] ?? "box"} className="w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium">{name.charAt(0).toUpperCase() + name.slice(1)}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{t.pkg[name as keyof typeof t.pkg] ?? ""}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
     </div>
+  );
+}
+
+/** A headline fact about the app. Clickable when there's a tab to look at it in. */
+function Tile({
+  icon,
+  label,
+  value,
+  note,
+  tone,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  note?: string;
+  tone?: "ok" | "warn";
+  onClick?: () => void;
+}) {
+  const body = (
+    <>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Icon name={icon} className="w-3.5" />
+        {label}
+        {onClick && <Icon name="chevron-right" className="ml-auto w-2.5 text-[10px] opacity-0 transition-opacity group-hover/tile:opacity-100" />}
+      </div>
+      <div className="mt-2 flex min-w-0 items-center gap-2">
+        {tone && <span className={`size-2 shrink-0 rounded-full ${tone === "ok" ? "bg-success" : "bg-warning"}`} />}
+        <span className="truncate text-sm font-semibold" title={value}>
+          {value}
+        </span>
+      </div>
+      {note && <div className="mt-0.5 truncate text-xs text-muted-foreground">{note}</div>}
+    </>
+  );
+  const cls = "group/tile block w-full rounded-xl bg-card p-4 text-left shadow-soft ring-1 ring-foreground/10 transition-shadow";
+  return onClick ? (
+    <button type="button" onClick={onClick} className={`${cls} cursor-pointer hover:ring-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none`}>
+      {body}
+    </button>
+  ) : (
+    <div className={cls}>{body}</div>
   );
 }
 

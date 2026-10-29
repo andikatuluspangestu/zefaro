@@ -20,6 +20,10 @@ pub struct Site {
     /// sites are listed. Not stored.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub framework: Option<String>,
+    /// Forward the site to a dev server on this port (Vite, Next.js) instead
+    /// of serving the folder with PHP.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proxy: Option<u16>,
 }
 
 /// One PHP release line (e.g. "8.5") as shown in the PHP versions list.
@@ -243,6 +247,8 @@ pub struct AppInfo {
     pub language: String,
     /// Closing the window keeps Zefaro running in the system tray.
     pub close_to_tray: bool,
+    /// Look for a newer Zefaro when it starts.
+    pub check_updates: bool,
 }
 
 /// One piece of third-party software Zefaro installs.

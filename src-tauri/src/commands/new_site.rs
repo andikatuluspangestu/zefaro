@@ -15,6 +15,15 @@ use tauri::{AppHandle, Manager, State};
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct NewSite {
+    /// "laravel" (also when empty), "wordpress", "php" or "proxy".
+    #[serde(default)]
+    pub kind: String,
+    /// Proxy sites: the port the project's dev server listens on.
+    #[serde(default)]
+    pub proxy_port: u16,
+    /// Proxy sites: the project's existing folder.
+    #[serde(default)]
+    pub folder: String,
     pub name: String,
     /// Folder the project folder is made in.
     pub parent: String,
@@ -101,8 +110,8 @@ pub struct NewSiteTarget {
     pub database: String,
 }
 
-/// Check a name and folder before anything is made.
-fn target(state: &AppState, name: &str, parent: &str) -> AppResult<NewSiteTarget> {
+/// A site name that is a valid host label and isn't taken.
+fn check_name(state: &AppState, name: &str) -> AppResult<()> {
     let valid = !name.is_empty()
         && name.len() <= 63
         && name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
@@ -114,13 +123,19 @@ fn target(state: &AppState, name: &str, parent: &str) -> AppResult<NewSiteTarget
             "Pakai huruf kecil, angka, dan tanda hubung, diawali dan diakhiri huruf atau angka."
         )));
     }
-    let cfg = state.config.lock().unwrap();
-    if cfg.sites.iter().any(|s| s.name == name) {
+    if state.config.lock().unwrap().sites.iter().any(|s| s.name == name) {
         return Err(AppError::msg(crate::tr!(
             format!("A site named {name} already exists."),
             format!("Situs bernama {name} sudah ada.")
         )));
     }
+    Ok(())
+}
+
+/// Check a name and folder before anything is made.
+fn target(state: &AppState, name: &str, parent: &str) -> AppResult<NewSiteTarget> {
+    check_name(state, name)?;
+    let cfg = state.config.lock().unwrap();
     if parent.trim().is_empty() || !Path::new(parent).is_absolute() {
         return Err(AppError::msg(crate::tr!(
             "Choose the folder to make the project in.",
@@ -206,6 +221,11 @@ fn composer_shim(php_line: &str) -> AppResult<PathBuf> {
 #[tauri::command]
 pub fn new_site_create(options: NewSite, app: AppHandle, state: State<AppState>) -> AppResult<SiteJob> {
     let o = options;
+    match o.kind.as_str() {
+        "wordpress" | "php" => return create_files_site(o, app, &state),
+        "proxy" => return create_proxy_site(o, app, &state),
+        _ => {}
+    }
     let target = target(&state, &o.name, &o.parent)?;
     if !php::is_installed(&o.php) {
         return Err(AppError::msg(crate::tr!(
@@ -262,6 +282,165 @@ pub fn new_site_create(options: NewSite, app: AppHandle, state: State<AppState>)
                 format!("Zefaro membiarkan {} apa adanya. Hapus folder itu sebelum mencoba nama yang sama lagi.", target.path)
             ));
         }
+        job.finish(result.map(|_| Some(0)));
+    });
+    Ok(shown)
+}
+
+/// Remember the folder the wizard made a project in, for next time.
+fn remember_parent(state: &AppState, parent: &str) {
+    let mut cfg = state.config.lock().unwrap();
+    cfg.new_site_parent = parent.to_owned();
+    let _ = crate::config::save(&cfg);
+}
+
+/// WordPress or a plain PHP folder: made in `parent/name`, then linked.
+fn create_files_site(o: NewSite, app: AppHandle, state: &AppState) -> AppResult<SiteJob> {
+    let target = target(state, &o.name, &o.parent)?;
+    if !php::is_installed(&o.php) {
+        return Err(AppError::msg(crate::tr!(
+            format!("PHP {} isn't installed.", o.php),
+            format!("PHP {} belum terpasang.", o.php)
+        )));
+    }
+    let wordpress = o.kind == "wordpress";
+    if wordpress && !supervisor::port_open(mariadb::PORT) {
+        return Err(AppError::msg(crate::tr!(
+            "WordPress needs MariaDB. Start it first (Services → MariaDB).",
+            "WordPress butuh MariaDB. Mulai terlebih dahulu (Layanan → MariaDB)."
+        )));
+    }
+    fs::create_dir_all(&o.parent)?;
+    remember_parent(state, &o.parent);
+    let label = if wordpress { "WordPress" } else { "PHP" };
+    let job = state.site_jobs.begin(&o.name, format!("{label}: {}", o.name));
+    let shown = job.job();
+    std::thread::spawn(move || {
+        let state = app.state::<AppState>();
+        let result = if wordpress {
+            create_wordpress(&state, &job, &o, &target)
+        } else {
+            create_plain(&state, &job, &o, &target)
+        };
+        job.finish(result.map(|_| Some(0)));
+    });
+    Ok(shown)
+}
+
+/// Link the new folder, secure it when asked, and say so in the console.
+fn link_new(state: &AppState, job: &JobHandle, o: &NewSite, path: &str, link: super::sites::Link) -> AppResult<crate::model::Site> {
+    let site = super::sites::link(state, path.to_owned(), link)?;
+    job.line(crate::tr!(format!("Linked {}.", site.url), format!("{} ditautkan.", site.url)));
+    if !o.https {
+        return Ok(site);
+    }
+    let secured = super::sites::toggle_secure(state, &o.name)?;
+    job.line(crate::tr!(
+        format!("Secured {} with HTTPS.", secured.url),
+        format!("{} diamankan dengan HTTPS.", secured.url)
+    ));
+    Ok(secured)
+}
+
+fn create_plain(state: &AppState, job: &JobHandle, o: &NewSite, target: &NewSiteTarget) -> AppResult<()> {
+    fs::create_dir_all(&target.path)?;
+    fs::write(Path::new(&target.path).join("index.php"), crate::engine::starter::plain_index(&o.name))?;
+    job.line(crate::tr!(
+        format!("Made {} with index.php.", target.path),
+        format!("{} dibuat berisi index.php.", target.path)
+    ));
+    let site = link_new(state, job, o, &target.path, super::sites::Link { php: Some(o.php.clone()), ..Default::default() })?;
+    job.line(crate::tr!(format!("Ready: {}", site.url), format!("Siap: {}", site.url)));
+    Ok(())
+}
+
+fn create_wordpress(state: &AppState, job: &JobHandle, o: &NewSite, target: &NewSiteTarget) -> AppResult<()> {
+    use crate::engine::starter;
+    let client = dbio::Client::standard();
+    if dbio::exists(&client, &target.database)? {
+        job.line(crate::tr!(
+            format!("Using the existing MariaDB database {}.", target.database),
+            format!("Memakai database MariaDB {} yang sudah ada.", target.database)
+        ));
+    } else {
+        dbio::create_db(&client, &target.database)?;
+        job.line(crate::tr!(
+            format!("Created the MariaDB database {}.", target.database),
+            format!("Database MariaDB {} dibuat.", target.database)
+        ));
+    }
+    let (version, url) = starter::latest_wordpress()?;
+    job.line(crate::tr!(
+        format!("Downloading WordPress {version} from WordPress.org…"),
+        format!("Mengunduh WordPress {version} dari WordPress.org…")
+    ));
+    let zip = starter::download_wordpress(&version, &url)?;
+    job.line(crate::tr!(
+        "The download matches WordPress.org's checksum.",
+        "Unduhan cocok dengan checksum WordPress.org."
+    ));
+    let dest = Path::new(&target.path);
+    starter::unpack_wordpress(&zip, dest)?;
+    let sample = fs::read_to_string(dest.join("wp-config-sample.php"))?;
+    fs::write(dest.join("wp-config.php"), starter::wp_config(&sample, &target.database, mariadb::PORT, starter::random_secret))?;
+    job.line(crate::tr!(
+        format!("Unpacked WordPress into {} and wrote wp-config.php.", target.path),
+        format!("WordPress dibongkar ke {} dan wp-config.php ditulis.", target.path)
+    ));
+    let site = link_new(state, job, o, &target.path, super::sites::Link { php: Some(o.php.clone()), ..Default::default() })?;
+    job.line(crate::tr!(
+        format!("Ready: open {} to name the site and make its admin account.", site.url),
+        format!("Siap: buka {} untuk memberi nama situs dan membuat akun admin.", site.url)
+    ));
+    Ok(())
+}
+
+/// A name for a project that already exists and runs its own dev server
+/// (Vite, Next.js): nginx forwards `<name>.test` to that port.
+fn create_proxy_site(o: NewSite, app: AppHandle, state: &AppState) -> AppResult<SiteJob> {
+    check_name(state, &o.name)?;
+    let folder = o.folder.trim().to_owned();
+    if folder.is_empty() || !Path::new(&folder).is_dir() {
+        return Err(AppError::msg(crate::tr!(
+            "Choose the project's folder.",
+            "Pilih folder proyeknya."
+        )));
+    }
+    if o.proxy_port == 0 {
+        return Err(AppError::msg(crate::tr!(
+            "Enter the port your dev server listens on, like 5173.",
+            "Isi port tempat dev server Anda mendengarkan, misalnya 5173."
+        )));
+    }
+    let (http, https) = {
+        let cfg = state.config.lock().unwrap();
+        (cfg.nginx.http_port, cfg.nginx.https_port)
+    };
+    if o.proxy_port == http || o.proxy_port == https {
+        return Err(AppError::msg(crate::tr!(
+            format!("Port {} is nginx's own. Use the port your dev server prints when it starts.", o.proxy_port),
+            format!("Port {} milik nginx sendiri. Pakai port yang ditampilkan dev server saat dimulai.", o.proxy_port)
+        )));
+    }
+    let job = state.site_jobs.begin(&o.name, format!("proxy: {} → localhost:{}", o.name, o.proxy_port));
+    let shown = job.job();
+    std::thread::spawn(move || {
+        let state = app.state::<AppState>();
+        let result = (|| -> AppResult<()> {
+            let link = super::sites::Link { name: Some(o.name.clone()), proxy: Some(o.proxy_port), ..Default::default() };
+            let site = link_new(&state, &job, &o, &folder, link)?;
+            job.line(crate::tr!(
+                format!("{} forwards to localhost:{}.", site.url, o.proxy_port),
+                format!("{} diteruskan ke localhost:{}.", site.url, o.proxy_port)
+            ));
+            if !supervisor::port_open(o.proxy_port) {
+                job.line(crate::tr!(
+                    format!("Nothing listens on port {} yet. Start your dev server (for example npm run dev), then open the site.", o.proxy_port),
+                    format!("Belum ada yang mendengarkan di port {}. Jalankan dev server Anda (misalnya npm run dev), lalu buka situsnya.", o.proxy_port)
+                ));
+            }
+            Ok(())
+        })();
         job.finish(result.map(|_| Some(0)));
     });
     Ok(shown)
@@ -356,7 +535,11 @@ fn create(state: &AppState, job: &JobHandle, o: &NewSite, target: &NewSiteTarget
         )));
     }
 
-    let site = super::sites::link(state, target.path.clone(), Some(o.php.clone()))?;
+    let site = super::sites::link(
+        state,
+        target.path.clone(),
+        super::sites::Link { php: Some(o.php.clone()), ..Default::default() },
+    )?;
     job.line(crate::tr!(format!("Linked {}.", site.url), format!("{} ditautkan.", site.url)));
     let site = if o.https {
         let secured = super::sites::toggle_secure(state, &o.name)?;
@@ -417,6 +600,9 @@ mod tests {
 
     fn options() -> NewSite {
         NewSite {
+            kind: "laravel".into(),
+            proxy_port: 0,
+            folder: String::new(),
             name: "shop".into(),
             parent: "C:\\Sites".into(),
             php: "8.4".into(),

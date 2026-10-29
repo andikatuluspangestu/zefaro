@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 import { api } from "@/api";
@@ -7,6 +7,8 @@ import { IconAlert } from "@/components/icon-alert";
 import { BackButton } from "@/components/settings-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -31,10 +33,25 @@ import type { Overview, SiteInfo } from "./types";
 
 export type SiteTab = "overview" | "data" | "config" | "logs" | "tinker" | "artisan" | "workers";
 
+const TAB_ICON: Record<SiteTab, string> = {
+  overview: "gauge-high",
+  data: "database",
+  config: "sliders",
+  logs: "scroll",
+  tinker: "terminal",
+  artisan: "wand-magic-sparkles",
+  workers: "gears",
+};
+
 const messages = defineMessages({
   en: {
     back: "Sites",
     openInBrowser: "Open in browser",
+    copy: "Copy address",
+    copied: "Address copied",
+    saveProject: "Save zefaro.json",
+    saveProjectHint: "Writes this site's settings into its folder, so others can set it up the same way",
+    savedProject: "Saved zefaro.json",
     tabs: {
       overview: "Overview",
       data: "Data",
@@ -70,6 +87,11 @@ const messages = defineMessages({
   id: {
     back: "Situs",
     openInBrowser: "Buka di browser",
+    copy: "Salin alamat",
+    copied: "Alamat disalin",
+    saveProject: "Simpan zefaro.json",
+    saveProjectHint: "Menulis pengaturan situs ini ke foldernya, supaya orang lain bisa menyiapkannya dengan cara yang sama",
+    savedProject: "zefaro.json disimpan",
     tabs: {
       overview: "Ringkasan",
       data: "Data",
@@ -104,10 +126,13 @@ const messages = defineMessages({
   },
 });
 
+/** The last overview of each site, so coming back to a site shows it at once while a fresh one loads. */
+const overviewCache = new Map<string, Overview>();
+
 export function SitePage({ name, onBack }: { name: string; onBack: () => void }) {
   const t = useT(messages);
   const [info, setInfo] = useState<SiteInfo | null>(null);
-  const [overview, setOverview] = useState<Overview | null>(null);
+  const [overview, setOverview] = useState<Overview | null>(() => overviewCache.get(name) ?? null);
   const [overviewError, setOverviewError] = useState<string | null>(null);
   const [loadingOverview, setLoadingOverview] = useState(false);
   const [tab, setTab] = useState<SiteTab>("overview");
@@ -117,22 +142,36 @@ export function SitePage({ name, onBack }: { name: string; onBack: () => void })
 
   const loadInfo = useCallback(() => api.siteInfo(name).then(setInfo).catch((e) => toast.error(String(e))), [name]);
 
-  const loadOverview = useCallback(async () => {
+  // Starting the app takes the longest, so only one load runs at a time.
+  const overviewRun = useRef<Promise<void> | null>(null);
+  const loadOverview = useCallback(() => {
+    if (overviewRun.current) return overviewRun.current;
     setLoadingOverview(true);
-    try {
-      setOverview(await api.siteOverview(name));
-      setOverviewError(null);
-    } catch (e) {
-      setOverview(null);
-      setOverviewError(String(e));
-    } finally {
-      setLoadingOverview(false);
-    }
+    const run = (async () => {
+      try {
+        const fresh = await api.siteOverview(name);
+        overviewCache.set(name, fresh);
+        setOverview(fresh);
+        setOverviewError(null);
+      } catch (e) {
+        overviewCache.delete(name);
+        setOverview(null);
+        setOverviewError(String(e));
+      } finally {
+        setLoadingOverview(false);
+        overviewRun.current = null;
+      }
+    })();
+    overviewRun.current = run;
+    return run;
   }, [name]);
 
+  // Both start at once. The overview doesn't wait to learn the folder is a Laravel
+  // app: when it isn't, the overview fails fast and nothing shows it.
   useEffect(() => {
     loadInfo();
-  }, [loadInfo]);
+    loadOverview();
+  }, [loadInfo, loadOverview]);
 
   const ready = !!info && info.isLaravel && info.hasVendor && !!info.php;
   useEffect(() => {
@@ -191,53 +230,97 @@ export function SitePage({ name, onBack }: { name: string; onBack: () => void })
 
   const site = info.site;
   const fw = frameworkInfo(site.framework);
+  const address = site.url.replace(/^https?:\/\//, "");
+  const saveProject = () =>
+    api
+      .projectSave(name)
+      .then((path) => toast.success(t.savedProject, { description: path }))
+      .catch((e) => toast.error(String(e)));
+  const copyAddress = () => {
+    navigator.clipboard
+      .writeText(site.url)
+      .then(() => toast.success(t.copied))
+      .catch((e) => toast.error(String(e)));
+  };
   return (
     <>
       <BackButton label={t.back} onClick={onBack} />
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
-            {site.secured && <Icon name="lock" className="w-3.5 text-sm text-success" />}
-            {site.name}
-          </h2>
-          <p className="truncate font-mono text-xs text-muted-foreground" title={site.path}>
-            {site.path}
-          </p>
-          <div className="flex flex-wrap gap-1.5 pt-1">
-            {info.php && (
+      <Card className="mb-5 gap-4 p-5 sm:p-6">
+        <div className="flex flex-wrap items-start gap-4">
+          <div className="grid size-12 shrink-0 place-items-center rounded-xl bg-primary/10 text-xl text-primary">
+            <Icon name={fw?.icon ?? "laravel"} variant={fw && !fw.brand ? "solid" : "brands"} className="w-auto" />
+          </div>
+          <div className="min-w-0 flex-1 basis-48 space-y-1.5">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <h2 className="text-2xl font-semibold tracking-tight">{site.name}</h2>
+              {site.secured && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
+                  <Icon name="lock" className="w-3" />
+                  HTTPS
+                </span>
+              )}
+            </div>
+            <div className="flex min-w-0 items-center gap-1">
+              <span className="truncate text-sm text-foreground/80">{address}</span>
+              <Button variant="ghost" size="icon-xs" className="text-muted-foreground" onClick={copyAddress} title={t.copy} aria-label={t.copy}>
+                <Icon name="copy" className="w-3" />
+              </Button>
+            </div>
+            <p className="truncate font-mono text-xs text-muted-foreground" title={site.path}>
+              {site.path}
+            </p>
+          </div>
+          <div className="flex w-full shrink-0 gap-2 sm:w-auto">
+            <Button size="lg" className="flex-1 sm:flex-none" onClick={() => openUrl(site.url)}>
+              <Icon name="arrow-up-right-from-square" />
+              {t.openInBrowser}
+            </Button>
+            <OpenBar site={name} className="flex-1 sm:flex-none" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon-lg" variant="outline" aria-label={t.saveProject} onClick={saveProject}>
+                  <Icon name="file-export" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-60">
+                {t.saveProject}. {t.saveProjectHint}.
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {site.proxy ? (
+            <Badge variant="secondary">
+              <Icon name="right-left" className="w-3" />
+              localhost:{site.proxy}
+            </Badge>
+          ) : (
+            info.php && (
               <Badge variant="secondary">
                 <Icon name="php" variant="brands" className="w-3" />
                 {overview?.php ?? info.php}
               </Badge>
-            )}
-            {overview ? (
+            )
+          )}
+          {overview ? (
+            <Badge variant="secondary">
+              <Icon name={fw?.icon ?? "laravel"} variant={fw && !fw.brand ? "solid" : "brands"} className="w-3" />
+              {fw && fw.name !== "Laravel" ? `${fw.name} · ` : ""}Laravel {overview.laravel}
+            </Badge>
+          ) : (
+            fw &&
+            !info.isLaravel && (
               <Badge variant="secondary">
-                <Icon name={fw?.icon ?? "laravel"} variant={fw && !fw.brand ? "solid" : "brands"} className="w-3" />
-                {fw && fw.name !== "Laravel" ? `${fw.name} · ` : ""}Laravel {overview.laravel}
+                <Icon name={fw.icon} variant={fw.brand ? "brands" : "solid"} className="w-3" />
+                {fw.name}
               </Badge>
-            ) : (
-              fw &&
-              !info.isLaravel && (
-                <Badge variant="secondary">
-                  <Icon name={fw.icon} variant={fw.brand ? "brands" : "solid"} className="w-3" />
-                  {fw.name}
-                </Badge>
-              )
-            )}
-            {overview && (
-              <Badge variant={overview.environment === "production" ? "destructive" : "outline"}>
-                {overview.environment}
-              </Badge>
-            )}
-          </div>
+            )
+          )}
+          {overview && (
+            <Badge variant={overview.environment === "production" ? "destructive" : "outline"}>{overview.environment}</Badge>
+          )}
         </div>
-        <Button variant="outline" onClick={() => openUrl(site.url)}>
-          <Icon name="arrow-up-right-from-square" />
-          {t.openInBrowser}
-        </Button>
-      </div>
-
-      <OpenBar site={name} />
+      </Card>
 
       {!info.isLaravel ? (
         <Empty className="border border-dashed">
@@ -293,10 +376,18 @@ export function SitePage({ name, onBack }: { name: string; onBack: () => void })
               </div>
             </IconAlert>
           )}
-          <Tabs value={tab} onValueChange={(v) => setTab(v as SiteTab)} className="gap-4">
-            <TabsList className="max-w-full overflow-x-auto overflow-y-hidden">
+          <Tabs value={tab} onValueChange={(v) => setTab(v as SiteTab)} className="gap-5">
+            <TabsList
+              variant="line"
+              className="h-auto w-full max-w-full justify-start gap-1 overflow-x-auto overflow-y-hidden rounded-none border-b p-0 [scrollbar-width:none] group-data-horizontal/tabs:h-auto [&::-webkit-scrollbar]:hidden"
+            >
               {(Object.keys(t.tabs) as SiteTab[]).map((key) => (
-                <TabsTrigger key={key} value={key}>
+                <TabsTrigger
+                  key={key}
+                  value={key}
+                  className="h-10 flex-none rounded-none px-3 text-sm group-data-horizontal/tabs:after:bottom-0 group-data-[variant=line]/tabs-list:after:bg-primary"
+                >
+                  <Icon name={TAB_ICON[key]} className="w-3.5 text-xs" />
                   {t.tabs[key]}
                 </TabsTrigger>
               ))}

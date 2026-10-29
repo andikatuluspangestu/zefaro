@@ -9,15 +9,18 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { CloseDialog } from "@/components/close-dialog";
+import { useStartupUpdateCheck } from "@/components/update-check";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { HomePage } from "@/pages/HomePage";
 import { SitesPage } from "@/pages/SitesPage";
 import { ServicesPage } from "@/pages/ServicesPage";
 import { MailPage } from "@/pages/MailPage";
 import { LogsPage } from "@/pages/LogsPage";
+import { DumpsPage } from "@/pages/DumpsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { AboutPage } from "@/pages/AboutPage";
 import { DocsPage } from "@/pages/docs/DocsPage";
+import { DoctorPage } from "@/pages/DoctorPage";
 import { ThemeProvider } from "@/theme";
 import { LANG_SETTINGS, LangProvider, cacheSetting, cachedSetting, resolveLang, useT, type LangSetting } from "@/i18n";
 import { common } from "@/i18n/common";
@@ -29,12 +32,14 @@ export type PageId =
   | "services"
   | "mail"
   | "logs"
+  | "dumps"
   | "settings"
   | "docs"
+  | "doctor"
   | "about";
 
 /** What a page should do when another page sends the user to it. */
-export type Intent = { type: "start-all" } | { type: "new-site" } | { type: "open-site"; name: string };
+export type Intent = { type: "new-site" } | { type: "open-site"; name: string } | { type: "import" };
 
 /** Holds the interface language: the saved setting, and what it resolves to. */
 export default function App() {
@@ -133,10 +138,18 @@ function Shell() {
     return () => window.removeEventListener("zefaro:refresh", h);
   }, [loadSummary]);
 
+  const update = useStartupUpdateCheck(info);
+
   return (
     <TooltipProvider>
       <SidebarProvider>
-        <AppSidebar active={page} onSelect={go} version={info?.version} badges={{ mail: unreadMail }} />
+        <AppSidebar
+          active={page}
+          onSelect={go}
+          version={info?.version}
+          newVersion={update?.newer ? update.latest : undefined}
+          badges={{ mail: unreadMail }}
+        />
         <SidebarInset className="h-svh overflow-hidden">
           <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
             <SidebarTrigger className="-ml-1" />
@@ -161,11 +174,13 @@ function Shell() {
             <div className="mx-auto w-full max-w-5xl p-6">
               {page === "home" && <HomePage onNavigate={go} />}
               {page === "sites" && <SitesPage intent={intent} onIntentDone={clearIntent} />}
-              {page === "services" && <ServicesPage intent={intent} onIntentDone={clearIntent} />}
+              {page === "services" && <ServicesPage />}
               {page === "mail" && <MailPage />}
               {page === "logs" && <LogsPage />}
+              {page === "dumps" && <DumpsPage />}
               {page === "settings" && <SettingsPage info={info} />}
               {page === "docs" && <DocsPage onNavigate={go} />}
+              {page === "doctor" && <DoctorPage onNavigate={go} />}
               {page === "about" && <AboutPage info={info} onNavigate={go} />}
             </div>
           </div>

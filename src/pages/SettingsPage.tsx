@@ -18,6 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { Spinner } from "@/components/ui/spinner";
+import { announceUpdate, updateMessages } from "@/components/update-check";
 import { THEME_SETTINGS, useTheme, type ThemeSetting } from "@/theme";
 import { LANG_SETTINGS, defineMessages, localeOf, resolveLang, useLang, useT, type LangSetting } from "@/i18n";
 
@@ -70,6 +72,14 @@ const messages = defineMessages({
       on: "Zefaro hides in the system tray and your services keep running. Quit from the tray icon's menu.",
       off: "Zefaro quits and stops every service.",
     },
+    updates: {
+      title: "Updates",
+      description: "Zefaro reads its latest release from GitHub. It never downloads or installs anything by itself.",
+      label: "Check for updates when Zefaro starts",
+      on: "Zefaro tells you when a new version is out.",
+      off: "Zefaro only checks when you click Check now.",
+      check: "Check now",
+    },
   },
   id: {
     title: "Pengaturan",
@@ -115,6 +125,14 @@ const messages = defineMessages({
       label: "Tetap berjalan di system tray",
       on: "Zefaro bersembunyi di system tray dan layanan Anda tetap berjalan. Keluar lewat menu ikon tray.",
       off: "Zefaro keluar dan menghentikan semua layanan.",
+    },
+    updates: {
+      title: "Pembaruan",
+      description: "Zefaro membaca rilis terbarunya dari GitHub. Zefaro tidak pernah mengunduh atau memasang apa pun sendiri.",
+      label: "Periksa pembaruan saat Zefaro dimulai",
+      on: "Zefaro memberi tahu saat versi baru keluar.",
+      off: "Zefaro hanya memeriksa saat Anda mengklik Periksa sekarang.",
+      check: "Periksa sekarang",
     },
   },
 });
@@ -221,6 +239,61 @@ function WindowCard({ info }: { info: AppInfo | null }) {
             </div>
             <Switch checked={on} onCheckedChange={change} aria-label={t.label} />
           </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function UpdatesCard({ info }: { info: AppInfo | null }) {
+  const t = useT(messages).updates;
+  const u = useT(updateMessages);
+  const [on, setOn] = useState<boolean | null>(info?.checkUpdates ?? null);
+  const [checking, setChecking] = useState(false);
+  useEffect(() => setOn(info?.checkUpdates ?? null), [info]);
+  const change = (v: boolean) => {
+    setOn(v);
+    api.setCheckUpdates(v).catch((e) => {
+      setOn(!v);
+      toast.error(String(e));
+    });
+  };
+  const checkNow = async () => {
+    setChecking(true);
+    try {
+      const r = await api.checkUpdate();
+      if (r.newer) announceUpdate(r, u);
+      else toast.success(u.upToDate(r.current));
+    } catch (e) {
+      toast.error(u.failed, { description: String(e) });
+    } finally {
+      setChecking(false);
+    }
+  };
+  return (
+    <Card className="mt-4">
+      <CardHeader>
+        <CardTitle>{t.title}</CardTitle>
+        <CardDescription>{t.description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {on === null ? (
+          <Skeleton className="h-6 w-full" />
+        ) : (
+          <>
+            <div className="flex items-start gap-3 text-sm">
+              <Icon name="arrows-rotate" className="mt-0.5 text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                <div>{t.label}</div>
+                <p className="text-xs text-muted-foreground">{on ? t.on : t.off}</p>
+              </div>
+              <Switch checked={on} onCheckedChange={change} aria-label={t.label} />
+            </div>
+            <Button size="sm" variant="outline" className="mt-4" onClick={checkNow} disabled={checking}>
+              {checking ? <Spinner className="size-3" /> : <Icon name="magnifying-glass" />}
+              {t.check}
+            </Button>
+          </>
         )}
       </CardContent>
     </Card>
@@ -353,6 +426,7 @@ export function SettingsPage({ info }: { info: AppInfo | null }) {
       <LanguageCard />
       <AppearanceCard />
       <WindowCard info={info} />
+      <UpdatesCard info={info} />
       <Card className="mt-4">
         <CardHeader>
           <CardTitle>{e.title}</CardTitle>

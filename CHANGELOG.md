@@ -4,6 +4,56 @@ All notable changes to Zefaro are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Zefaro uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-10-29
+
+### Added
+
+- **Update check.** When Zefaro starts, it asks GitHub for its latest release and says when a
+  new version is out, with a link to download it; the sidebar shows the new version too. It
+  never downloads or installs anything by itself. Settings has a switch to turn it off and a
+  *Check now* button.
+- **Diagnostics page** (under Help). Checks the Visual C++ runtime, ports held by other programs
+  (naming the program, with a hint when it is XAMPP or Laragon), the `.test` rule and whether
+  names resolve, hosts file entries that override site names, the certificate authority, PATH,
+  and site folders that have moved. Each finding links to the place that fixes it.
+- **Import from XAMPP or Laragon** (Sites page). Lists the projects in XAMPP's `htdocs` or
+  Laragon's `www`, or any folder you pick, and links the ones you choose where they are. Copies
+  databases out of the old MySQL into compressed dumps and loads them into Zefaro's MariaDB.
+- **New site: WordPress, PHP and dev servers.** Besides Laravel apps, the wizard makes a WordPress
+  site (latest release from WordPress.org, checked against its SHA-1, with a MariaDB database and
+  `wp-config.php`), a plain PHP folder with an `index.php`, or a `.test` address that forwards to
+  a project's own dev server (Vite, Next.js), WebSocket included for hot reload.
+- **zefaro.json.** A project file with the site's name, PHP version, HTTPS, dev server port,
+  services, database and workers. Linking a folder that has one offers to apply it; the site
+  page writes one from the site's current settings.
+- **Dumps page** (under Tools). With *Catch dumps* on, `dump()` and `dd()` from sites that use
+  Symfony's VarDumper (Laravel, Symfony) appear in Zefaro with their file and line, instead of
+  in the page.
+- **Xdebug.** A PHP version's settings page downloads Xdebug for that version (checked against
+  its SHA-256) and adds it to the extension list; switching it on sets up step debugging that
+  only starts when the editor or browser asks. A button copies a `launch.json` for VS Code.
+
+### Changed
+
+- **Site page.** A header card with the site's address (with a copy button), path and versions;
+  *Open in browser* and an *Open in* menu for editors, terminals and database tools side by
+  side; tabs with icons. The Overview starts with what needs attention, then four tiles
+  (database, migrations, queue, mail) that open the matching tab, then two detail cards and the
+  packages the app uses.
+- **Home** no longer has *Start all* or the list of services; both live on the Services page.
+  The setup step for services opens that page.
+- **PHP versions** are activated with a switch instead of a button.
+
+### Fixed
+
+- **Home opens at once.** It waited for Composer, two network lookups and PowerShell before
+  showing anything; now it shows what it has right away and checks PATH afterwards. Published
+  versions of Composer and the Laravel installer are looked up at most every few hours, at the
+  same time.
+- **A site's Overview no longer takes four seconds when its database is stopped.** Windows takes
+  that long to report a refused connection; Zefaro now checks the port quickly first. The last
+  overview of each site shows at once when you come back to it.
+
 ## [1.0.1] - 2026-10-29
 
 ### Fixed
@@ -110,5 +160,6 @@ development environment for Windows.
 - Every service listens on `127.0.0.1` only.
 - The installer isn't code-signed yet, so Windows SmartScreen asks you to confirm it.
 
+[1.1.0]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.1.0
 [1.0.1]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.0.1
 [1.0.0]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.0.0

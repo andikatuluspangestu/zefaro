@@ -250,6 +250,12 @@ export interface WorkerStatus extends Worker {
 }
 
 export interface NewSite {
+  /** What to make: a Laravel app, WordPress, a plain PHP folder, or a name for a dev server. */
+  kind: "laravel" | "wordpress" | "php" | "proxy";
+  /** Proxy sites: the dev server's port. */
+  proxyPort: number;
+  /** Proxy sites: the project's existing folder. */
+  folder: string;
   name: string;
   parent: string;
   php: string;

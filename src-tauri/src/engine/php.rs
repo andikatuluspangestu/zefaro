@@ -39,6 +39,70 @@ const EXTENSIONS: &[&str] = &[
 /// Loaded with `zend_extension=` rather than `extension=`.
 const ZEND_EXTENSIONS: &[&str] = &["opcache", "xdebug"];
 
+/// Xdebug for Windows (NTS, x64), one build per PHP line: (line, Xdebug
+/// version, file under xdebug.org/files/, SHA-256 from xdebug.org's download
+/// page). PHP 7.4's last Xdebug is 3.1. Bump version, file and hash together.
+const XDEBUG: &[(&str, &str, &str, &str)] = &[
+    ("7.4", "3.1.6", "php_xdebug-3.1.6-7.4-vc15-nts-x86_64.dll", "704a27985094e71803ab5dd2e75099d860d9fdb1de623013f567219c3d780721"),
+    ("8.0", "3.5.3", "php_xdebug-3.5.3-8.0-nts-vs16-x86_64.dll", "a3ffd4d5b1f9ca0766b1f3ed321246808a51ce4ba49dc32ae195bfafc4d4d9a2"),
+    ("8.1", "3.5.3", "php_xdebug-3.5.3-8.1-nts-vs16-x86_64.dll", "15bb3abcd0755af8378550793bcf7603636add31dc4a04d24bfd2a1f764399b4"),
+    ("8.2", "3.5.3", "php_xdebug-3.5.3-8.2-nts-vs16-x86_64.dll", "b449eda7eeefc80c651fac334582c5f0877cd72cfe55fc1c5f0f98bf6a4edb94"),
+    ("8.3", "3.5.3", "php_xdebug-3.5.3-8.3-nts-vs16-x86_64.dll", "4c80487592484c36d21a7006a53738dfc07884fc6867720ddc5c11559371cdce"),
+    ("8.4", "3.5.3", "php_xdebug-3.5.3-8.4-nts-vs17-x86_64.dll", "a94d4fcfe4086a300b2decaf7c04e59f4981aa5e56992d48b55c5e49dfd9b9ee"),
+    ("8.5", "3.5.3", "php_xdebug-3.5.3-8.5-nts-vs17-x86_64.dll", "0a0d52bf276dad7e5f90ac30a5110b3119d291b20c118be0cb7f5752064f1811"),
+];
+const XDEBUG_FILES: &str = "https://xdebug.org/files/";
+
+/// The Xdebug version Zefaro installs for a line, if there's a build for it.
+pub fn xdebug_version(minor: &str) -> Option<&'static str> {
+    XDEBUG.iter().find(|x| x.0 == minor).map(|x| x.1)
+}
+
+/// Download the line's Xdebug into its ext folder as php_xdebug.dll, where it
+/// shows up with the line's other extensions (off until switched on).
+///
+/// xdebug.org only accepts TLS 1.3, which Windows 10's own TLS doesn't speak,
+/// so the line's PHP (OpenSSL) downloads it; Zefaro checks the SHA-256.
+pub fn install_xdebug(minor: &str) -> AppResult<&'static str> {
+    let (_, version, file, sha256) = *XDEBUG.iter().find(|x| x.0 == minor).ok_or_else(|| {
+        AppError::msg(crate::tr!(
+            format!("Zefaro has no Xdebug build for PHP {minor}."),
+            format!("Zefaro tidak punya build Xdebug untuk PHP {minor}.")
+        ))
+    })?;
+    let dir = paths::php_dir(minor);
+    let dest = dir.join("ext").join("php_xdebug.dll");
+    let part = dir.join("ext").join("php_xdebug.dll.part");
+    let code = "$c = stream_context_create(['http' => ['timeout' => 60, 'user_agent' => 'Zefaro']]);\
+                $in = @fopen($argv[1], 'rb', false, $c);\
+                if (!$in) { fwrite(STDERR, error_get_last()['message'] ?? 'download failed'); exit(1); }\
+                $out = fopen($argv[2], 'wb');\
+                stream_copy_to_stream($in, $out);\
+                fclose($out);";
+    let out = process::command(dir.join("php.exe"))
+        .arg("-c")
+        .arg(dir.join("php.ini"))
+        .args(["-r", code, "--", &format!("{XDEBUG_FILES}{file}")])
+        .arg(&part)
+        .output()?;
+    if !out.status.success() || !part.is_file() {
+        let _ = fs::remove_file(&part);
+        return Err(AppError::msg(crate::tr!(
+            format!("Downloading Xdebug failed: {}", process::tail(&out)),
+            format!("Mengunduh Xdebug gagal: {}", process::tail(&out))
+        )));
+    }
+    if crate::engine::archive::sha256_file(&part)? != sha256 {
+        let _ = fs::remove_file(&part);
+        return Err(AppError::msg(crate::tr!(
+            "The Xdebug download didn't match its checksum, so Zefaro deleted it.",
+            "Unduhan Xdebug tidak cocok dengan checksum-nya, jadi Zefaro menghapusnya."
+        )));
+    }
+    fs::rename(&part, &dest)?;
+    Ok(version)
+}
+
 /// One extension DLL a PHP line ships, for the PHP settings page.
 #[derive(serde::Serialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -589,6 +653,11 @@ pub fn managed_block(
             b += &format!("extension={ext}\n");
         }
     }
+    if extensions.iter().any(|e| e == "xdebug") {
+        // Step debugging only when the editor or a browser extension asks
+        // (XDEBUG_TRIGGER), so pages stay fast the rest of the time.
+        b += "xdebug.mode = debug\nxdebug.start_with_request = trigger\nxdebug.client_host = 127.0.0.1\nxdebug.client_port = 9003\n";
+    }
     b
 }
 
@@ -737,6 +806,20 @@ curl
         let b = managed_block(Path::new("C:/php/ext"), &["intl".into(), "xdebug".into()], &PhpLimits::default(), None, 1025);
         assert!(b.contains("extension=intl\n") && b.contains("zend_extension=xdebug\n"));
         assert!(!b.contains("\nextension=xdebug"));
+        assert!(b.contains("xdebug.start_with_request = trigger\n"), "debugging only when asked");
+        let without = managed_block(Path::new("C:/php/ext"), &["intl".into()], &PhpLimits::default(), None, 1025);
+        assert!(!without.contains("xdebug."));
+    }
+
+    #[test]
+    fn every_xdebug_build_is_pinned() {
+        for (line, version, file, sha) in XDEBUG {
+            assert!(file.contains(&format!("-{line}-")) && file.contains(version), "{file}");
+            assert!(file.contains("nts") && file.ends_with("x86_64.dll"), "{file}");
+            assert_eq!(sha.len(), 64, "{file}");
+        }
+        assert_eq!(xdebug_version("8.4"), Some("3.5.3"));
+        assert_eq!(xdebug_version("7.3"), None);
     }
 
     #[test]
