@@ -9,6 +9,9 @@ export const SITE = "https://zefaro.pages.dev";
 export const VERSION = "1.1.0";
 export const FILE_SIZE = "3.2 MB";
 
+/** App screenshots in public/screenshots (sample data), for schema.org and directory listings. */
+const SCREENSHOTS = ["01-home", "02-site", "03-services", "04-new-site", "05-mail", "06-dark-home"];
+
 export type Lang = "en" | "id";
 export type Route = { path: string; lang: Lang; guide: Guide | null };
 
@@ -97,7 +100,7 @@ function schema(r: Route) {
     installUrl: LINKS.download,
     releaseNotes: LINKS.changelog,
     codeRepository: REPO,
-    screenshot: `${SITE}/og.png`,
+    screenshot: SCREENSHOTS.map((s) => `${SITE}/screenshots/zefaro-${s}.png`),
     image: `${SITE}/og.png`,
     featureList: FEATURES[r.lang],
     keywords:
