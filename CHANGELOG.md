@@ -4,7 +4,7 @@ All notable changes to Zefaro are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Zefaro uses
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.3.0] - 2026-10-30
 
 ### Added
 
@@ -230,6 +230,7 @@ development environment for Windows.
 - Every service listens on `127.0.0.1` only.
 - The installer isn't code-signed yet, so Windows SmartScreen asks you to confirm it.
 
+[1.3.0]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.3.0
 [1.2.0]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.2.0
 [1.1.0]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.1.0
 [1.0.1]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.0.1
