@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SignPath artifact configuration for Zefaro's installer, to paste into the
+  "installer" artifact configuration of the "zefaro" project in SignPath.
+
+  The release workflow uploads one file as a GitHub Actions artifact, which
+  GitHub delivers as a zip: Zefaro_<version>_x64-setup.exe. SignPath signs that
+  file with Authenticode (SHA-256, timestamped) and returns the zip.
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file path="Zefaro_*_x64-setup.exe">
+      <authenticode-sign hash-algorithm="sha256" />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

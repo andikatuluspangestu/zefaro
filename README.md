@@ -34,8 +34,10 @@ Zefaro is an independent project and is not affiliated with Laravel.
    [Releases page](https://github.com/andikatuluspangestu/zefaro/releases).
 2. Optional: compare the file with the SHA-256 in `SHA256SUMS.txt`. In PowerShell,
    run `Get-FileHash .\Zefaro_<version>_x64-setup.exe -Algorithm SHA256`.
-3. Run the installer. It isn't code-signed yet, so Windows SmartScreen may say
-   "Windows protected your PC". Click **More info**, then **Run anyway**.
+3. Run the installer. Until releases are signed (see [CODE_SIGNING.md](CODE_SIGNING.md)),
+   Windows SmartScreen may say "Windows protected your PC". Click **More info**, then
+   **Run anyway**. A signed installer can still get this warning for a while after a release,
+   until Windows has seen enough downloads of it.
 4. In Zefaro, open **Services**, install PHP, click **Start all** and set up the DNS
    rule. Home shows what's left to do. Then link a folder on **Sites**.
 
@@ -159,8 +161,17 @@ machine's paths, which include your Windows user name, out of `zefaro.exe` (see
   script safely, pass `-PathValueName <dummy value> -RunValueName <dummy value> -DryRun`;
 - uses thin LTO in the release profile, because fat LTO with one codegen unit ran out of
   memory on 8 GB machines;
-- isn't code-signed, so SmartScreen warns on first run. Once you have a certificate, sign
-  with `bundle.windows.certificateThumbprint` or `signCommand`.
+- isn't signed when you build it yourself. Releases are built and signed on GitHub instead (below).
+
+### Release
+
+Push a tag that matches the version in `package.json`, e.g. `git tag -a v1.3.0 -m "Zefaro 1.3.0"`
+then `git push origin v1.3.0`. The [Release workflow](.github/workflows/release.yml) builds the
+installer on GitHub's Windows runners, has SignPath sign it (free code signing for open source,
+certificate by SignPath Foundation; see [CODE_SIGNING.md](CODE_SIGNING.md)), writes
+`SHA256SUMS.txt` from the signed file, and drafts the GitHub release with both files and the
+version's CHANGELOG section. Check the draft and publish it. Until the SignPath variable and secret
+are set, the workflow still runs and says in the draft that the installer is unsigned.
 
 ## Change the icon
 
