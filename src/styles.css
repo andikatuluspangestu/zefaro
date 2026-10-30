@@ -24,6 +24,7 @@
     --color-chart-1: var(--chart-1);
     --color-ring: var(--ring);
     --color-input: var(--input);
+    --color-switch-off: var(--switch-off);
     --color-border: var(--border);
     --color-destructive: var(--destructive);
     --color-accent-foreground: var(--accent-foreground);
@@ -90,6 +91,8 @@
     --destructive: oklch(0.54 0.215 25);
     --border: oklch(0.9 0.035 320);
     --input: oklch(0.88 0.04 320);
+    /* An off switch on a white card: 3.7:1 against the card and its white thumb (--input is 1.5:1). */
+    --switch-off: oklch(0.62 0.05 300);
     --ring: oklch(0.673 0.213 303);
     --success: oklch(0.5 0.13 160);
     --warning: oklch(0.52 0.12 65);
@@ -100,7 +103,8 @@
     --chart-4: oklch(0.8 0.1 338);
     --chart-5: oklch(0.45 0.15 285);
     --radius: 0.75rem;
-    --sidebar: oklch(0.968 0.022 338);
+    /* White like the cards; the tinted page sits beside it. */
+    --sidebar: oklch(1 0 0);
     --sidebar-foreground: oklch(0.225 0.055 282);
     --sidebar-primary: oklch(0.56 0.215 277);
     --sidebar-primary-foreground: oklch(0.99 0.005 330);
@@ -108,7 +112,6 @@
     --sidebar-accent-foreground: oklch(0.25 0.07 285);
     --sidebar-border: oklch(0.9 0.035 320);
     --sidebar-ring: oklch(0.673 0.213 303);
-    --shadow-soft: 0 1px 2px oklch(0.3 0.1 290 / 6%), 0 10px 28px -14px oklch(0.3 0.12 290 / 18%);
     color-scheme: light;
 }
 
@@ -130,6 +133,7 @@
     --destructive: oklch(0.72 0.19 25);
     --border: oklch(0.946 0.038 338 / 11%);
     --input: oklch(0.946 0.038 338 / 16%);
+    --switch-off: oklch(0.946 0.038 338 / 13%);
     --ring: oklch(0.673 0.213 303);
     --success: oklch(0.8 0.16 160);
     --warning: oklch(0.83 0.15 82);
@@ -147,7 +151,6 @@
     --sidebar-accent-foreground: oklch(0.965 0.014 335);
     --sidebar-border: oklch(0.946 0.038 338 / 11%);
     --sidebar-ring: oklch(0.673 0.213 303);
-    --shadow-soft: 0 1px 0 oklch(1 0 0 / 4%) inset, 0 14px 32px -18px oklch(0 0 0 / 70%);
     color-scheme: dark;
 }
 
@@ -178,9 +181,6 @@
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-}
-@utility shadow-soft {
-    box-shadow: var(--shadow-soft);
 }
 
 /* An install step with no measurable progress: a segment sliding across the

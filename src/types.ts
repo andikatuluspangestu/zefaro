@@ -180,6 +180,12 @@ export interface AppInfo {
   closeToTray: boolean;
   /** Look for a newer Zefaro when it starts. */
   checkUpdates: boolean;
+  /** Zefaro starts, hidden in the tray, when the user signs in to Windows. */
+  startWithWindows: boolean;
+  /** Services started when Zefaro opens (ids such as "mariadb"). */
+  autostart: string[];
+  /** This Windows account can approve an admin prompt (a standard account can't). */
+  canElevate: boolean;
 }
 
 export interface Component {
@@ -251,8 +257,12 @@ export interface DnsSettingsView {
   tlds: string[];
   port: number;
   running: boolean;
-  /** Windows sends .tld lookups to Zefaro; null while unknown. */
+  /** Windows sends .tld lookups to Zefaro; null while unknown, and for .localhost (no rule). */
   ruleInstalled: boolean | null;
+  /** The domain needs the Windows rule, with its admin prompt: false for .localhost. */
+  needsRule: boolean;
+  /** This Windows account can approve an admin prompt. */
+  canElevate: boolean;
   sites: number;
   securedSites: number;
 }
@@ -398,6 +408,46 @@ export interface MailMessage {
   attachments: MailPart[];
 }
 
+/** One database inside a backup file. */
+export interface BackupDb {
+  name: string;
+  /** Size of its dump, uncompressed. */
+  bytes: number;
+}
+
+/** What a backup file holds, read before restoring it. */
+export interface BackupContents {
+  zefaro: string;
+  /** Unix seconds. */
+  created: number;
+  sites: number;
+  databases: BackupDb[];
+}
+
+/** The backup or restore in progress, or the last one until dismissed. */
+export interface BackupJob {
+  kind: "backup" | "restore";
+  state: "running" | "done" | "failed" | "cancelled";
+  file: string;
+  phase: "preparing" | "settings" | "database" | "finishing";
+  /** The database being dumped or loaded. */
+  current: string | null;
+  done: number;
+  total: number;
+  /** Why it failed, or a note about what was left out. */
+  message: string | null;
+  size: number | null;
+  /** Databases dumped (backup) or loaded (restore). */
+  loaded: string[];
+  /** Restore: databases that already existed and were kept. */
+  skipped: string[];
+  settingsRestored: boolean;
+  /** Restored sites use HTTPS, which needs the new certificate authority trusted. */
+  hasSecuredSites: boolean;
+  startedMs: number;
+  endedMs: number | null;
+}
+
 /** The latest release on GitHub, compared with this copy of Zefaro. */
 export interface UpdateInfo {
   current: string;
@@ -406,6 +456,17 @@ export interface UpdateInfo {
   /** The release page, with the installer and notes. */
   url: string;
   published: string | null;
+  /** The release has an installer Zefaro can download and check itself. */
+  canInstall: boolean;
+  /** The installer's size in bytes. */
+  installerSize: number | null;
+}
+
+/** How far "Update now" has got. */
+export interface UpdateProgress {
+  phase: "checking" | "downloading" | "verifying" | "installing";
+  done: number;
+  total: number | null;
 }
 
 /** A project's zefaro.json. */

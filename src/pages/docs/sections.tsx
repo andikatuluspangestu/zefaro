@@ -101,7 +101,7 @@ const FAQ: [string, ReactNode][] = [
     "Is trusting Zefaro's certificate a security risk?",
     <>The risk is small. Zefaro's certificate authority can only sign for <C>.test</C> names, and
     browsers enforce that, so nobody can use it to impersonate a real website. Its key is
-    encrypted for your Windows account, and you can remove it in Settings, under HTTPS.</>,
+    encrypted for your Windows account, and you can remove it in Settings, on the <em>HTTPS and system</em> tab.</>,
   ],
   [
     "Where are my databases stored?",
@@ -163,8 +163,7 @@ export const SECTIONS: DocSection[] = [
         <H3>Light and dark</H3>
         <P>
           Zefaro follows the Windows theme by default and switches when Windows does. To pick
-          one yourself, open <em>Settings</em>, then <em>Appearance</em>, and choose light or
-          dark.
+          one yourself, open <em>Settings</em>; <em>Theme</em> is on the <em>General</em> tab.
         </P>
         <H3>Requirements</H3>
         <List
@@ -203,8 +202,9 @@ export const SECTIONS: DocSection[] = [
         </Note>
         <H3>Updating</H3>
         <P>
-          Run the newer installer over the old one. Your sites, settings, databases, PATH entry
-          and DNS rule stay as they are.
+          Run the newer installer over the old one, or click <em>Update now</em> when Zefaro says
+          a new version is out. Your sites, settings, databases, PATH entry and DNS rule stay as
+          they are.
         </P>
         <H3>Uninstalling</H3>
         <P>
@@ -215,6 +215,7 @@ export const SECTIONS: DocSection[] = [
         <List
           items={[
             <>Zefaro's <C>bin</C> folder from your PATH.</>,
+            <>The entry that starts Zefaro when you sign in to Windows, if you turned it on.</>,
             <>
               The DNS rule for <C>.test</C>. Windows asks for administrator rights; if you decline,
               the rule stays and you can remove it later.
@@ -275,8 +276,13 @@ export const SECTIONS: DocSection[] = [
             [
               "PHP version",
               <>
-                The version that was active when you linked the site. If it's no longer installed,
-                the site uses the active version.
+                The version that was active when you linked the site, or the one its{" "}
+                <C>zefaro.json</C> names. Change it any time in the PHP column of the Sites page or
+                under the site's name on its own page; each site keeps its own version, and several
+                run side by side. When nginx is running, Zefaro starts the new version first, so the
+                site never answers 502; if it can't start, the site stays as it was. A version that
+                is no longer installed shows a warning sign, and the site uses the active version
+                until you pick another.
               </>,
             ],
             ["Unlink", "Zefaro stops serving the site. Your files are never touched."],
@@ -333,7 +339,7 @@ export const SECTIONS: DocSection[] = [
         <Steps
           items={[
             <>
-              Click <em>Trust certificate…</em> on the Sites page or in Settings, under HTTPS.
+              Click <em>Trust certificate…</em> on the Sites page or in Settings, on the <em>HTTPS and system</em> tab.
             </>,
             <>
               Windows shows a security warning about installing a certificate. Check that it
@@ -666,7 +672,7 @@ export const SECTIONS: DocSection[] = [
           Zefaro's tray icon to open it again. To stop everything, right-click the icon and choose{" "}
           <em>Quit Zefaro and stop services</em>: Zefaro stops every service in order, the web server
           first and databases last. The first time you close the window, Zefaro asks which you
-          prefer; change it later in Settings, under <em>Closing the window</em>.
+          prefer; change it later with <em>Keep running when closed</em> on the <em>General</em> tab of Settings.
         </P>
         <P>
           Only one Zefaro runs at a time. Opening it again from the Start menu shows the window
@@ -710,6 +716,19 @@ export const SECTIONS: DocSection[] = [
           start and stop nginx on the Services page, so a second copy can't take its ports.
         </P>
         <P>When a service misbehaves, its log usually says why. Open the Logs page to read it.</P>
+        <H3>Starting with Windows</H3>
+        <P>
+          On the <em>General</em> tab of Settings, <em>Start with Windows</em> adds Zefaro to the
+          programs Windows starts for you. It opens hidden in the system tray, with no window. Below it,
+          <em>Start services with Zefaro</em> starts your services whenever Zefaro opens: nginx (which starts each site's PHP), MariaDB, PostgreSQL,
+          Redis, Mailpit and, with <C>.test</C>, DNS. Databases start first and nginx last.
+        </P>
+        <P>
+          Only services that are already installed start, so opening Zefaro never downloads anything; one you install
+          later starts too, and the line under the switch names the ones that will. If a service can't start (a port is
+          taken, say), its card shows why, and the others still start. Turning the switch off, or uninstalling Zefaro,
+          removes the entry.
+        </P>
       </>
     ),
   },
@@ -751,14 +770,28 @@ export const SECTIONS: DocSection[] = [
             [
               "Local domain",
               <>
-                <C>.test</C> (default) or <C>.internal</C>. Both are reserved, so neither hides a
-                real website. Switching renames every site (for example to{" "}
-                <C>my-app.internal</C>), moves the Windows rule (one admin prompt) and gives
+                <C>.test</C> (default), <C>.internal</C> or <C>.localhost</C>. All three are
+                reserved, so none hides a real website. Switching renames every site (for example
+                to <C>my-app.internal</C>), moves the Windows rule (one admin prompt) and gives
                 secured sites certificates from a new authority, which you trust again.
               </>,
             ],
           ]}
         />
+        <H3>Without admin rights: .localhost</H3>
+        <P>
+          The Windows rule is the only step in Zefaro that needs administrator rights (installing Zefaro, running
+          services and trusting the HTTPS authority don't). On a computer where you can't approve an admin prompt, such
+          as a shared lab PC, choose <C>.localhost</C> as the local domain. Sites then open at{" "}
+          <C>my-app.localhost</C> with no rule and no DNS server: Chrome, Edge and Firefox send every{" "}
+          <C>*.localhost</C> name to your own computer. Zefaro offers this itself when it notices the account can't
+          approve admin prompts.
+        </P>
+        <Note title="What .localhost can't do" warn>
+          Only browsers know these names. Windows 10 itself doesn't resolve <C>*.localhost</C>, so <C>curl</C>, or a
+          site that calls its own address (a queue worker that fetches <C>APP_URL</C>, say), can't find them. Use{" "}
+          <C>.test</C> when you need that and can approve the prompt once.
+        </Note>
         <Note title="If .test names don't open" warn>
           A VPN can take over DNS, and a browser's own secure DNS with a custom provider bypasses
           Windows. Disconnect the VPN or set the browser's secure DNS to use your current
@@ -1168,10 +1201,36 @@ export const SECTIONS: DocSection[] = [
             <>Stop the old MySQL, start Zefaro's MariaDB, and click <em>Load into Zefaro</em>.</>,
           ]}
         />
+        <H3>Back up and restore</H3>
+        <P>
+          The <em>Updates and backup</em> tab of Settings saves your sites and settings, and your MariaDB databases, into
+          one zip file, and loads such a file again, on this computer or another one. A restore shows what is in the
+          file first, and you choose what to load.
+        </P>
+        <Rows
+          rows={[
+            ["In the backup", <>Your sites and settings (the same <C>config.json</C> Zefaro keeps), and one SQL dump per MariaDB database.</>],
+            ["Left out", "The HTTPS certificate authority (its private key is encrypted for your Windows account and can't be opened elsewhere, so Zefaro makes a new one and you trust it again), PostgreSQL databases, downloaded programs, mail and your project folders."],
+            ["Databases on restore", "Loaded into new databases. One that already exists is skipped and never overwritten; drop it on the Databases page first if you want the backup's copy."],
+            ["Sites and settings on restore", <>Replace what you have now. A copy of the current <C>config.json</C> is kept next to it as <C>config.before-restore-…json</C>. Open Diagnostics afterwards: site folders and the local domain may differ on another computer.</>],
+          ]}
+        />
+        <P>
+          Backing up starts MariaDB for a moment if it isn't running. Restoring databases installs MariaDB first if it
+          isn't there yet. Both can be cancelled, and a cancelled or failed backup leaves no half-written file.
+        </P>
         <H3>Updates</H3>
         <P>
-          When Zefaro starts, it asks GitHub for its latest release and tells you when a new one is out, with a link to
-          download it. It never downloads or installs anything by itself. Turn this off in Settings, under Updates.
+          When Zefaro starts, it asks GitHub for its latest release and tells you when a new one is out. Click{" "}
+          <em>Update now</em> in that message, or on the <em>Updates and backup</em> tab of Settings, and Zefaro downloads the installer from the
+          project's GitHub release and checks it against the SHA-256 published with the release. A file that doesn't
+          match is deleted and never run. Then Zefaro stops your services, closes, and the installer replaces it and
+          opens it again; your sites, settings, databases, the DNS rule and the HTTPS certificate stay.
+        </P>
+        <P>
+          Nothing is downloaded until you click, and you can still take the installer from the release page yourself.
+          The checksum guards against a damaged or swapped download; it comes from the same GitHub release, so it can't
+          vouch for the release itself. Turn it off with <em>Check on startup</em> on the same tab.
         </P>
       </>
     ),
@@ -1206,8 +1265,8 @@ export const SECTIONS: DocSection[] = [
         </P>
         <H3>The browser says the connection isn't private</H3>
         <P>
-          Trust Zefaro's certificate authority (<em>Trust certificate…</em> in Settings, under
-          HTTPS), then restart the browser. If it still warns, check that the address is the{" "}
+          Trust Zefaro's certificate authority (<em>Trust certificate…</em> on the <em>HTTPS and system</em>
+          tab of Settings), then restart the browser. If it still warns, check that the address is the{" "}
           <C>.test</C> name shown on the Sites page.
         </P>
         <H3>PHP installs but won't start</H3>
@@ -1229,8 +1288,8 @@ export const SECTIONS: DocSection[] = [
         <Steps
           items={[
             <>
-              Uninstall Zefaro. The uninstaller also removes its PATH entry, the DNS rule and the
-              trusted certificate. To do this without uninstalling, stop all services, click{" "}
+              Uninstall Zefaro. The uninstaller also removes its PATH entry, the start-with-Windows
+              entry, the DNS rule and the trusted certificate. To do this without uninstalling, stop all services, click{" "}
               <em>Remove rule</em> in the DNS settings, click <em>Remove trust…</em> in Settings, and
               remove <C>…\.config\zefaro\bin</C> in <em>Edit environment variables for your
               account</em>.

@@ -32,6 +32,7 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { defineMessages, localeOf, useLang, useT } from "@/i18n";
@@ -68,8 +69,7 @@ const messages = defineMessages({
       clear: "Clear search",
     },
     filter: { all: "All", warn: "Warnings", error: "Errors" },
-    live: "Live",
-    paused: "Paused",
+    follow: "Follow",
     copyLine: "Copy line",
     copiedLine: "Copied line",
     copyVisible: "Copy visible lines",
@@ -120,8 +120,7 @@ const messages = defineMessages({
       clear: "Hapus pencarian",
     },
     filter: { all: "Semua", warn: "Peringatan", error: "Error" },
-    live: "Live",
-    paused: "Dijeda",
+    follow: "Ikuti",
     copyLine: "Salin baris",
     copiedLine: "Baris tersalin",
     copyVisible: "Salin baris yang tampil",
@@ -574,15 +573,10 @@ export function LogsPage() {
             </Tabs>
 
             <div className="ml-auto flex items-center gap-1">
-              <Button
-                variant={follow ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => setFollow((f) => !f)}
-                aria-pressed={follow}
-              >
-                <Icon name={follow ? "pause" : "play"} className="w-3" />
-                {follow ? t.live : t.paused}
-              </Button>
+              <label className="mr-1 flex items-center gap-2 text-sm">
+                <Switch checked={follow} onCheckedChange={setFollow} />
+                {t.follow}
+              </label>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button

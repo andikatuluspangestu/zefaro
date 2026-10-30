@@ -44,6 +44,18 @@ pub async fn php_versions(state: State<'_, AppState>) -> AppResult<PhpVersionsRe
     })
 }
 
+/// The installed PHP lines, newest first, read from disk only: what a site can
+/// be switched to, cheap enough to ask for from every row of the Sites table.
+#[tauri::command]
+pub async fn php_lines() -> AppResult<Vec<String>> {
+    blocking(|| {
+        let mut lines: Vec<String> = php::installed().into_keys().collect();
+        lines.sort_by_key(|v| std::cmp::Reverse(php::minor_key(v)));
+        Ok(lines)
+    })
+    .await
+}
+
 /// Install (or update) a PHP line, streaming `php-install-progress` events.
 /// A running php-cgi for that line is stopped first (Windows locks its DLLs)
 /// and started again afterwards. The first installed line becomes active.

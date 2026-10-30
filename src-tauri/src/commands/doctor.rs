@@ -157,12 +157,32 @@ fn run_checks(cfg: &crate::config::ZefaroConfig, sup: &supervisor::Supervisor, d
     }
 
     // .test names
+    if !dns::needs_rule(&cfg.tld) {
+        out.push(check(
+            "dns",
+            "info",
+            crate::tr!(format!(".{} needs no Windows rule", cfg.tld), format!(".{} tidak butuh aturan Windows", cfg.tld)),
+            crate::tr!(
+                "Chrome, Edge and Firefox open *.localhost names themselves, with no admin rights. Other programs on Windows 10, such as curl or a site that calls its own address, can't find them; use .test for that.",
+                "Chrome, Edge, dan Firefox membuka nama *.localhost sendiri, tanpa hak admin. Program lain di Windows 10, seperti curl atau situs yang memanggil alamatnya sendiri, tidak bisa menemukannya; pakai .test untuk itu."
+            )
+            .into(),
+            None,
+        ));
+    } else {
     match dns_rule {
         Some(false) => out.push(check(
             "dns",
             "warn",
             crate::tr!(format!("Windows doesn't send .{} to Zefaro", cfg.tld), format!("Windows belum mengarahkan .{} ke Zefaro", cfg.tld)),
-            crate::tr!("Set up the DNS rule on the Services page; Windows asks for administrator rights once.", "Siapkan aturan DNS di halaman Layanan; Windows meminta hak administrator sekali.").into(),
+            if dns::can_elevate() {
+                String::from(crate::tr!("Set up the DNS rule on the Services page; Windows asks for administrator rights once.", "Siapkan aturan DNS di halaman Layanan; Windows meminta hak administrator sekali."))
+            } else {
+                String::from(crate::tr!(
+                    "This Windows account can't approve admin prompts, so the rule can't be added. Switch the local domain to .localhost in DNS settings: it needs no admin rights.",
+                    "Akun Windows ini tidak bisa menyetujui permintaan admin, jadi aturan tidak bisa ditambahkan. Ganti domain lokal ke .localhost di pengaturan DNS: tidak butuh hak admin."
+                ))
+            },
             Some("services"),
         )),
         Some(true) if !sup.is_running(dns::SERVICE_ID) => out.push(check(
@@ -196,6 +216,7 @@ fn run_checks(cfg: &crate::config::ZefaroConfig, sup: &supervisor::Supervisor, d
             }
         }
         None => {}
+    }
     }
 
     // The hosts file can send a .test name elsewhere.

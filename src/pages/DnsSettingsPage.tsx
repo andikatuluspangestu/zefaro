@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
 import { defineMessages, useT } from "@/i18n";
 import { common } from "@/i18n/common";
 
@@ -40,7 +41,17 @@ const messages = defineMessages({
     tldNotes: {
       test: "Reserved for testing (RFC 2606). The usual choice.",
       internal: "Reserved by ICANN for private networks.",
+      localhost: "Needs no admin rights. Opens in Chrome, Edge and Firefox.",
     } as Record<string, string>,
+    notNeeded: "Not needed",
+    ruleNotNeeded: (tld: string) =>
+      `Chrome, Edge and Firefox open *.${tld} names themselves, with no admin rights. Windows 10 doesn't resolve them, so curl, or a site that calls its own address, can't find them. Use .test if you need that.`,
+    noAdminTitle: "This Windows account can't approve admin prompts",
+    noAdminText:
+      "Setting up .test needs one admin prompt. Use .localhost instead: it needs no admin rights and opens in your browser. If you know an administrator's password, you can still set up .test.",
+    useLocalhost: "Use .localhost",
+    confirmLocalhost:
+      "No admin rights are needed. Names open in Chrome, Edge and Firefox; programs such as curl can't find them on Windows 10.",
     approvePrompt: "Approve the Windows admin prompt to finish the DNS setup.",
     setupWorks: (tld: string | undefined) => `DNS is running. Windows now resolves *.${tld} to Zefaro.`,
     setupNotYet:
@@ -90,14 +101,24 @@ const messages = defineMessages({
     ),
     confirmRule: (tld: string | null) => `Windows asks for admin once, to move the DNS rule to .${tld}.`,
     confirmCa: (tld: string | null) =>
-      `Zefaro gives secured sites certificates from a new certificate authority for .${tld}. Trust it in Settings → HTTPS.`,
+      `Zefaro gives secured sites certificates from a new certificate authority for .${tld}. Trust it in Settings, on the HTTPS and system tab.`,
     switchTo: (tld: string | null) => `Switch to .${tld}`,
   },
   id: {
     tldNotes: {
       test: "Dicadangkan untuk pengujian (RFC 2606). Pilihan yang umum.",
       internal: "Dicadangkan oleh ICANN untuk jaringan privat.",
+      localhost: "Tanpa hak admin. Terbuka di Chrome, Edge, dan Firefox.",
     } as Record<string, string>,
+    notNeeded: "Tidak perlu",
+    ruleNotNeeded: (tld: string) =>
+      `Chrome, Edge, dan Firefox membuka nama *.${tld} sendiri, tanpa hak admin. Windows 10 tidak me-resolve nama itu, jadi curl, atau situs yang memanggil alamatnya sendiri, tidak bisa menemukannya. Pakai .test jika perlu itu.`,
+    noAdminTitle: "Akun Windows ini tidak bisa menyetujui permintaan admin",
+    noAdminText:
+      "Menyiapkan .test butuh satu permintaan admin. Pakai .localhost saja: tidak butuh hak admin dan terbuka di browser Anda. Jika Anda tahu kata sandi administrator, .test tetap bisa disiapkan.",
+    useLocalhost: "Pakai .localhost",
+    confirmLocalhost:
+      "Tidak perlu hak admin. Nama terbuka di Chrome, Edge, dan Firefox; program seperti curl tidak bisa menemukannya di Windows 10.",
     approvePrompt: "Setujui permintaan admin Windows untuk menyelesaikan pemasangan DNS.",
     setupWorks: (tld: string | undefined) => `DNS berjalan. Windows sekarang mengarahkan *.${tld} ke Zefaro.`,
     setupNotYet:
@@ -147,7 +168,7 @@ const messages = defineMessages({
     ),
     confirmRule: (tld: string | null) => `Windows meminta izin admin sekali, untuk memindahkan aturan DNS ke .${tld}.`,
     confirmCa: (tld: string | null) =>
-      `Zefaro memberi situs yang diamankan sertifikat dari otoritas sertifikat baru untuk .${tld}. Percayai di Pengaturan → HTTPS.`,
+      `Zefaro memberi situs yang diamankan sertifikat dari otoritas sertifikat baru untuk .${tld}. Percayai di Pengaturan, tab HTTPS dan sistem.`,
     switchTo: (tld: string | null) => `Ganti ke .${tld}`,
   },
 });
@@ -252,6 +273,12 @@ export function DnsSettingsPage({ backLabel, onBack }: { backLabel: string; onBa
 
   const dirty = !!view && tld !== view.tld;
   const rule = view?.ruleInstalled;
+  const needsRule = view?.needsRule ?? true;
+  // The domain that needs no admin rights: chosen from the hint, and saved after a confirmation.
+  const chooseLocalhost = () => {
+    setTld("localhost");
+    setConfirm(true);
+  };
 
   return (
     <div>
@@ -279,8 +306,19 @@ export function DnsSettingsPage({ backLabel, onBack }: { backLabel: string; onBa
             </IconAlert>
           )}
 
+          {needsRule && !view.canElevate && (
+            <IconAlert icon="user-lock" title={t.noAdminTitle}>
+              <p>{t.noAdminText}</p>
+              <Button size="sm" className="mt-3" disabled={busy !== null} onClick={chooseLocalhost}>
+                <Icon name="globe" />
+                {t.useLocalhost}
+              </Button>
+            </IconAlert>
+          )}
+
           <SettingGroup title={t.status}>
-            {[
+            {(needsRule
+              ? [
               <SettingRow
                 key="rule"
                 icon="shield-halved"
@@ -330,18 +368,13 @@ export function DnsSettingsPage({ backLabel, onBack }: { backLabel: string; onBa
                 description={rule === false ? t.serverNeedsRule : t.serverAnswers(view.tld, view.port)}
               >
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className={cn(view.running && "border-success/40 text-success")}>
-                    {view.running ? c.running : c.stopped}
-                  </Badge>
-                  <Button
-                    size="sm"
-                    variant="outline"
+                  {busy === "server" && <Spinner className="size-3 text-muted-foreground" />}
+                  <Switch
+                    checked={view.running}
                     disabled={busy !== null || (!view.running && rule !== true)}
-                    onClick={toggleServer}
-                  >
-                    {busy === "server" ? <Spinner /> : <Icon name={view.running ? "stop" : "play"} />}
-                    {view.running ? c.stop : c.start}
-                  </Button>
+                    onCheckedChange={toggleServer}
+                    aria-label={t.dnsServer}
+                  />
                 </div>
               </SettingRow>,
               <SettingRow
@@ -382,7 +415,15 @@ export function DnsSettingsPage({ backLabel, onBack }: { backLabel: string; onBa
                   {t.flushCache}
                 </Button>
               </SettingRow>,
-            ]}
+                ]
+              : [
+                  <SettingRow key="rule" icon="shield-halved" title={t.windowsRule} description={t.ruleNotNeeded(view.tld)}>
+                    <Badge variant="outline" className="gap-1.5">
+                      <Icon name="circle-check" className="w-3 text-success" />
+                      {t.notNeeded}
+                    </Badge>
+                  </SettingRow>,
+                ])}
           </SettingGroup>
 
           <SettingGroup
@@ -434,7 +475,8 @@ export function DnsSettingsPage({ backLabel, onBack }: { backLabel: string; onBa
             <AlertDialogDescription asChild>
               <ul className="list-disc space-y-1 pl-5">
                 <li>{t.confirmSites(view?.sites ?? 0, tld, view?.tld)}</li>
-                {rule && <li>{t.confirmRule(tld)}</li>}
+                {rule && tld !== "localhost" && <li>{t.confirmRule(tld)}</li>}
+                {tld === "localhost" && <li>{t.confirmLocalhost}</li>}
                 {!!view?.securedSites && <li>{t.confirmCa(tld)}</li>}
               </ul>
             </AlertDialogDescription>

@@ -167,23 +167,41 @@ pub fn list(cfg: &ZefaroConfig, sup: &Supervisor, dns_rule: Option<bool>) -> Vec
     out.push(node_service(cfg));
 
     let tld = &cfg.tld;
-    let mut dns_service = supervised(
-        sup,
-        dns::SERVICE_ID,
-        format!("DNS (*.{tld})"),
-        "core",
-        dns::PORT,
-        crate::tr!(format!("Answers *.{tld} with 127.0.0.1"), format!("Menjawab *.{tld} dengan 127.0.0.1")),
-        false,
-    );
-    dns_service.setup = (dns_rule == Some(false)).then(|| {
-        crate::tr!(
-            format!("Windows doesn't send *.{tld} lookups to Zefaro yet. The one-time setup needs admin rights."),
-            format!("Windows belum meneruskan pencarian *.{tld} ke Zefaro. Pengaturan satu kali ini perlu hak admin.")
-        )
-    });
-    dns_service.setup_done = dns_rule == Some(true);
-    out.push(dns_service);
+    if !dns::needs_rule(tld) {
+        // `.localhost` needs no Windows rule and no name server. The card stays, with
+        // nothing to start, so the DNS settings (and the way back to `.test`) stay reachable.
+        let mut s = base(
+            dns::SERVICE_ID,
+            format!("DNS (*.{tld})"),
+            "core",
+            None,
+            crate::tr!(
+                format!("Not needed: browsers open *.{tld} names themselves."),
+                format!("Tidak perlu: browser membuka nama *.{tld} sendiri.")
+            ),
+        );
+        s.tool = true;
+        s.status = "running".into();
+        out.push(s);
+    } else {
+        let mut dns_service = supervised(
+            sup,
+            dns::SERVICE_ID,
+            format!("DNS (*.{tld})"),
+            "core",
+            dns::PORT,
+            crate::tr!(format!("Answers *.{tld} with 127.0.0.1"), format!("Menjawab *.{tld} dengan 127.0.0.1")),
+            false,
+        );
+        dns_service.setup = (dns_rule == Some(false)).then(|| {
+            crate::tr!(
+                format!("Windows doesn't send *.{tld} lookups to Zefaro yet. The one-time setup needs admin rights."),
+                format!("Windows belum meneruskan pencarian *.{tld} ke Zefaro. Pengaturan satu kali ini perlu hak admin.")
+            )
+        });
+        dns_service.setup_done = dns_rule == Some(true);
+        out.push(dns_service);
+    }
 
     let mdb = mariadb::Layout::standard();
     let mdb_installed = mariadb::installed(&mdb);
@@ -338,6 +356,12 @@ fn start_inner(cfg: &ZefaroConfig, sup: &Supervisor, id: &str) -> AppResult<()> 
             }
         }
         dns::SERVICE_ID => {
+            if !dns::needs_rule(&cfg.tld) {
+                return Err(AppError::msg(crate::tr!(
+                    "DNS has nothing to do with .localhost: browsers open those names themselves.",
+                    "DNS tidak diperlukan untuk .localhost: browser membuka nama itu sendiri."
+                )));
+            }
             sup.start(dns::spec(&cfg.tld)?)?;
         }
         node::SERVICE_ID => {

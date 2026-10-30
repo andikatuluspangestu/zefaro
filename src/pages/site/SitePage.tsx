@@ -29,6 +29,7 @@ import { ArtisanTab } from "./artisan-tab";
 import { WorkersTab } from "./workers-tab";
 import { LogsTab } from "./logs-tab";
 import { OpenBar } from "./open-bar";
+import { PhpSelect } from "./php-select";
 import type { Overview, SiteInfo } from "./types";
 
 export type SiteTab = "overview" | "data" | "config" | "logs" | "tinker" | "artisan" | "workers";
@@ -295,12 +296,14 @@ export function SitePage({ name, onBack }: { name: string; onBack: () => void })
               localhost:{site.proxy}
             </Badge>
           ) : (
-            info.php && (
-              <Badge variant="secondary">
-                <Icon name="php" variant="brands" className="w-3" />
-                {overview?.php ?? info.php}
-              </Badge>
-            )
+            <PhpSelect
+              site={site}
+              className="h-6 rounded-full px-2.5 text-xs"
+              onChanged={() => {
+                loadInfo();
+                loadOverview();
+              }}
+            />
           )}
           {overview ? (
             <Badge variant="secondary">

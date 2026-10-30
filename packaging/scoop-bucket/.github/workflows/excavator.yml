@@ -1,0 +1,23 @@
+# Checks Zefaro's GitHub releases once a day and updates bucket/zefaro.json
+# (version, URL and hash from SHA256SUMS.txt) when a new one is out.
+name: Excavator
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  excavate:
+    name: Excavate
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Excavate
+        uses: ScoopInstaller/GithubActions@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SKIP_UPDATED: "1"

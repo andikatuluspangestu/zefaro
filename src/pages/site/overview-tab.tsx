@@ -579,7 +579,7 @@ function Tile({
       {note && <div className="mt-0.5 truncate text-xs text-muted-foreground">{note}</div>}
     </>
   );
-  const cls = "group/tile block w-full rounded-xl bg-card p-4 text-left shadow-soft ring-1 ring-foreground/10 transition-shadow";
+  const cls = "group/tile block w-full rounded-xl bg-card p-4 text-left ring-1 ring-foreground/10 transition-shadow";
   return onClick ? (
     <button type="button" onClick={onClick} className={`${cls} cursor-pointer hover:ring-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none`}>
       {body}

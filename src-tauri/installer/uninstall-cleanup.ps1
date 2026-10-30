@@ -3,16 +3,18 @@
 
   Removes what Zefaro added to Windows outside its install folder:
     1. %USERPROFILE%\.config\zefaro\bin from the user PATH (from "Add to PATH")
-    2. the DNS rule that sends *.test lookups to Zefaro (asks for admin only if it exists)
-    3. Zefaro's certificate authority from the user's trusted root certificates,
+    2. the "start with Windows" entry (the Zefaro value under the user's Run key)
+    3. the DNS rule that sends *.test lookups to Zefaro (asks for admin only if it exists)
+    4. Zefaro's certificate authority from the user's trusted root certificates,
        if it was trusted (Windows asks to confirm)
   Sites, settings and databases in %USERPROFILE%\.config\zefaro are kept.
 
-  -PathValueName and -DryRun exist so this can be tested without touching a
-  real setup.
+  -PathValueName, -RunValueName and -DryRun exist so this can be tested without
+  touching a real setup.
 #>
 param(
   [string]$PathValueName = 'Path',
+  [string]$RunValueName = 'Zefaro',
   [switch]$DryRun
 )
 
@@ -33,7 +35,22 @@ if ($key) {
   $key.Close()
 }
 
-# 2. DNS rule. The comment must match RULE_COMMENT in src-tauri/src/engine/dns.rs.
+# 2. "Start with Windows". The value name must match VALUE_NAME in
+#    src-tauri/src/engine/startup.rs.
+$run = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\Microsoft\Windows\CurrentVersion\Run', $true)
+if ($run) {
+  if ($null -ne $run.GetValue($RunValueName, $null)) {
+    if ($DryRun) {
+      Write-Output "Would remove the sign-in entry $RunValueName."
+    } else {
+      $run.DeleteValue($RunValueName)
+      Write-Output 'Removed the start-with-Windows entry.'
+    }
+  }
+  $run.Close()
+}
+
+# 3. DNS rule. The comment must match RULE_COMMENT in src-tauri/src/engine/dns.rs.
 $comment = 'Zefaro: local development sites'
 if (Get-DnsClientNrptRule -ErrorAction SilentlyContinue | Where-Object { $_.Comment -eq $comment }) {
   if ($DryRun) {
@@ -51,7 +68,7 @@ if (Get-DnsClientNrptRule -ErrorAction SilentlyContinue | Where-Object { $_.Comm
   }
 }
 
-# 3. Zefaro's local certificate authority. The name must match CA_NAME and
+# 4. Zefaro's local certificate authority. The name must match CA_NAME and
 #    ORGANIZATION in src-tauri/src/engine/certs.rs.
 $store = New-Object System.Security.Cryptography.X509Certificates.X509Store('Root', 'CurrentUser')
 $store.Open('ReadOnly')

@@ -249,6 +249,12 @@ pub struct AppInfo {
     pub close_to_tray: bool,
     /// Look for a newer Zefaro when it starts.
     pub check_updates: bool,
+    /// Zefaro starts (hidden in the tray) when the user signs in to Windows.
+    pub start_with_windows: bool,
+    /// Services started when Zefaro opens.
+    pub autostart: Vec<String>,
+    /// Whether this Windows account can approve an admin prompt.
+    pub can_elevate: bool,
 }
 
 /// One piece of third-party software Zefaro installs.
@@ -277,6 +283,37 @@ pub struct CaStatus {
     /// Unix seconds.
     pub expires: Option<i64>,
     pub cert_path: String,
+}
+
+/// The backup or restore in progress (or the last one, until dismissed).
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupJob {
+    /// "backup" | "restore"
+    pub kind: String,
+    /// "running" | "done" | "failed" | "cancelled"
+    pub state: String,
+    pub file: String,
+    /// "preparing" | "settings" | "database" | "finishing"
+    pub phase: String,
+    /// The database being dumped or loaded.
+    pub current: Option<String>,
+    /// Databases finished so far, and in all.
+    pub done: usize,
+    pub total: usize,
+    /// Why it failed, or a note about what was left out.
+    pub message: Option<String>,
+    /// Size of the written backup file.
+    pub size: Option<u64>,
+    /// Restore: databases loaded, and databases that already existed and were kept.
+    pub loaded: Vec<String>,
+    pub skipped: Vec<String>,
+    /// Restore: the sites and settings were replaced.
+    pub settings_restored: bool,
+    /// Restore: some restored sites use HTTPS, which needs Zefaro's new authority trusted.
+    pub has_secured_sites: bool,
+    pub started_ms: u64,
+    pub ended_ms: Option<u64>,
 }
 
 /// The export or import in progress (or the last one, until dismissed).

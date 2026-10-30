@@ -1,199 +1,209 @@
-import { useEffect, useState, type ReactNode } from "react";
-import type { AppInfo } from "@/types";
+import { useEffect, useState } from "react";
+import type { AppInfo, CaStatus, Service, UpdateInfo } from "@/types";
 import { toast } from "sonner";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { api } from "@/api";
 import { Icon } from "@/components/icon";
+import { BackupGroup } from "@/components/backup-card";
 import { TrustCaButton, UntrustCaButton, useCaStatus } from "@/components/https-trust";
-import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { SettingGroup, SettingRow } from "@/components/settings-layout";
+import { announceUpdate, openUpdateDialog, updateMessages } from "@/components/update-check";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import { Spinner } from "@/components/ui/spinner";
-import { announceUpdate, updateMessages } from "@/components/update-check";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { THEME_SETTINGS, useTheme, type ThemeSetting } from "@/theme";
 import { LANG_SETTINGS, defineMessages, localeOf, resolveLang, useLang, useT, type LangSetting } from "@/i18n";
+
+// One layout with the other settings pages (DESIGN.md): titled groups of rows,
+// each row an icon, its name, at most one short line on what it does, and its
+// control on the right. Three tabs, so each part fits without scrolling.
 
 /** Each language's name, written in that language. */
 const LANGUAGE_NAMES = { en: "English", id: "Bahasa Indonesia" } as const;
 
+/** "a, b and c". */
+function list(items: string[], and: string) {
+  return items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} ${and} ${items[items.length - 1]}`;
+}
+
+/** The services that can start with Zefaro, in the order they are listed. */
+const STARTABLE = ["nginx", "mariadb", "postgresql", "redis", "mailpit", "dns"];
+
+type SettingsTab = "general" | "updates" | "system";
+const TAB_ICON: Record<SettingsTab, string> = { general: "sliders", updates: "box-archive", system: "lock" };
+/** The tab last open, so coming back to Settings lands where you left. */
+let lastTab: SettingsTab = "general";
+
 const messages = defineMessages({
   en: {
     title: "Settings",
-    description: "Language, appearance, your environment, HTTPS certificates and the app version.",
-    language: {
-      title: "Language",
-      description: "The language of Zefaro's interface, messages and documentation.",
-      label: "Interface language",
-      system: (name: string) => `Same as Windows (${name})`,
-    },
-    appearance: {
+    tabs: { general: "General", updates: "Updates and backup", system: "HTTPS and system" },
+    needsAttention: "Needs attention",
+    interface: {
       title: "Appearance",
-      description: "Light or dark. Zefaro can follow Windows and switch with it.",
-      label: "Theme",
+      language: "Language",
+      system: (name: string) => `Same as Windows (${name})`,
+      theme: "Theme",
       options: { system: "Same as Windows", light: "Light", dark: "Dark" },
     },
-    environment: {
-      title: "Environment",
-      description: "Where Zefaro keeps its config and which domain your sites use.",
-      version: "Version",
-      domain: "Local domain",
-      configFolder: "Config folder",
-      helper: "Privileged helper",
-      installed: "Installed",
-      notInstalled: "Not installed",
-    },
-    https: {
-      description: "Zefaro's local certificate authority signs the certificate for each secured site.",
-      authority: "Certificate authority",
-      notCreated: "Zefaro creates it when you secure your first site",
-      trusted: "Trusted",
-      notTrusted: "Not trusted",
-      canSign: "Can sign for",
-      only: " only",
-      expires: "Expires",
-      thumbprint: "Thumbprint (SHA-1)",
-      showFile: "Show certificate file",
-    },
-    footer: "Zefaro is a free, open-source local PHP environment. It has no AI or cloud features, by design.",
-    window: {
-      title: "Closing the window",
-      description: "What happens when you click the close button.",
-      label: "Keep running in the system tray",
-      on: "Zefaro hides in the system tray and your services keep running. Quit from the tray icon's menu.",
-      off: "Zefaro quits and stops every service.",
+    running: {
+      title: "Startup",
+      windows: "Start with Windows",
+      windowsHint: "Opens hidden in the system tray.",
+      tray: "Keep running when closed",
+      trayOn: "Closing hides Zefaro in the tray.",
+      trayOff: "Closing quits Zefaro and stops every service.",
+      services: "Start services with Zefaro",
+      servicesOn: (names: string[]) => `${list(names, "and")} start when Zefaro opens.`,
+      servicesNone: "Installed services start when Zefaro opens; none is installed yet.",
+      servicesFailed: (e: string) => `Zefaro couldn't read the services: ${e}`,
     },
     updates: {
       title: "Updates",
-      description: "Zefaro reads its latest release from GitHub. It never downloads or installs anything by itself.",
-      label: "Check for updates when Zefaro starts",
-      on: "Zefaro tells you when a new version is out.",
-      off: "Zefaro only checks when you click Check now.",
+      current: (v: string) => `Zefaro ${v}`,
+      latest: "Up to date.",
+      youHave: (v: string) => `You have ${v}.`,
       check: "Check now",
+      download: "Download",
+      onStart: "Check on startup",
+    },
+    https: {
+      title: "HTTPS",
+      authority: "Certificate authority",
+      notCreated: "Created when you secure a site.",
+      trusted: "Trusted: browsers accept your sites.",
+      notTrusted: "Not trusted: browsers warn on secured sites.",
+      signsFor: (tld: string) => (
+        <>
+          Signs for <span className="font-mono">*.{tld}</span> only
+        </>
+      ),
+      validUntil: (date: string) => `Valid until ${date}.`,
+      showFile: "Show file",
+    },
+    computer: {
+      title: "This computer",
+      domain: "Local domain",
+      domainHint: "Change it in DNS settings.",
+      folder: "Config folder",
+      copy: "Copy path",
+      copied: "Path copied",
+      copyFailed: "Couldn't copy to the clipboard",
     },
   },
   id: {
     title: "Pengaturan",
-    description: "Bahasa, tampilan, lingkungan kerja, sertifikat HTTPS, dan versi aplikasi.",
-    language: {
-      title: "Bahasa",
-      description: "Bahasa untuk tampilan, pesan, dan dokumentasi Zefaro.",
-      label: "Bahasa tampilan",
-      system: (name: string) => `Ikuti Windows (${name})`,
-    },
-    appearance: {
+    tabs: { general: "Umum", updates: "Pembaruan dan cadangan", system: "HTTPS dan sistem" },
+    needsAttention: "Perlu perhatian",
+    interface: {
       title: "Tampilan",
-      description: "Terang atau gelap. Zefaro bisa mengikuti Windows dan berganti bersamanya.",
-      label: "Tema",
+      language: "Bahasa",
+      system: (name: string) => `Ikuti Windows (${name})`,
+      theme: "Tema",
       options: { system: "Ikuti Windows", light: "Terang", dark: "Gelap" },
     },
-    environment: {
-      title: "Lingkungan kerja",
-      description: "Tempat Zefaro menyimpan konfigurasinya dan domain yang dipakai situs Anda.",
-      version: "Versi",
-      domain: "Domain lokal",
-      configFolder: "Folder konfigurasi",
-      helper: "Helper berhak admin",
-      installed: "Terpasang",
-      notInstalled: "Tidak terpasang",
-    },
-    https: {
-      description: "Otoritas sertifikat lokal milik Zefaro menandatangani sertifikat setiap situs yang diamankan.",
-      authority: "Otoritas sertifikat",
-      notCreated: "Zefaro membuatnya saat Anda mengamankan situs pertama",
-      trusted: "Dipercaya",
-      notTrusted: "Belum dipercaya",
-      canSign: "Bisa menandatangani",
-      only: " saja",
-      expires: "Berlaku sampai",
-      thumbprint: "Thumbprint (SHA-1)",
-      showFile: "Tampilkan file sertifikat",
-    },
-    footer: "Zefaro adalah lingkungan PHP lokal yang gratis dan open source. Zefaro sengaja tidak punya fitur AI atau cloud.",
-    window: {
-      title: "Menutup jendela",
-      description: "Yang terjadi saat Anda mengklik tombol tutup.",
-      label: "Tetap berjalan di system tray",
-      on: "Zefaro bersembunyi di system tray dan layanan Anda tetap berjalan. Keluar lewat menu ikon tray.",
-      off: "Zefaro keluar dan menghentikan semua layanan.",
+    running: {
+      title: "Memulai",
+      windows: "Mulai bersama Windows",
+      windowsHint: "Terbuka tersembunyi di system tray.",
+      tray: "Tetap berjalan saat ditutup",
+      trayOn: "Menutup jendela menyembunyikan Zefaro di tray.",
+      trayOff: "Menutup jendela mengakhiri Zefaro dan menghentikan semua layanan.",
+      services: "Mulai layanan bersama Zefaro",
+      servicesOn: (names: string[]) => `${list(names, "dan")} dimulai saat Zefaro terbuka.`,
+      servicesNone: "Layanan yang terpasang dimulai saat Zefaro terbuka; belum ada yang terpasang.",
+      servicesFailed: (e: string) => `Zefaro tidak bisa membaca daftar layanan: ${e}`,
     },
     updates: {
       title: "Pembaruan",
-      description: "Zefaro membaca rilis terbarunya dari GitHub. Zefaro tidak pernah mengunduh atau memasang apa pun sendiri.",
-      label: "Periksa pembaruan saat Zefaro dimulai",
-      on: "Zefaro memberi tahu saat versi baru keluar.",
-      off: "Zefaro hanya memeriksa saat Anda mengklik Periksa sekarang.",
+      current: (v: string) => `Zefaro ${v}`,
+      latest: "Sudah versi terbaru.",
+      youHave: (v: string) => `Versi Anda ${v}.`,
       check: "Periksa sekarang",
+      download: "Unduh",
+      onStart: "Periksa saat dimulai",
+    },
+    https: {
+      title: "HTTPS",
+      authority: "Otoritas sertifikat",
+      notCreated: "Dibuat saat Anda mengamankan situs.",
+      trusted: "Dipercaya: browser menerima situs Anda.",
+      notTrusted: "Belum dipercaya: browser memberi peringatan di situs aman.",
+      signsFor: (tld: string) => (
+        <>
+          Hanya menandatangani <span className="font-mono">*.{tld}</span>
+        </>
+      ),
+      validUntil: (date: string) => `Berlaku sampai ${date}.`,
+      showFile: "Tampilkan file",
+    },
+    computer: {
+      title: "Komputer ini",
+      domain: "Domain lokal",
+      domainHint: "Ganti di pengaturan DNS.",
+      folder: "Folder konfigurasi",
+      copy: "Salin jalur",
+      copied: "Jalur disalin",
+      copyFailed: "Gagal menyalin ke clipboard",
     },
   },
 });
 
-function Row({ icon, label, children }: { icon: string; label: string; children: ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 text-sm">
-      <Icon name={icon} className="text-muted-foreground" />
-      <span className="w-40 shrink-0 text-muted-foreground">{label}</span>
-      <span className="min-w-0 flex-1 truncate">{children}</span>
-    </div>
-  );
+/** Stands in for a control while its value is loading. */
+const Pending = () => <Skeleton className="h-8 w-28" />;
+
+/** Stands in for a line of text while loading; a span, so it can sit inside a paragraph. */
+const TextPending = ({ className }: { className: string }) => (
+  <span aria-hidden className={`inline-block h-3 animate-pulse rounded-md bg-muted align-middle ${className}`} />
+);
+
+/** A setting saved as soon as it changes, and put back if saving fails. null while loading. */
+function useSaved(value: boolean | null | undefined, save: (on: boolean) => Promise<unknown>) {
+  const [on, setOn] = useState<boolean | null>(value ?? null);
+  useEffect(() => setOn(value ?? null), [value]);
+  const change = (v: boolean) => {
+    setOn(v);
+    save(v).catch((e) => {
+      setOn(!v);
+      toast.error(String(e));
+    });
+  };
+  return [on, change] as const;
 }
 
-function LanguageCard() {
-  const t = useT(messages).language;
-  const { setting, setSetting } = useLang();
-  const label = (s: LangSetting) => (s === "system" ? t.system(LANGUAGE_NAMES[resolveLang("system")]) : LANGUAGE_NAMES[s]);
+function SavedSwitch({ on, change, label }: { on: boolean | null; change: (v: boolean) => void; label: string }) {
+  return on === null ? <Pending /> : <Switch checked={on} onCheckedChange={change} aria-label={label} />;
+}
+
+function InterfaceGroup() {
+  const t = useT(messages).interface;
+  const lang = useLang();
+  const theme = useTheme();
+  const langLabel = (s: LangSetting) => (s === "system" ? t.system(LANGUAGE_NAMES[resolveLang("system")]) : LANGUAGE_NAMES[s]);
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t.title}</CardTitle>
-        <CardDescription>{t.description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center gap-3 text-sm">
-          <Icon name="language" className="text-muted-foreground" />
-          <span className="w-40 shrink-0 text-muted-foreground">{t.label}</span>
-          <Select value={setting} onValueChange={(v) => setSetting(v as LangSetting)}>
-            <SelectTrigger className="w-64" aria-label={t.label}>
+    <SettingGroup title={t.title}>
+      {[
+        <SettingRow key="lang" icon="language" title={t.language}>
+          <Select value={lang.setting} onValueChange={(v) => lang.setSetting(v as LangSetting)}>
+            <SelectTrigger className="w-56" aria-label={t.language}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {LANG_SETTINGS.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {label(s)}
+                  {langLabel(s)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function AppearanceCard() {
-  const t = useT(messages).appearance;
-  const { setting, setSetting } = useTheme();
-  return (
-    <Card className="mt-4">
-      <CardHeader>
-        <CardTitle>{t.title}</CardTitle>
-        <CardDescription>{t.description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center gap-3 text-sm">
-          <Icon name="circle-half-stroke" className="text-muted-foreground" />
-          <span className="w-40 shrink-0 text-muted-foreground">{t.label}</span>
-          <Select value={setting} onValueChange={(v) => setSetting(v as ThemeSetting)}>
-            <SelectTrigger className="w-64" aria-label={t.label}>
+        </SettingRow>,
+        <SettingRow key="theme" icon="circle-half-stroke" title={t.theme}>
+          <Select value={theme.setting} onValueChange={(v) => theme.setSetting(v as ThemeSetting)}>
+            <SelectTrigger className="w-56" aria-label={t.theme}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -204,64 +214,82 @@ function AppearanceCard() {
               ))}
             </SelectContent>
           </Select>
-        </div>
-      </CardContent>
-    </Card>
+        </SettingRow>,
+      ]}
+    </SettingGroup>
   );
 }
 
-function WindowCard({ info }: { info: AppInfo | null }) {
-  const t = useT(messages).window;
-  const [on, setOn] = useState<boolean | null>(info?.closeToTray ?? null);
-  useEffect(() => setOn(info?.closeToTray ?? null), [info]);
-  const change = (v: boolean) => {
-    setOn(v);
-    api.setCloseToTray(v).catch((e) => {
-      setOn(!v);
+function RunningGroup({ info }: { info: AppInfo | null }) {
+  const t = useT(messages).running;
+  const [picked, setPicked] = useState<string[] | null>(info?.autostart ?? null);
+  const [services, setServices] = useState<Service[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [windows, setWindows] = useSaved(info?.startWithWindows, api.setStartWithWindows);
+  const [tray, setTray] = useSaved(info?.closeToTray, api.setCloseToTray);
+  useEffect(() => setPicked(info?.autostart ?? null), [info]);
+  useEffect(() => {
+    api
+      .listServices()
+      .then(setServices)
+      .catch((e) => setError(String(e)));
+  }, []);
+
+  // One switch for all of them: Zefaro skips the ones that aren't installed, so a
+  // service installed later starts too.
+  const setAll = (on: boolean) => {
+    const before = picked ?? [];
+    const next = on ? STARTABLE : [];
+    setPicked(next);
+    api.setAutostart(next).catch((e) => {
+      setPicked(before);
       toast.error(String(e));
     });
   };
+  const on = picked === null ? null : picked.length > 0;
+  // Tools have nothing to start (DNS under .localhost is one).
+  const starting = services
+    ?.filter((s) => STARTABLE.includes(s.id) && !s.tool && !s.needsInstall && picked?.includes(s.id))
+    .map((s) => s.name);
+  const servicesLine = error
+    ? <span className="text-destructive">{t.servicesFailed(error)}</span>
+    : !on || !starting
+      ? undefined
+      : starting.length
+        ? t.servicesOn(starting)
+        : t.servicesNone;
+
   return (
-    <Card className="mt-4">
-      <CardHeader>
-        <CardTitle>{t.title}</CardTitle>
-        <CardDescription>{t.description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {on === null ? (
-          <Skeleton className="h-6 w-full" />
-        ) : (
-          <div className="flex items-start gap-3 text-sm">
-            <Icon name="window-minimize" variant="regular" className="mt-0.5 text-muted-foreground" />
-            <div className="min-w-0 flex-1">
-              <div>{t.label}</div>
-              <p className="text-xs text-muted-foreground">{on ? t.on : t.off}</p>
-            </div>
-            <Switch checked={on} onCheckedChange={change} aria-label={t.label} />
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <SettingGroup title={t.title}>
+      {[
+        <SettingRow key="windows" icon="power-off" title={t.windows} description={t.windowsHint}>
+          <SavedSwitch on={windows} change={setWindows} label={t.windows} />
+        </SettingRow>,
+        <SettingRow key="tray" icon="window-minimize" title={t.tray} description={tray === false ? t.trayOff : t.trayOn}>
+          <SavedSwitch on={tray} change={setTray} label={t.tray} />
+        </SettingRow>,
+        <SettingRow key="services" icon="server" title={t.services} description={servicesLine}>
+          <SavedSwitch on={on} change={setAll} label={t.services} />
+        </SettingRow>,
+      ]}
+    </SettingGroup>
   );
 }
 
-function UpdatesCard({ info }: { info: AppInfo | null }) {
+function UpdatesGroup({ info, update }: { info: AppInfo | null; update: UpdateInfo | null }) {
   const t = useT(messages).updates;
   const u = useT(updateMessages);
-  const [on, setOn] = useState<boolean | null>(info?.checkUpdates ?? null);
   const [checking, setChecking] = useState(false);
-  useEffect(() => setOn(info?.checkUpdates ?? null), [info]);
-  const change = (v: boolean) => {
-    setOn(v);
-    api.setCheckUpdates(v).catch((e) => {
-      setOn(!v);
-      toast.error(String(e));
-    });
-  };
+  const [onStart, setOnStart] = useSaved(info?.checkUpdates, api.setCheckUpdates);
+  // What the last check found: the startup check, then "Check now".
+  const [found, setFound] = useState<UpdateInfo | null>(update);
+  useEffect(() => setFound(update), [update]);
+
   const checkNow = async () => {
     setChecking(true);
     try {
       const r = await api.checkUpdate();
+      setFound(r);
       if (r.newer) announceUpdate(r, u);
       else toast.success(u.upToDate(r.current));
     } catch (e) {
@@ -270,189 +298,194 @@ function UpdatesCard({ info }: { info: AppInfo | null }) {
       setChecking(false);
     }
   };
+  const page = (url: string) => openUrl(url).catch((e) => toast.error(String(e)));
+  const newer = found?.newer ? found : null;
+  const version = info?.version ?? "";
+
+  const versionRow = newer ? (
+    <SettingRow key="version" icon="circle-arrow-up" title={u.available(newer.latest)} description={t.youHave(newer.current)}>
+      <Button size="sm" variant="ghost" onClick={() => page(newer.url)}>
+        {u.notes}
+      </Button>
+      {newer.canInstall ? (
+        <Button size="sm" onClick={() => openUpdateDialog(newer)}>
+          <Icon name="download" />
+          {u.updateNow}
+        </Button>
+      ) : (
+        <Button size="sm" variant="outline" onClick={() => page(newer.url)}>
+          {t.download}
+        </Button>
+      )}
+    </SettingRow>
+  ) : (
+    <SettingRow
+      key="version"
+      icon="circle-info"
+      title={info ? t.current(version) : <TextPending className="w-24" />}
+      description={found ? t.latest : undefined}
+    >
+      <Button size="sm" variant="outline" onClick={checkNow} disabled={checking}>
+        {checking ? <Spinner className="size-3" /> : <Icon name="magnifying-glass" />}
+        {t.check}
+      </Button>
+    </SettingRow>
+  );
+
   return (
-    <Card className="mt-4">
-      <CardHeader>
-        <CardTitle>{t.title}</CardTitle>
-        <CardDescription>{t.description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {on === null ? (
-          <Skeleton className="h-6 w-full" />
-        ) : (
-          <>
-            <div className="flex items-start gap-3 text-sm">
-              <Icon name="arrows-rotate" className="mt-0.5 text-muted-foreground" />
-              <div className="min-w-0 flex-1">
-                <div>{t.label}</div>
-                <p className="text-xs text-muted-foreground">{on ? t.on : t.off}</p>
-              </div>
-              <Switch checked={on} onCheckedChange={change} aria-label={t.label} />
-            </div>
-            <Button size="sm" variant="outline" className="mt-4" onClick={checkNow} disabled={checking}>
-              {checking ? <Spinner className="size-3" /> : <Icon name="magnifying-glass" />}
-              {t.check}
-            </Button>
-          </>
-        )}
-      </CardContent>
-    </Card>
+    <SettingGroup title={t.title}>
+      {[
+        versionRow,
+        <SettingRow key="onstart" icon="arrows-rotate" title={t.onStart}>
+          <SavedSwitch on={onStart} change={setOnStart} label={t.onStart} />
+        </SettingRow>,
+      ]}
+    </SettingGroup>
   );
 }
 
-function HttpsCard() {
+function HttpsGroup({ ca }: { ca: CaStatus | null }) {
   const t = useT(messages).https;
   const { lang } = useLang();
-  const ca = useCaStatus();
-  const rows: { icon: string; label: string; value: ReactNode }[] = ca
-    ? [
-        {
-          icon: "certificate",
-          label: t.authority,
-          value: !ca.created ? (
-            <span className="text-muted-foreground">{t.notCreated}</span>
-          ) : ca.trusted ? (
-            <Badge variant="secondary">
-              <Icon name="circle-check" className="w-3 text-success" />
-              {t.trusted}
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="border-warning/40 text-warning">
-              {t.notTrusted}
-            </Badge>
-          ),
-        },
-        {
-          icon: "globe",
-          label: t.canSign,
-          value: (
-            <>
-              <span className="font-mono">*.{ca.tld}</span>
-              <span className="text-muted-foreground">{t.only}</span>
-            </>
-          ),
-        },
-        ...(ca.created && ca.expires
-          ? [
-              {
-                icon: "calendar",
-                label: t.expires,
-                value: new Date(ca.expires * 1000).toLocaleDateString(localeOf(lang), { dateStyle: "long" }),
-              },
-            ]
-          : []),
-        ...(ca.thumbprint
-          ? [
-              {
-                icon: "fingerprint",
-                label: t.thumbprint,
-                value: <span className="font-mono text-xs">{ca.thumbprint}</span>,
-              },
-            ]
-          : []),
-      ]
-    : [];
+
+  if (ca === null) {
+    return (
+      <SettingGroup title={t.title}>
+        {[
+          <SettingRow key="loading" icon="certificate" title={t.authority} description={<TextPending className="w-64" />}>
+            <Pending />
+          </SettingRow>,
+        ]}
+      </SettingGroup>
+    );
+  }
 
   return (
-    <Card className="mt-4">
-      <CardHeader>
-        <CardTitle>HTTPS</CardTitle>
-        <CardDescription>{t.description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {ca === null ? (
-          <div className="space-y-3">
-            {[0, 1].map((i) => (
-              <Skeleton key={i} className="h-6 w-full" />
-            ))}
-          </div>
-        ) : (
-          <>
-            {rows.map((r, i) => (
-              <div key={r.label}>
-                {i > 0 && <Separator className="my-3" />}
-                <Row icon={r.icon} label={r.label}>
-                  {r.value}
-                </Row>
-              </div>
-            ))}
-            {ca.created && (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {ca.trusted ? <UntrustCaButton /> : <TrustCaButton status={ca} />}
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => api.caReveal().catch((e) => toast.error(String(e)))}
-                >
+    <SettingGroup title={t.title}>
+      {[
+        <SettingRow
+          key="authority"
+          icon="certificate"
+          title={t.authority}
+          description={!ca.created ? t.notCreated : ca.trusted ? t.trusted : t.notTrusted}
+          tone={ca.created && !ca.trusted ? "warning" : undefined}
+        >
+          {ca.created && (ca.trusted ? <UntrustCaButton /> : <TrustCaButton status={ca} />)}
+        </SettingRow>,
+        ...(ca.created
+          ? [
+              <SettingRow
+                key="scope"
+                icon="globe"
+                title={t.signsFor(ca.tld)}
+                description={
+                  ca.expires
+                    ? t.validUntil(new Date(ca.expires * 1000).toLocaleDateString(localeOf(lang), { dateStyle: "long" }))
+                    : undefined
+                }
+              >
+                <Button size="sm" variant="ghost" onClick={() => api.caReveal().catch((e) => toast.error(String(e)))}>
                   <Icon name="folder-open" variant="regular" />
                   {t.showFile}
                 </Button>
-              </div>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
+              </SettingRow>,
+            ]
+          : []),
+      ]}
+    </SettingGroup>
   );
 }
 
-export function SettingsPage({ info }: { info: AppInfo | null }) {
-  const t = useT(messages);
-  const e = t.environment;
-  const rows: { icon: string; label: string; value: ReactNode }[] = info
-    ? [
-        { icon: "circle-info", label: e.version, value: `${info.name} ${info.version}` },
-        { icon: "globe", label: e.domain, value: <span className="font-mono">*.{info.tld}</span> },
-        {
-          icon: "folder",
-          label: e.configFolder,
-          value: <span className="font-mono text-xs">{info.configDir}</span>,
-        },
-        {
-          icon: "shield-halved",
-          label: e.helper,
-          value: (
-            <Badge variant={info.helperInstalled ? "secondary" : "outline"}>
-              {info.helperInstalled ? e.installed : e.notInstalled}
-            </Badge>
-          ),
-        },
-      ]
-    : [];
+function ComputerGroup({ info }: { info: AppInfo | null }) {
+  const t = useT(messages).computer;
+  const copy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(t.copied);
+    } catch {
+      toast.error(t.copyFailed);
+    }
+  };
+  return (
+    <SettingGroup title={t.title}>
+      {[
+        <SettingRow key="domain" icon="globe" title={t.domain} description={t.domainHint}>
+          {info ? <span className="font-mono text-sm">*.{info.tld}</span> : <Pending />}
+        </SettingRow>,
+        <SettingRow
+          key="folder"
+          icon="folder"
+          title={t.folder}
+          description={
+            info ? (
+              <span className="block truncate font-mono text-xs" title={info.configDir}>
+                {info.configDir}
+              </span>
+            ) : (
+              <TextPending className="w-64" />
+            )
+          }
+        >
+          <Button size="sm" variant="ghost" disabled={!info} onClick={() => info && copy(info.configDir)}>
+            <Icon name="copy" variant="regular" />
+            {t.copy}
+          </Button>
+        </SettingRow>,
+      ]}
+    </SettingGroup>
+  );
+}
 
+export function SettingsPage({ info, update = null }: { info: AppInfo | null; update?: UpdateInfo | null }) {
+  const t = useT(messages);
+  const ca = useCaStatus();
+  const [tab, setTab] = useState<SettingsTab>(lastTab);
+  const choose = (v: string) => {
+    lastTab = v as SettingsTab;
+    setTab(lastTab);
+  };
+  // A tab hides its rows, so it carries a dot when one of them needs you.
+  const attention: Record<SettingsTab, boolean> = {
+    general: false,
+    updates: !!update?.newer,
+    system: !!ca?.created && !ca.trusted,
+  };
   return (
     <>
-      <PageHeader title={t.title} description={t.description} />
-      <LanguageCard />
-      <AppearanceCard />
-      <WindowCard info={info} />
-      <UpdatesCard info={info} />
-      <Card className="mt-4">
-        <CardHeader>
-          <CardTitle>{e.title}</CardTitle>
-          <CardDescription>{e.description}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {info === null ? (
-            <div className="space-y-3">
-              {[0, 1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-6 w-full" />
-              ))}
-            </div>
-          ) : (
-            rows.map((r, i) => (
-              <div key={r.label}>
-                {i > 0 && <Separator className="my-3" />}
-                <Row icon={r.icon} label={r.label}>
-                  {r.value}
-                </Row>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-      <HttpsCard />
-      <p className="mt-4 text-xs text-muted-foreground">{t.footer}</p>
+      <PageHeader title={t.title} />
+      <Tabs value={tab} onValueChange={choose} className="gap-5 pb-2">
+        <TabsList
+          variant="line"
+          className="h-auto w-full max-w-full justify-start gap-1 overflow-x-auto overflow-y-hidden rounded-none border-b p-0 [scrollbar-width:none] group-data-horizontal/tabs:h-auto [&::-webkit-scrollbar]:hidden"
+        >
+          {(Object.keys(t.tabs) as SettingsTab[]).map((key) => (
+            <TabsTrigger
+              key={key}
+              value={key}
+              className="h-10 flex-none rounded-none px-3 text-sm group-data-horizontal/tabs:after:bottom-0 group-data-[variant=line]/tabs-list:after:bg-primary"
+            >
+              <Icon name={TAB_ICON[key]} className="w-3.5 text-xs" />
+              {t.tabs[key]}
+              {attention[key] && (
+                <span className="size-1.5 rounded-full bg-warning" role="img" aria-label={t.needsAttention} />
+              )}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {/* Each panel holds its own controls, so the panel itself is no tab stop. */}
+        <TabsContent value="general" tabIndex={-1} className="space-y-6 outline-none">
+          <InterfaceGroup />
+          <RunningGroup info={info} />
+        </TabsContent>
+        <TabsContent value="updates" tabIndex={-1} className="space-y-6 outline-none">
+          <UpdatesGroup info={info} update={update} />
+          <BackupGroup />
+        </TabsContent>
+        <TabsContent value="system" tabIndex={-1} className="space-y-6 outline-none">
+          <HttpsGroup ca={ca} />
+          <ComputerGroup info={info} />
+        </TabsContent>
+      </Tabs>
     </>
   );
 }

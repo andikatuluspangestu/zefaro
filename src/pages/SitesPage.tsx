@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -47,6 +48,7 @@ import { SitePage } from "@/pages/site/SitePage";
 import { NewSitePage } from "@/pages/site/NewSitePage";
 import { ProjectLinkDialog } from "@/pages/site/project-dialog";
 import { ImportPage } from "@/pages/site/ImportPage";
+import { PhpSelect } from "@/pages/site/php-select";
 import { frameworkInfo } from "@/lib/frameworks";
 
 const messages = defineMessages({
@@ -69,8 +71,7 @@ const messages = defineMessages({
       description: "Make a new Laravel site, or link a project folder and Zefaro serves it at name.test.",
     },
     columns: { site: "Site", path: "Path", actions: "Actions" },
-    secured: "Secured",
-    secure: "Secure",
+    httpsFor: (name: string) => `HTTPS for ${name}`,
     openInBrowser: "Open in browser",
     siteTools: "Open site tools: data, Tinker, Artisan, workers",
     unlinkSite: "Unlink site",
@@ -98,8 +99,7 @@ const messages = defineMessages({
       description: "Buat situs Laravel baru, atau tautkan folder proyek lalu Zefaro menyajikannya di name.test.",
     },
     columns: { site: "Situs", path: "Lokasi", actions: "Tindakan" },
-    secured: "Aman",
-    secure: "Amankan",
+    httpsFor: (name: string) => `HTTPS untuk ${name}`,
     openInBrowser: "Buka di browser",
     siteTools: "Buka alat situs: data, Tinker, Artisan, worker",
     unlinkSite: "Lepas tautan situs",
@@ -170,12 +170,16 @@ export function SitesPage({ intent, onIntentDone }: { intent?: Intent | null; on
     else await linkPlain(dir);
   };
 
+  const [securing, setSecuring] = useState<string | null>(null);
   const toggleSecure = async (s: Site) => {
+    setSecuring(s.name);
     try {
       const r = await api.secureSite(s.name);
       toast.success(r.secured ? t.servesHttps(r.name) : t.servesHttp(r.name));
     } catch (e) {
       toast.error(String(e));
+    } finally {
+      setSecuring(null);
     }
     refresh();
   };
@@ -339,24 +343,16 @@ export function SitesPage({ intent, onIntentDone }: { intent?: Intent | null; on
                         <Icon name="right-left" className="w-3" />:{s.proxy}
                       </Badge>
                     ) : (
-                      <Badge variant="secondary">
-                        <Icon name="php" variant="brands" className="w-3" />
-                        {s.phpVersion}
-                      </Badge>
+                      <PhpSelect site={s} className="h-7 w-24" onChanged={() => refresh()} />
                     )}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      size="sm"
-                      variant={s.secured ? "secondary" : "outline"}
-                      onClick={() => toggleSecure(s)}
-                    >
-                      <Icon
-                        name={s.secured ? "lock" : "lock-open"}
-                        className={s.secured ? "text-success" : undefined}
-                      />
-                      {s.secured ? t.secured : t.secure}
-                    </Button>
+                    <Switch
+                      checked={s.secured}
+                      disabled={securing === s.name}
+                      onCheckedChange={() => toggleSecure(s)}
+                      aria-label={t.httpsFor(s.name)}
+                    />
                   </TableCell>
                   <TableCell className="pr-4">
                     <div className="flex justify-end gap-1">

@@ -32,8 +32,7 @@ The four brand colours, set by the project owner:
   naturally. Tokens are OKLCH values in `src/styles.css` (`:root` and `.dark`).
 - **Primary action:** indigo fill with near-white text (5.0:1 on light, 4.7:1 on dark).
   Used for the main action on a screen, the unread badge and the selected state.
-- **Brand gradient** (coral, violet, indigo at 135 degrees): the logo, the active menu
-  mark, progress bars, the short rule above each page title and the wordmark. It is
+- **Brand gradient** (coral, violet, indigo at 135 degrees): the logo, progress bars, the short rule above each page title and the wordmark. It is
   decoration and never sits behind body text. Utilities: `bg-brand-gradient`,
   `text-brand-gradient`.
 - **Accent text:** on the dark theme indigo is a fill only. Accent text is violet
@@ -55,10 +54,28 @@ The four brand colours, set by the project owner:
 
 - shadcn/ui (`radix-nova`) built-in components, Tailwind v4.
 - Font Awesome 7 icons (solid, regular, brands).
-- Cards with a single hairline ring, a soft shadow (`shadow-soft`) and radius `--radius`
-  (0.75rem); no glow, no glass.
+- Cards are flat: a single hairline ring and radius `--radius` (0.75rem), never a shadow,
+  glow or glass. Shadows belong only to layers that float above the page (menus, popovers,
+  dialogs, the "jump to newest" button in Logs).
+- Anything that is on or off is a switch: settings, a service or worker running, HTTPS for
+  a site, following a log. A switch sits at the end of its row with the row's title as its
+  name. Checkboxes are kept for picking items from a list (projects or databases to
+  import). A first start that downloads something stays a named button
+  ("Install and start"), so a switch never starts a download.
+- Sidebar: white in the light theme, beside the tinted page. Its header (logo, name,
+  version) is as tall as the top bar, so the two borders run as one line. The pages you
+  work in sit at the top (Develop, Tools); Diagnostics, Documentation, About and Settings
+  sit at the bottom, with a card offering a new version above them only when one is out.
+  Items are muted until hovered. The open page gets a light indigo fill and an indigo icon;
+  its text stays the foreground colour, because indigo text on that fill is 4.4:1. No
+  coloured stripe.
 - Settings pages share one layout: back link, title, grouped rows, sticky save
-  bar, generated-file viewer.
+  bar, generated-file viewer. A row has its name and at most one short line on what it
+  does; when the name says it all, no line.
+- The app's Settings page is split into three tabs (General, Updates and backup, HTTPS and
+  system) so each fits the default 1000 x 680 window without scrolling. A tab that hides
+  something needing attention (an update, an untrusted certificate authority) carries a
+  small warning dot.
 
 ## Layout
 

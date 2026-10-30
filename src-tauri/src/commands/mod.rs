@@ -1,5 +1,6 @@
 //! Tauri command handlers, grouped by feature area. Registered in `lib.rs`.
 
+pub mod backup;
 pub mod certs;
 pub mod db;
 pub mod dns;

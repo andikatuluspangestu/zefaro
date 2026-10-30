@@ -4,6 +4,48 @@ All notable changes to Zefaro are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Zefaro uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-10-30
+
+### Added
+
+- **Start with Windows.** Settings has a switch that adds Zefaro to the programs Windows starts when you sign
+  in. It opens hidden in the system tray. Below it, one switch starts your services whenever Zefaro opens
+  (nginx, MariaDB, PostgreSQL, Redis, Mailpit and, with `.test`, DNS). Only services that are already installed
+  start, so opening Zefaro never downloads anything, and one that fails to start shows why on its card. The
+  entry is one value under the user's `Run` key, so no admin rights are needed, and the uninstaller removes it.
+- **Back up and restore.** Settings can save your sites, settings and MariaDB databases into one zip file and
+  load such a file again, on this computer or another. A restore shows what is inside first. Databases load into
+  new databases and one that already exists is skipped, never overwritten; the previous `config.json` is kept
+  next to the restored one. The HTTPS certificate authority is not included: its private key is encrypted for
+  the Windows account and can't be opened anywhere else. PostgreSQL databases are not included yet.
+- **Update now.** When a new version is out, the notification and Settings offer to download its installer from
+  the project's GitHub release, check it against the SHA-256 published with the release (and the one GitHub
+  reports for the file), then stop the services, close and run the installer, which opens Zefaro again. A file
+  that doesn't match is deleted and never run. Nothing is downloaded until you click.
+- **A local domain that needs no admin rights: `.localhost`.** Every other step of Zefaro works without admin
+  rights except the one-time Windows DNS rule. With `.localhost` there is no rule and no DNS server: Chrome, Edge
+  and Firefox send `*.localhost` names to your own computer. Zefaro offers it when the Windows account can't
+  approve admin prompts. Windows 10 itself doesn't resolve these names, so `curl` and sites that call their own
+  address can't find them; the DNS settings and Diagnostics say so.
+- **Change a site's PHP version.** The PHP column of the Sites page and the site's own page have a picker
+  with the installed versions. With nginx running, Zefaro starts the chosen PHP first and only then points
+  the site at it, so the site never answers 502; if that PHP can't start, nothing changes. A version that
+  isn't installed any more shows a warning sign.
+
+### Changed
+
+- **Settings in three tabs.** General, Updates and backup, and HTTPS and system, each short enough for the
+  default window without scrolling, with one short line per setting at most. A tab shows a dot when it holds
+  an update or a certificate authority that isn't trusted yet.
+- **Switches for everything that is on or off:** running a service or a site's worker, HTTPS for a site,
+  following a log, the DNS server, and the backup and restore options. Installing a service the first time is
+  still a button, so a switch never starts a download.
+- **A new sidebar.** The pages you work in at the top, help and Settings at the bottom, and the open page
+  marked by a light indigo fill. When a new version is out, a card above Settings offers it. Cards are flat,
+  without a shadow.
+- The installer's uninstall step also removes the start-with-Windows entry.
+- A failed admin step now says when the account can't approve admin prompts, and points to `.localhost`.
+
 ## [1.1.0] - 2026-10-29
 
 ### Added
@@ -160,6 +202,7 @@ development environment for Windows.
 - Every service listens on `127.0.0.1` only.
 - The installer isn't code-signed yet, so Windows SmartScreen asks you to confirm it.
 
+[1.2.0]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.2.0
 [1.1.0]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.1.0
 [1.0.1]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.0.1
 [1.0.0]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.0.0

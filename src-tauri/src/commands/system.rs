@@ -1,7 +1,7 @@
 //! App/environment info and privileged-helper status.
 
 use crate::engine::{mailpit, mariadb, nginx, phpmyadmin, redis};
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::model::{AppInfo, Component};
 use crate::state::AppState;
 use tauri::State;
@@ -37,9 +37,9 @@ fn components() -> Vec<Component> {
 
 #[tauri::command]
 pub fn app_info(state: State<AppState>) -> AppResult<AppInfo> {
-    let (tld, language, close_to_tray, check_updates) = {
+    let (tld, language, close_to_tray, check_updates, autostart) = {
         let cfg = state.config.lock().unwrap();
-        (cfg.tld.clone(), cfg.language.clone(), cfg.close_to_tray, cfg.check_updates)
+        (cfg.tld.clone(), cfg.language.clone(), cfg.close_to_tray, cfg.check_updates, cfg.autostart.clone())
     };
     Ok(AppInfo {
         name: "Zefaro".into(),
@@ -52,13 +52,76 @@ pub fn app_info(state: State<AppState>) -> AppResult<AppInfo> {
         language,
         close_to_tray,
         check_updates,
+        start_with_windows: crate::engine::startup::is_enabled(),
+        autostart,
+        can_elevate: crate::engine::dns::can_elevate(),
     })
+}
+
+/// Start Zefaro, hidden in the tray, when the user signs in to Windows.
+#[tauri::command]
+pub async fn set_start_with_windows(on: bool) -> AppResult<()> {
+    super::blocking(move || crate::engine::startup::set_enabled(on)).await
+}
+
+/// The services to start when Zefaro opens. Only ids Zefaro can start are kept,
+/// and each once, so a stale or odd list can't do anything else.
+#[tauri::command]
+pub fn set_autostart(state: State<AppState>, ids: Vec<String>) -> AppResult<Vec<String>> {
+    let mut kept: Vec<String> = Vec::new();
+    for id in ids {
+        if crate::engine::startup::STARTABLE.contains(&id.as_str()) && !kept.contains(&id) {
+            kept.push(id);
+        }
+    }
+    let mut cfg = state.config.lock().unwrap();
+    cfg.autostart = kept.clone();
+    crate::config::save(&cfg)?;
+    Ok(kept)
 }
 
 /// Look for a newer Zefaro on its GitHub releases page.
 #[tauri::command]
 pub async fn check_update() -> AppResult<crate::engine::update::UpdateInfo> {
     super::blocking(crate::engine::update::check).await
+}
+
+/// Stop what Zefaro runs, in the order it uses on exit: serving and site workers
+/// first, databases last so they flush cleanly.
+pub fn stop_everything(state: &AppState) {
+    use crate::engine::{laravel, postgres};
+    state.tinker.end_all();
+    state.supervisor.stop_all(|id| match id {
+        nginx::SERVICE_ID => 0,
+        id if id.starts_with(laravel::WORKER_PREFIX) => 0,
+        mariadb::SERVICE_ID | redis::SERVICE_ID | postgres::SERVICE_ID => 2,
+        _ => 1,
+    });
+}
+
+/// Download the newest installer, check it against its published checksum,
+/// stop the services and run it. Zefaro then closes; the installer replaces it
+/// (keeping sites, settings, databases, the DNS rule and the HTTPS authority)
+/// and opens it again. Only ever called after the user said yes.
+#[tauri::command]
+pub async fn update_install(app: tauri::AppHandle, state: State<'_, AppState>) -> AppResult<()> {
+    let installer = super::blocking(crate::engine::update::download_installer).await?;
+    // Services stop cleanly first, so the installer doesn't have to kill them.
+    stop_everything(&state);
+    crate::engine::update::launch(&installer).map_err(|e| {
+        AppError::msg(crate::tr!(
+            format!("{e} Zefaro's services were stopped; start them again on the Services page."),
+            format!("{e} Layanan Zefaro sudah dihentikan; mulai lagi di halaman Layanan.")
+        ))
+    })?;
+    app.exit(0);
+    Ok(())
+}
+
+/// How far the update has got, while `update_install` runs.
+#[tauri::command]
+pub fn update_progress() -> Option<crate::engine::update::UpdateProgress> {
+    crate::engine::update::progress()
 }
 
 /// Whether Zefaro looks for a newer version when it starts.

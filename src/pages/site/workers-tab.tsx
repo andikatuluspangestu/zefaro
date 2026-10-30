@@ -40,6 +40,7 @@ const messages = defineMessages({
     command: "Command",
     commandHint: "Starts with php to use this site's PHP. Anything else runs in a Windows command prompt in the site's folder.",
     autostart: "Start when Zefaro starts",
+    run: "Run",
     create: "Add worker",
     save: "Save",
     cancel: "Cancel",
@@ -73,6 +74,7 @@ const messages = defineMessages({
     command: "Perintah",
     commandHint: "Diawali php untuk memakai PHP situs ini. Selain itu berjalan di command prompt Windows di folder situs.",
     autostart: "Mulai saat Zefaro mulai",
+    run: "Jalankan",
     create: "Tambah worker",
     save: "Simpan",
     cancel: "Batal",
@@ -225,10 +227,10 @@ export function WorkersTab({ site, overview }: { site: string; overview: Overvie
                       />
                       {t.autostart}
                     </label>
-                    <Button size="sm" variant={running ? "outline" : "default"} disabled={busy === w.id} onClick={() => toggle(w)}>
-                      {busy === w.id ? <Spinner className="size-3" /> : <Icon name={running ? "stop" : "play"} className="w-3" />}
-                      {running ? c.stop : c.start}
-                    </Button>
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Switch checked={running} disabled={busy === w.id} onCheckedChange={() => toggle(w)} aria-label={t.run} />
+                      {busy === w.id ? <Spinner className="size-3" /> : t.run}
+                    </label>
                     <Button size="icon-sm" variant="ghost" title={logOf === w.logId ? t.hideLog : t.log} aria-label={logOf === w.logId ? t.hideLog : t.log} onClick={() => setLogOf(logOf === w.logId ? null : w.logId)}>
                       <Icon name="file-lines" />
                     </Button>

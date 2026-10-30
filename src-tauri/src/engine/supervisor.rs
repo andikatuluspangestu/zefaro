@@ -157,6 +157,14 @@ impl Supervisor {
         Ok(pid)
     }
 
+    /// Remember why a service couldn't be started, so its card shows it: a start
+    /// that fails before anything runs (a port in use) leaves no other trace.
+    pub fn record_failure(&self, id: &str, reason: String) {
+        if !self.procs.lock().unwrap().contains_key(id) {
+            self.failures.lock().unwrap().insert(id.to_owned(), reason);
+        }
+    }
+
     /// Stop a service: graceful command first (if any), then kill its job.
     pub fn stop(&self, id: &str) -> AppResult<()> {
         let gate = self.gates.get(id);

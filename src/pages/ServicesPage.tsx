@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { defineMessages, localeOf, useLang, useT } from "@/i18n";
@@ -57,7 +58,7 @@ const messages = defineMessages({
       setup: "Setting up",
     },
     open: "Open",
-    stopName: (name: string) => `Stop ${name}`,
+    runName: (name: string) => `Run ${name}`,
     installAndStart: "Install and start",
     settingsFor: (name: string) => `${name} settings`,
     changePort: "Change port",
@@ -101,7 +102,7 @@ const messages = defineMessages({
       setup: "Menyiapkan",
     },
     open: "Buka",
-    stopName: (name: string) => `Hentikan ${name}`,
+    runName: (name: string) => `Jalankan ${name}`,
     installAndStart: "Instal dan mulai",
     settingsFor: (name: string) => `Pengaturan ${name}`,
     changePort: "Ganti port",
@@ -197,7 +198,15 @@ function ServiceCard({
   const meta = s.tool ? null : [where, s.pid ? `PID ${s.pid}` : null].filter(Boolean).join(" · ");
 
   let action;
-  if (s.tool) {
+  if (s.tool && s.id === "dns") {
+    // `.localhost` has nothing to start: only the settings, where the domain can change.
+    action = (
+      <Button size="sm" variant="outline" className="w-full" onClick={onSettings}>
+        <Icon name="globe" />
+        {t.dnsSettings}
+      </Button>
+    );
+  } else if (s.tool) {
     // Nothing to start or stop: manage versions instead.
     action = (
       <Button size="sm" variant={s.needsInstall ? "default" : "outline"} className="w-full" onClick={onSettings}>
@@ -221,39 +230,49 @@ function ServiceCard({
         </Button>
       </div>
     );
-  } else if (busy || s.status === "starting") {
+  } else if (s.needsInstall && !busy) {
+    // The first start downloads the service, so it stays a named button rather than a switch.
     action = (
-      <Button size="sm" variant="outline" className="w-full" disabled>
-        <Spinner />
-        {busy && on ? t.stopping : s.needsInstall ? t.installing : t.starting}
-      </Button>
-    );
-  } else if (on && s.url) {
-    const url = s.url;
-    action = (
-      <div className="flex w-full gap-2">
-        <Button size="sm" className="flex-1" onClick={() => openUrl(url)}>
-          <Icon name="arrow-up-right-from-square" />
-          {t.open}
-        </Button>
-        <Button size="sm" variant="outline" onClick={onStop} aria-label={t.stopName(s.name)}>
-          <Icon name="stop" />
-        </Button>
-      </div>
-    );
-  } else if (on) {
-    action = (
-      <Button size="sm" variant="outline" className="w-full" onClick={onStop}>
-        <Icon name="stop" />
-        {c.stop}
+      <Button size="sm" className="w-full" onClick={onStart}>
+        <Icon name={s.status === "error" ? "rotate" : "download"} />
+        {s.status === "error" ? c.tryAgain : t.installAndStart}
       </Button>
     );
   } else {
+    const pending = busy || s.status === "starting";
+    let state;
+    if (pending) {
+      state = (
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Spinner className="size-3" />
+          {busy && on ? t.stopping : t.starting}
+        </span>
+      );
+    } else if (on && s.url) {
+      const url = s.url;
+      state = (
+        <Button size="sm" variant="outline" onClick={() => openUrl(url)}>
+          <Icon name="arrow-up-right-from-square" />
+          {t.open}
+        </Button>
+      );
+    } else {
+      state = (
+        <span className={cn("text-xs", s.status === "error" ? "text-destructive" : "text-muted-foreground")}>
+          {on ? c.running : s.status === "error" ? c.failed : c.stopped}
+        </span>
+      );
+    }
     action = (
-      <Button size="sm" className="w-full" onClick={onStart}>
-        <Icon name={s.status === "error" ? "rotate" : s.needsInstall ? "download" : "play"} />
-        {s.status === "error" ? c.tryAgain : s.needsInstall ? t.installAndStart : c.start}
-      </Button>
+      <div className="flex min-h-8 w-full items-center justify-between gap-2">
+        {state}
+        <Switch
+          checked={on}
+          disabled={pending}
+          onCheckedChange={(v) => (v ? onStart() : onStop())}
+          aria-label={t.runName(s.name)}
+        />
+      </div>
     );
   }
 

@@ -9,6 +9,7 @@
 pub mod applog;
 pub mod apps;
 pub mod archive;
+pub mod backup;
 pub mod cabundle;
 pub mod certs;
 pub mod dbio;
@@ -35,6 +36,7 @@ pub mod progress;
 pub mod redis;
 pub mod shims;
 pub mod starter;
+pub mod startup;
 pub mod supervisor;
 pub mod tools;
 pub mod update;

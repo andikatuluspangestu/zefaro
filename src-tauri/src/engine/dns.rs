@@ -240,10 +240,52 @@ pub fn install_rule(tld: &str) -> AppResult<()> {
     Ok(())
 }
 
-/// Local domains Zefaro offers. Both are reserved and never exist on the public
-/// internet, so no real website can be shadowed: `.test` by RFC 2606, and
-/// `.internal` by ICANN for private use (2024).
-pub const ALLOWED_TLDS: &[&str] = &["test", "internal"];
+/// Local domains Zefaro offers. All are reserved and never exist on the public
+/// internet, so no real website can be shadowed: `.test` by RFC 2606,
+/// `.internal` by ICANN for private use (2024), and `.localhost` by RFC 6761.
+pub const ALLOWED_TLDS: &[&str] = &["test", "internal", "localhost"];
+
+/// The one local domain that needs no Windows rule, and so no admin rights.
+pub const LOCALHOST: &str = "localhost";
+
+/// Does this domain need the one-time Windows DNS rule (an admin prompt)?
+/// `.localhost` doesn't: Chrome, Edge and Firefox send every `*.localhost`
+/// name to this computer themselves. Windows 10 itself doesn't resolve them,
+/// so programs other than browsers (curl, a site calling its own address)
+/// can't find those names.
+pub fn needs_rule(tld: &str) -> bool {
+    tld != LOCALHOST
+}
+
+/// Does this `whoami /groups` listing include the Administrators group
+/// (S-1-5-32-544)? An administrator's everyday token lists it as "deny only",
+/// which still means the account can approve an admin prompt; a standard
+/// account doesn't have it at all.
+fn lists_admins(groups: &str) -> bool {
+    groups.contains("S-1-5-32-544")
+}
+
+/// Can this Windows account approve an admin (UAC) prompt? A standard account
+/// can't, and the one-time DNS rule then can't be added. When it can't be
+/// told, the answer is yes, so nobody is steered away from `.test` by mistake.
+pub fn can_elevate() -> bool {
+    static CAN: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *CAN.get_or_init(|| {
+        process::run(process::command("whoami").arg("/groups")).map(|out| lists_admins(&out)).unwrap_or(true)
+    })
+}
+
+/// What to add to a failed admin step when the account can't give admin rights.
+fn no_admin_hint() -> String {
+    if can_elevate() {
+        return String::new();
+    }
+    let hint = crate::tr!(
+        " This Windows account can't approve admin prompts. Switch the local domain to .localhost in DNS settings: it needs no admin rights.",
+        " Akun Windows ini tidak bisa menyetujui permintaan admin. Ganti domain lokal ke .localhost di pengaturan DNS: tidak butuh hak admin."
+    );
+    hint.to_owned()
+}
 
 /// Point Zefaro's rule at another TLD: drop the rule Zefaro added and add one for
 /// `tld`, in a single UAC prompt.
@@ -316,14 +358,14 @@ fn run_elevated(script: &str) -> AppResult<()> {
     match out.status.code() {
         Some(0) => Ok(()),
         Some(1223) => Err(AppError::msg(crate::tr!(
-            "You declined the Windows admin prompt, so nothing changed.",
-            "Anda menolak permintaan izin admin Windows, jadi tidak ada yang berubah."
+            format!("You declined the Windows admin prompt, so nothing changed.{}", no_admin_hint()),
+            format!("Anda menolak permintaan izin admin Windows, jadi tidak ada yang berubah.{}", no_admin_hint())
         ))),
         _ => {
             let tail = process::tail(&out);
             Err(AppError::msg(crate::tr!(
-                format!("The admin step failed: {tail}"),
-                format!("Langkah admin gagal: {tail}")
+                format!("The admin step failed: {tail}{}", no_admin_hint()),
+                format!("Langkah admin gagal: {tail}{}", no_admin_hint())
             )))
         }
     }
@@ -351,6 +393,23 @@ mod tests {
     use super::*;
 
     const TYPE_AAAA: u16 = 28;
+
+    #[test]
+    fn only_localhost_skips_the_windows_rule() {
+        assert!(needs_rule("test") && needs_rule("internal"));
+        assert!(!needs_rule("localhost"));
+        assert!(ALLOWED_TLDS.contains(&"localhost"));
+    }
+
+    #[test]
+    fn tells_administrators_from_standard_accounts() {
+        // An administrator's filtered token still lists the group, "deny only".
+        let admin = r"BUILTIN\Administrators Alias S-1-5-32-544 Group used for deny only";
+        let standard = r"BUILTIN\Users Alias S-1-5-32-545 Mandatory group, Enabled by default";
+        assert!(lists_admins(admin));
+        assert!(!lists_admins(standard));
+        assert!(!lists_admins(""));
+    }
 
     fn rcode(resp: &[u8]) -> u16 {
         u16::from_be_bytes([resp[2], resp[3]]) & 0x0F

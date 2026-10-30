@@ -45,10 +45,11 @@ downloads the Microsoft Edge WebView2 Runtime if it's missing. Zefaro uses ports
 443, so quit XAMPP, Laragon or IIS first, or choose other ports in
 nginx's settings.
 
-To update, run a newer installer over the old one. Your sites, settings and databases
-stay where they are. To uninstall, use **Settings, Apps, Installed apps** in Windows.
-The uninstaller removes Zefaro's PATH entry, the DNS rule and the trusted certificate
-authority, and keeps `%USERPROFILE%\.config\zefaro` until you delete that folder.
+To update, click **Update now** when Zefaro says a new version is out (it checks the installer's
+SHA-256 before running it), or run a newer installer over the old one. Your sites, settings and
+databases stay where they are. To uninstall, use **Settings, Apps, Installed apps** in Windows.
+The uninstaller removes Zefaro's PATH entry, the start-with-Windows entry, the DNS rule and the
+trusted certificate authority, and keeps `%USERPROFILE%\.config\zefaro` until you delete that folder.
 
 ## What Zefaro does
 
@@ -153,9 +154,9 @@ machine's paths, which include your Windows user name, out of `zefaro.exe` (see
 - shows `src-tauri/installer/sidebar.bmp` (164×314) and `header.bmp` (150×57), drawn from
   the app icon;
 - runs `src-tauri/installer/hooks.nsh` on uninstall, which calls `uninstall-cleanup.ps1`
-  (shipped next to `Zefaro.exe`) to remove Zefaro's PATH entry, the `.test` DNS rule and the
-  trusted certificate authority. It skips this during updates. To test the script
-  safely, pass `-PathValueName <dummy value> -DryRun`;
+  (shipped next to `Zefaro.exe`) to remove Zefaro's PATH entry, the start-with-Windows entry, the
+  `.test` DNS rule and the trusted certificate authority. It skips this during updates. To test the
+  script safely, pass `-PathValueName <dummy value> -RunValueName <dummy value> -DryRun`;
 - uses thin LTO in the release profile, because fat LTO with one codegen unit ran out of
   memory on 8 GB machines;
 - isn't code-signed, so SmartScreen warns on first run. Once you have a certificate, sign

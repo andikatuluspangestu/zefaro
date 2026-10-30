@@ -145,6 +145,8 @@ pub struct ZefaroConfig {
     pub check_updates: bool,
     /// Send `dump()` and `dd()` output from sites to Zefaro's Dumps page.
     pub dumps: bool,
+    /// Services started when Zefaro opens (ids such as "mariadb"); only ones already installed.
+    pub autostart: Vec<String>,
 }
 
 impl ZefaroConfig {
@@ -183,6 +185,7 @@ impl Default for ZefaroConfig {
             new_site_parent: String::new(),
             check_updates: true,
             dumps: false,
+            autostart: Vec::new(),
         }
     }
 }

@@ -4,7 +4,7 @@ use crate::config::{self, ZefaroConfig};
 use crate::engine::{laravel, node, php::Release};
 use crate::engine::supervisor::Supervisor;
 use std::collections::HashSet;
-use crate::model::DbJob;
+use crate::model::{BackupJob, DbJob};
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -26,6 +26,10 @@ pub struct AppState {
     pub db_job: Arc<Mutex<Option<DbJob>>>,
     /// Set to stop the running export/import at its next chunk.
     pub db_cancel: Arc<AtomicBool>,
+    /// The backup or restore in progress, or the last one.
+    pub backup_job: Arc<Mutex<Option<BackupJob>>>,
+    /// Set to stop the running backup or restore at its next step.
+    pub backup_cancel: Arc<AtomicBool>,
     /// Composer/Laravel installs share Zefaro's COMPOSER_HOME, so run one at a time.
     pub tool_busy: Mutex<bool>,
     /// Whether Windows' NRPT rule sends `.test` lookups to Zefaro's DNS.
@@ -53,6 +57,8 @@ impl AppState {
             node_busy: Mutex::new(HashSet::new()),
             db_job: Arc::new(Mutex::new(None)),
             db_cancel: Arc::new(AtomicBool::new(false)),
+            backup_job: Arc::new(Mutex::new(None)),
+            backup_cancel: Arc::new(AtomicBool::new(false)),
             tool_busy: Mutex::new(false),
             dns_rule: Arc::new(Mutex::new(None)),
             tinker: laravel::Sessions::default(),

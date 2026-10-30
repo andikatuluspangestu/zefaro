@@ -14,6 +14,10 @@ use tauri::State;
 #[tauri::command]
 pub async fn dns_setup(state: State<'_, AppState>) -> AppResult<bool> {
     let cfg = state.config.lock().unwrap().clone();
+    // `.localhost` needs no rule: browsers resolve it themselves.
+    if !dns::needs_rule(&cfg.tld) {
+        return Ok(true);
+    }
     let sup = state.supervisor.clone();
     let tld = cfg.tld.clone();
     blocking(move || dns::install_rule(&tld)).await?;
@@ -44,8 +48,13 @@ pub struct DnsSettingsView {
     pub tlds: Vec<String>,
     pub port: u16,
     pub running: bool,
-    /// Windows sends `.tld` lookups to Zefaro; None while the startup check runs.
+    /// Windows sends `.tld` lookups to Zefaro; None while the startup check runs,
+    /// and for `.localhost`, which has no rule.
     pub rule_installed: Option<bool>,
+    /// The domain needs the Windows rule (an admin prompt): false for `.localhost`.
+    pub needs_rule: bool,
+    /// This Windows account can approve an admin prompt.
+    pub can_elevate: bool,
     pub sites: usize,
     pub secured_sites: usize,
 }
@@ -68,7 +77,9 @@ fn view(state: &AppState) -> DnsSettingsView {
         tlds: dns::ALLOWED_TLDS.iter().map(|t| t.to_string()).collect(),
         port: dns::PORT,
         running: state.supervisor.is_running(dns::SERVICE_ID),
-        rule_installed: *state.dns_rule.lock().unwrap(),
+        rule_installed: if dns::needs_rule(&cfg.tld) { *state.dns_rule.lock().unwrap() } else { None },
+        needs_rule: dns::needs_rule(&cfg.tld),
+        can_elevate: dns::can_elevate(),
         sites: cfg.sites.len(),
         secured_sites: cfg.sites.iter().filter(|s| s.secured).count(),
         tld: cfg.tld,
@@ -114,7 +125,9 @@ pub async fn dns_set_tld(state: State<'_, AppState>, tld: String) -> AppResult<D
     if old.tld == tld {
         return Ok(view(&state));
     }
-    let had_rule = *state.dns_rule.lock().unwrap() == Some(true);
+    // Moving to `.localhost` leaves the old rule alone (removing it asks for admin
+    // rights, which this switch is meant to avoid); the Remove button still works.
+    let had_rule = *state.dns_rule.lock().unwrap() == Some(true) && dns::needs_rule(&tld);
     if had_rule {
         // First, so declining the UAC prompt changes nothing.
         let t = tld.clone();
@@ -133,7 +146,12 @@ pub async fn dns_set_tld(state: State<'_, AppState>, tld: String) -> AppResult<D
 
     let sup = state.supervisor.clone();
     blocking(move || {
-        if sup.is_running(dns::SERVICE_ID) {
+        if !dns::needs_rule(&new.tld) {
+            // Nothing answers `.localhost` queries, so the name server isn't needed.
+            if sup.is_running(dns::SERVICE_ID) {
+                sup.stop(dns::SERVICE_ID)?;
+            }
+        } else if sup.is_running(dns::SERVICE_ID) {
             sup.restart(dns::spec(&new.tld)?)?;
         }
         nginx::sync(&new, &sup)

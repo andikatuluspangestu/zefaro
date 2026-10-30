@@ -67,7 +67,8 @@ export function SettingRow({
 }: {
   icon: string;
   title: ReactNode;
-  description: ReactNode;
+  /** Left out when the title says it all. */
+  description?: ReactNode;
   children: ReactNode;
   /** Shown under the row, e.g. a live port check. */
   below?: ReactNode;
@@ -90,7 +91,8 @@ export function SettingRow({
       </ItemMedia>
       <ItemContent>
         <ItemTitle>{title}</ItemTitle>
-        <ItemDescription>{description}</ItemDescription>
+        {/* Never cut off: a clipped explanation hides what the setting does. */}
+        {description && <ItemDescription className="line-clamp-none">{description}</ItemDescription>}
       </ItemContent>
       <ItemActions>{children}</ItemActions>
       {below && <div className="basis-full pl-11">{below}</div>}

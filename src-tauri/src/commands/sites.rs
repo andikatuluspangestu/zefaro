@@ -1,7 +1,7 @@
 //! Site management: list, link/unlink, toggle HTTPS, change PHP version.
 //! Every change regenerates nginx's site configs (and reloads it if running).
 
-use crate::engine::{certs, framework, laravel, nginx};
+use crate::engine::{certs, framework, laravel, nginx, php};
 use crate::error::{AppError, AppResult};
 use crate::model::Site;
 use crate::state::AppState;
@@ -147,14 +147,54 @@ pub(crate) fn toggle_secure(state: &AppState, name: &str) -> AppResult<Site> {
     Ok(out)
 }
 
+/// Why `version` can't serve `site`, if it can't: a site behind a dev server
+/// has no PHP, and a line that isn't installed would fall back to the default.
+fn php_choice_error(site: &Site, version: &str, installed: impl Fn(&str) -> bool) -> Option<String> {
+    let is_line = matches!(version.split_once('.'), Some((a, b)) if !a.is_empty() && !b.is_empty()
+        && a.chars().all(|c| c.is_ascii_digit()) && b.chars().all(|c| c.is_ascii_digit()));
+    if site.proxy.is_some() {
+        let msg = crate::tr!(
+            "This site is served by its own dev server, not PHP.",
+            "Situs ini dilayani dev server-nya sendiri, bukan PHP."
+        );
+        Some(msg.to_string())
+    } else if !is_line || !installed(version) {
+        Some(crate::tr!(
+            format!("PHP {version} isn't installed. Install it on the PHP page first."),
+            format!("PHP {version} belum terpasang. Pasang dulu di halaman PHP.")
+        ))
+    } else {
+        None
+    }
+}
+
+fn no_site() -> AppError {
+    AppError::msg(crate::tr!("That site no longer exists.", "Situs itu sudah tidak ada."))
+}
+
 #[tauri::command]
 pub fn set_site_php(name: String, version: String, state: State<AppState>) -> AppResult<Site> {
+    let base_port = {
+        let cfg = state.config.lock().unwrap();
+        let site = cfg.sites.iter().find(|s| s.name == name).ok_or_else(no_site)?;
+        if let Some(msg) = php_choice_error(site, &version, php::is_installed) {
+            return Err(AppError::msg(msg));
+        }
+        cfg.php.base_port
+    };
+    // With nginx running, the new line's php-cgi must answer before nginx points
+    // the site at it, or the site answers 502. If it can't start, nothing changes.
+    // The config isn't held meanwhile: starting can take a few seconds.
+    if state.supervisor.is_running(nginx::SERVICE_ID) {
+        if let Err(e) = state.supervisor.start(php::cgi_spec(&version, php::port_for(base_port, &version))) {
+            return Err(AppError::msg(crate::tr!(
+                format!("PHP {version} didn't start, so the site stays as it was: {e}"),
+                format!("PHP {version} gagal dimulai, jadi situs tetap seperti semula: {e}")
+            )));
+        }
+    }
     let mut cfg = state.config.lock().unwrap();
-    let site = cfg
-        .sites
-        .iter_mut()
-        .find(|s| s.name == name)
-        .ok_or_else(|| AppError::msg(crate::tr!("That site no longer exists.", "Situs itu sudah tidak ada.")))?;
+    let site = cfg.sites.iter_mut().find(|s| s.name == name).ok_or_else(no_site)?;
     site.php_version = version;
     let out = site.clone();
     let snapshot = cfg.clone();
@@ -166,7 +206,31 @@ pub fn set_site_php(name: String, version: String, state: State<AppState>) -> Ap
 
 #[cfg(test)]
 mod tests {
-    use super::slug;
+    use super::{php_choice_error, slug};
+    use crate::model::Site;
+
+    fn site(proxy: Option<u16>) -> Site {
+        Site {
+            name: "blog".into(),
+            path: r"C:\Projects\blog".into(),
+            url: "http://blog.test".into(),
+            secured: false,
+            php_version: "8.3".into(),
+            kind: "linked".into(),
+            framework: None,
+            proxy,
+        }
+    }
+
+    #[test]
+    fn only_installed_php_lines_can_serve_a_php_site() {
+        let installed = |v: &str| v == "8.2" || v == "8.4";
+        assert_eq!(php_choice_error(&site(None), "8.4", installed), None);
+        assert!(php_choice_error(&site(None), "8.5", installed).is_some(), "not installed");
+        assert!(php_choice_error(&site(None), "../8.4", installed).is_some(), "not a PHP line");
+        assert!(php_choice_error(&site(None), "8", installed).is_some(), "not a PHP line");
+        assert!(php_choice_error(&site(Some(5173)), "8.4", installed).is_some(), "dev server site");
+    }
 
     #[test]
     fn slugs_are_valid_host_labels() {

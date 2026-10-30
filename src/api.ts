@@ -6,6 +6,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type {
   AppInfo,
+  BackupContents,
+  BackupJob,
   DumpEntry,
   DumpsStatus,
   DoctorCheck,
@@ -15,6 +17,7 @@ import type {
   ProjectPreview,
   ProjectReport,
   UpdateInfo,
+  UpdateProgress,
   CaStatus,
   DbJob,
   DbOverview,
@@ -144,6 +147,8 @@ export const api = {
 
   // php
   phpVersions: () => invoke<PhpVersionsResponse>("php_versions"),
+  /** Installed PHP lines, newest first, e.g. ["8.4", "8.2"]. No network. */
+  phpLines: () => invoke<string[]>("php_lines"),
   phpInstall: (version: string) => mutate(invoke<void>("php_install", { version })),
   phpActivate: (version: string) => mutate(invoke<void>("php_activate", { version })),
   /** Settings of one installed line (the active one when omitted). */
@@ -268,7 +273,18 @@ export const api = {
   configPending: () => invoke<boolean>("config_pending"),
   setCloseToTray: (on: boolean) => invoke<void>("set_close_to_tray", { on }),
   /** Ask GitHub whether a newer Zefaro exists. Nothing is downloaded. */
+  backupInspect: (path: string) => invoke<BackupContents>("backup_inspect", { path }),
+  backupStart: (path: string, databases: boolean) => invoke<void>("backup_start", { path, databases }),
+  restoreStart: (path: string, settings: boolean, databases: boolean) =>
+    invoke<void>("restore_start", { path, settings, databases }),
+  backupJob: () => invoke<BackupJob | null>("backup_job"),
+  backupCancel: () => invoke<void>("backup_cancel"),
+  backupDismiss: () => invoke<void>("backup_dismiss"),
+  setStartWithWindows: (on: boolean) => invoke<void>("set_start_with_windows", { on }),
+  setAutostart: (ids: string[]) => invoke<string[]>("set_autostart", { ids }),
   checkUpdate: () => invoke<UpdateInfo>("check_update"),
+  updateInstall: () => invoke<void>("update_install"),
+  updateProgress: () => invoke<UpdateProgress | null>("update_progress"),
   setCheckUpdates: (on: boolean) => invoke<void>("set_check_updates", { on }),
   /** Answer to the first-close question: remember it, then hide or quit. */
   closeWindow: (keepRunning: boolean) => invoke<void>("close_window", { keepRunning }),

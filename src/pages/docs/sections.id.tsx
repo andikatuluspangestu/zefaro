@@ -49,7 +49,7 @@ const FAQ: [string, ReactNode][] = [
     <>Risikonya kecil. Otoritas sertifikat Zefaro hanya bisa menandatangani nama <C>.test</C>, dan
     browser menegakkan batasan itu, jadi tidak ada yang bisa memakainya untuk menyamar sebagai situs
     web sungguhan. Kuncinya dienkripsi untuk akun Windows Anda, dan Anda bisa menghapusnya di
-    Pengaturan, bagian HTTPS.</>,
+    Pengaturan, tab <em>HTTPS dan sistem</em>.</>,
   ],
   [
     "Di mana database saya disimpan?",
@@ -112,8 +112,7 @@ export const SECTIONS_ID: DocSection[] = [
         <H3>Terang dan gelap</H3>
         <P>
           Zefaro mengikuti tema Windows secara bawaan dan berganti saat Windows berganti. Untuk
-          memilih sendiri, buka <em>Pengaturan</em>, lalu <em>Tampilan</em>, dan pilih terang atau
-          gelap.
+          memilih sendiri, buka <em>Pengaturan</em>; <em>Tema</em> ada di tab <em>Umum</em>.
         </P>
         <H3>Kebutuhan sistem</H3>
         <List
@@ -165,6 +164,7 @@ export const SECTIONS_ID: DocSection[] = [
         <List
           items={[
             <>Folder <C>bin</C> milik Zefaro dari PATH Anda.</>,
+            <>Entri yang memulai Zefaro saat Anda masuk ke Windows, jika Anda mengaktifkannya.</>,
             <>
               Aturan DNS untuk <C>.test</C>. Windows meminta hak admin; jika Anda menolak, aturan
               itu tetap ada dan bisa Anda hapus nanti.
@@ -226,8 +226,13 @@ export const SECTIONS_ID: DocSection[] = [
             [
               "Versi PHP",
               <>
-                Versi yang aktif saat Anda menautkan situs. Jika versi itu sudah tidak terpasang,
-                situs memakai versi aktif.
+                Versi yang aktif saat Anda menautkan situs, atau versi yang disebut{" "}
+                <C>zefaro.json</C>-nya. Ganti kapan saja di kolom PHP halaman Situs atau di bawah nama
+                situs pada halamannya sendiri; setiap situs menyimpan versinya sendiri, dan beberapa
+                versi berjalan berdampingan. Saat nginx berjalan, Zefaro menyalakan versi baru lebih
+                dulu, jadi situs tidak pernah menjawab 502; jika versi itu gagal dimulai, situs tetap
+                seperti semula. Versi yang sudah tidak terpasang ditandai segitiga peringatan, dan situs
+                memakai versi aktif sampai Anda memilih versi lain.
               </>,
             ],
             ["Lepas tautan", "Zefaro berhenti menyajikan situs itu. File Anda tidak pernah disentuh."],
@@ -285,7 +290,7 @@ export const SECTIONS_ID: DocSection[] = [
         <Steps
           items={[
             <>
-              Klik <em>Percayai sertifikat…</em> di halaman Situs atau di Pengaturan, bagian HTTPS.
+              Klik <em>Percayai sertifikat…</em> di halaman Situs atau di Pengaturan, tab <em>HTTPS dan sistem</em>.
             </>,
             <>
               Windows menampilkan peringatan keamanan tentang pemasangan sertifikat. Pastikan
@@ -628,8 +633,8 @@ export const SECTIONS_ID: DocSection[] = [
           ikon Zefaro di tray untuk membukanya lagi. Untuk menghentikan semuanya, klik kanan ikon itu
           lalu pilih <em>Keluar dari Zefaro dan hentikan layanan</em>: Zefaro menghentikan setiap
           layanan secara berurutan, server web lebih dulu dan database terakhir. Saat pertama kali
-          Anda menutup jendela, Zefaro menanyakan pilihan Anda; ubah kemudian di Pengaturan, bagian{" "}
-          <em>Menutup jendela</em>.
+          Anda menutup jendela, Zefaro menanyakan pilihan Anda; ubah kemudian lewat{" "}
+          <em>Tetap berjalan saat ditutup</em> di tab <em>Umum</em> Pengaturan.
         </P>
         <P>
           Zefaro hanya berjalan satu salinan. Membukanya lagi dari menu Start akan menampilkan
@@ -677,6 +682,20 @@ export const SECTIONS_ID: DocSection[] = [
           Saat sebuah layanan bermasalah, log-nya biasanya menjelaskan sebabnya. Buka halaman Log
           untuk membacanya.
         </P>
+        <H3>Memulai bersama Windows</H3>
+        <P>
+          Di tab <em>Umum</em> Pengaturan, <em>Mulai bersama Windows</em> menambahkan
+          Zefaro ke program yang dijalankan Windows untuk Anda. Zefaro terbuka tersembunyi di system tray, tanpa jendela.
+          Di bawahnya, <em>Mulai layanan bersama Zefaro</em> memulai layanan Anda setiap kali Zefaro terbuka: nginx (yang menyalakan PHP tiap
+          situs), MariaDB, PostgreSQL, Redis, Mailpit, dan, dengan <C>.test</C>, DNS. Database dimulai lebih dulu dan
+          nginx terakhir.
+        </P>
+        <P>
+          Hanya layanan yang sudah terpasang yang dimulai, jadi membuka Zefaro tidak pernah mengunduh apa pun; layanan
+          yang Anda pasang kemudian ikut dimulai, dan baris di bawah sakelar menyebut layanan mana saja. Jika sebuah layanan tidak bisa
+          dimulai (misalnya port dipakai), kartunya menunjukkan sebabnya, dan layanan lain tetap dimulai. Mematikan
+          sakelar, atau menghapus Zefaro, menghapus entrinya.
+        </P>
       </>
     ),
   },
@@ -719,15 +738,30 @@ export const SECTIONS_ID: DocSection[] = [
             [
               "Domain lokal",
               <>
-                <C>.test</C> (bawaan) atau <C>.internal</C>. Keduanya dicadangkan, jadi tidak ada
-                yang menutupi situs web sungguhan. Mengganti domain akan mengganti nama setiap situs
-                (misalnya menjadi <C>my-app.internal</C>), memindahkan aturan Windows (satu
-                permintaan hak admin), dan memberi situs yang diamankan sertifikat dari otoritas
-                baru, yang perlu Anda percayai lagi.
+                <C>.test</C> (bawaan), <C>.internal</C>, atau <C>.localhost</C>. Ketiganya
+                dicadangkan, jadi tidak ada yang menutupi situs web sungguhan. Mengganti domain akan
+                mengganti nama setiap situs (misalnya menjadi <C>my-app.internal</C>), memindahkan
+                aturan Windows (satu permintaan hak admin), dan memberi situs yang diamankan
+                sertifikat dari otoritas baru, yang perlu Anda percayai lagi.
               </>,
             ],
           ]}
         />
+        <H3>Tanpa hak admin: .localhost</H3>
+        <P>
+          Aturan Windows adalah satu-satunya langkah di Zefaro yang butuh hak administrator (memasang Zefaro,
+          menjalankan layanan, dan mempercayai otoritas HTTPS tidak butuh). Di komputer yang tidak bisa menyetujui
+          permintaan admin, seperti PC lab bersama, pilih <C>.localhost</C> sebagai domain lokal. Situs lalu terbuka di{" "}
+          <C>my-app.localhost</C> tanpa aturan dan tanpa server DNS: Chrome, Edge, dan Firefox mengirim setiap nama{" "}
+          <C>*.localhost</C> ke komputer Anda sendiri. Zefaro menawarkannya sendiri saat tahu akun ini tidak bisa
+          menyetujui permintaan admin.
+        </P>
+        <Note title="Yang tidak bisa dilakukan .localhost" warn>
+          Hanya browser yang mengenal nama ini. Windows 10 sendiri tidak me-resolve <C>*.localhost</C>, jadi{" "}
+          <C>curl</C>, atau situs yang memanggil alamatnya sendiri (misalnya worker antrean yang mengambil{" "}
+          <C>APP_URL</C>), tidak bisa menemukannya. Pakai <C>.test</C> bila Anda butuh itu dan bisa menyetujui
+          permintaannya sekali.
+        </Note>
         <Note title="Jika nama .test tidak bisa dibuka" warn>
           VPN bisa mengambil alih DNS, dan secure DNS milik browser dengan penyedia khusus melewati
           Windows. Putuskan VPN atau setel secure DNS browser agar memakai penyedia Anda saat ini,
@@ -1149,11 +1183,38 @@ export const SECTIONS_ID: DocSection[] = [
             <>Hentikan MySQL lama, mulai MariaDB milik Zefaro, lalu klik <em>Muat ke Zefaro</em>.</>,
           ]}
         />
+        <H3>Cadangan dan pemulihan</H3>
+        <P>
+          Tab <em>Pembaruan dan cadangan</em> di Pengaturan menyimpan situs dan pengaturan Anda, serta database
+          MariaDB, ke satu berkas zip, dan memuat berkas seperti itu lagi, di komputer ini atau komputer lain.
+          Pemulihan menampilkan isi berkas lebih dulu, dan Anda memilih apa yang dimuat.
+        </P>
+        <Rows
+          rows={[
+            ["Isi cadangan", <>Situs dan pengaturan Anda (<C>config.json</C> yang sama dengan yang disimpan Zefaro), dan satu dump SQL per database MariaDB.</>],
+            ["Yang tidak ikut", "Otoritas sertifikat HTTPS (kunci pribadinya dienkripsi untuk akun Windows Anda dan tidak bisa dibuka di tempat lain, jadi Zefaro membuat yang baru dan Anda mempercayainya lagi), database PostgreSQL, program unduhan, email, dan folder proyek Anda."],
+            ["Database saat pemulihan", "Dimuat ke database baru. Database yang sudah ada dilewati dan tidak pernah ditimpa; hapus dulu di halaman Database jika Anda ingin salinan dari cadangan."],
+            ["Situs dan pengaturan saat pemulihan", <>Menggantikan yang Anda punya sekarang. Salinan <C>config.json</C> saat ini disimpan di sebelahnya sebagai <C>config.before-restore-…json</C>. Buka Pemeriksa sesudahnya: folder situs dan domain lokal bisa berbeda di komputer lain.</>],
+          ]}
+        />
+        <P>
+          Pencadangan menyalakan MariaDB sebentar bila belum berjalan. Pemulihan database memasang MariaDB lebih dulu
+          bila belum ada. Keduanya bisa dibatalkan, dan pencadangan yang dibatalkan atau gagal tidak meninggalkan berkas
+          setengah jadi.
+        </P>
         <H3>Pembaruan</H3>
         <P>
-          Saat dimulai, Zefaro menanyakan rilis terbarunya ke GitHub dan memberi tahu bila ada versi baru, lengkap dengan
-          tautan unduhnya. Zefaro tidak pernah mengunduh atau memasang apa pun sendiri. Matikan ini di Pengaturan, bagian
-          Pembaruan.
+          Saat dimulai, Zefaro menanyakan rilis terbarunya ke GitHub dan memberi tahu bila ada versi baru. Klik{" "}
+          <em>Perbarui sekarang</em> di pesan itu, atau di tab <em>Pembaruan dan cadangan</em> Pengaturan, dan Zefaro mengunduh installer
+          dari rilis GitHub proyek ini lalu mencocokkannya dengan SHA-256 yang diterbitkan bersama rilis. Berkas yang
+          tidak cocok dihapus dan tidak pernah dijalankan. Setelah itu Zefaro menghentikan layanan Anda, menutup diri,
+          dan installer menggantikannya lalu membukanya lagi; situs, pengaturan, database, aturan DNS, dan sertifikat
+          HTTPS Anda tetap.
+        </P>
+        <P>
+          Tidak ada yang diunduh sebelum Anda mengklik, dan Anda tetap bisa mengambil installer dari halaman rilis
+          sendiri. Checksum melindungi dari unduhan yang rusak atau tertukar; checksum itu berasal dari rilis GitHub yang
+          sama, jadi tidak bisa menjamin rilisnya sendiri. Matikan lewat <em>Periksa saat dimulai</em> di tab yang sama.
         </P>
       </>
     ),
@@ -1190,8 +1251,8 @@ export const SECTIONS_ID: DocSection[] = [
         </P>
         <H3>Browser menyebut koneksi tidak bersifat pribadi</H3>
         <P>
-          Percayai otoritas sertifikat Zefaro (<em>Percayai sertifikat…</em> di Pengaturan, bagian
-          HTTPS), lalu mulai ulang browser. Jika masih muncul peringatan, pastikan alamatnya adalah
+          Percayai otoritas sertifikat Zefaro (<em>Percayai sertifikat…</em> di Pengaturan, tab
+          <em>HTTPS dan sistem</em>), lalu mulai ulang browser. Jika masih muncul peringatan, pastikan alamatnya adalah
           nama <C>.test</C> yang tampil di halaman Situs.
         </P>
         <H3>PHP terinstal tetapi tidak mau berjalan</H3>
@@ -1213,8 +1274,8 @@ export const SECTIONS_ID: DocSection[] = [
         <Steps
           items={[
             <>
-              Copot Zefaro. Uninstaller juga menghapus entri PATH-nya, aturan DNS, dan sertifikat yang
-              dipercaya. Untuk melakukannya tanpa mencopot, hentikan semua layanan, klik{" "}
+              Copot Zefaro. Uninstaller juga menghapus entri PATH-nya, entri mulai-bersama-Windows, aturan
+              DNS, dan sertifikat yang dipercaya. Untuk melakukannya tanpa mencopot, hentikan semua layanan, klik{" "}
               <em>Hapus aturan</em> di pengaturan DNS, klik <em>Hapus kepercayaan…</em> di
               Pengaturan, lalu hapus <C>…\.config\zefaro\bin</C> di{" "}
               <em>Edit variabel lingkungan untuk akun Anda</em>.

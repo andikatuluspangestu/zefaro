@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { CloseDialog } from "@/components/close-dialog";
-import { useStartupUpdateCheck } from "@/components/update-check";
+import { UpdateHost, useStartupUpdateCheck } from "@/components/update-check";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { HomePage } from "@/pages/HomePage";
 import { SitesPage } from "@/pages/SitesPage";
@@ -147,7 +147,7 @@ function Shell() {
           active={page}
           onSelect={go}
           version={info?.version}
-          newVersion={update?.newer ? update.latest : undefined}
+          update={update?.newer ? update : undefined}
           badges={{ mail: unreadMail }}
         />
         <SidebarInset className="h-svh overflow-hidden">
@@ -178,7 +178,7 @@ function Shell() {
               {page === "mail" && <MailPage />}
               {page === "logs" && <LogsPage />}
               {page === "dumps" && <DumpsPage />}
-              {page === "settings" && <SettingsPage info={info} />}
+              {page === "settings" && <SettingsPage info={info} update={update} />}
               {page === "docs" && <DocsPage onNavigate={go} />}
               {page === "doctor" && <DoctorPage onNavigate={go} />}
               {page === "about" && <AboutPage info={info} onNavigate={go} />}
@@ -186,6 +186,7 @@ function Shell() {
           </div>
         </SidebarInset>
       </SidebarProvider>
+      <UpdateHost />
       <Toaster position="bottom-right" />
       <CloseDialog />
     </TooltipProvider>

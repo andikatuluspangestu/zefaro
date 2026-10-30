@@ -37,7 +37,6 @@ pub fn run() {
     // services are stopped below, and their Job Objects are the safety net if
     // Zefaro itself crashes.
     let supervisor = state.supervisor.clone();
-    let on_exit = state.supervisor.clone();
     std::thread::spawn(move || loop {
         std::thread::sleep(Duration::from_secs(2));
         supervisor.tick();
@@ -54,11 +53,15 @@ pub fn run() {
     let cfg = state.config.lock().unwrap().clone();
     let workers = state.supervisor.clone();
     std::thread::spawn(move || {
+        // A "start with Windows" entry that points at an old location now starts this copy.
+        engine::startup::repair();
         engine::shims::refresh(&cfg);
         // php.ini managed blocks written by older Zefaro versions (e.g. before
         // mail() went to Mailpit). Nothing is running yet, so no restarts.
         engine::cabundle::rebuild();
         engine::php::refresh_inis(&cfg);
+        // The services the user ticked, then the workers that need them.
+        engine::startup::start_services(&cfg, &workers);
         commands::laravel::autostart(&cfg, &workers);
         // The dump receiver, when the Dumps page has it on.
         if cfg.dumps {
@@ -75,6 +78,11 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             tray::create(app.handle())?;
+            // The window starts hidden (tauri.conf.json): shown now, unless Windows
+            // started Zefaro at sign-in, when it waits in the tray.
+            if !std::env::args().any(|a| a == engine::startup::BACKGROUND_ARG) {
+                tray::show_main(app.handle());
+            }
             #[cfg(windows)]
             {
                 let handle = app.handle().clone();
@@ -123,6 +131,7 @@ pub fn run() {
             commands::sites::secure_site,
             commands::sites::set_site_php,
             commands::php::php_versions,
+            commands::php::php_lines,
             commands::php::php_install,
             commands::php::php_activate,
             commands::php::php_settings,
@@ -140,6 +149,8 @@ pub fn run() {
             commands::node::node_uninstall,
             commands::tools::tools_status,
             commands::system::check_update,
+            commands::system::update_install,
+            commands::system::update_progress,
             commands::system::set_check_updates,
             commands::tools::tools_active_php,
             commands::tools::tools_bin_on_path,
@@ -226,6 +237,14 @@ pub fn run() {
             commands::system::app_info,
             commands::system::set_language,
             commands::system::set_close_to_tray,
+            commands::system::set_start_with_windows,
+            commands::system::set_autostart,
+            commands::backup::backup_inspect,
+            commands::backup::backup_start,
+            commands::backup::restore_start,
+            commands::backup::backup_job,
+            commands::backup::backup_cancel,
+            commands::backup::backup_dismiss,
             commands::system::config_pending,
             commands::system::close_window,
         ])
@@ -233,15 +252,7 @@ pub fn run() {
         .expect("error while building Zefaro")
         .run(move |app, event| {
             if let tauri::RunEvent::Exit = event {
-                app.state::<AppState>().tinker.end_all();
-                // Stop serving and site workers first, databases last so they
-                // flush cleanly.
-                on_exit.stop_all(|id| match id {
-                    engine::nginx::SERVICE_ID => 0,
-                    id if id.starts_with(engine::laravel::WORKER_PREFIX) => 0,
-                    engine::mariadb::SERVICE_ID | engine::redis::SERVICE_ID | engine::postgres::SERVICE_ID => 2,
-                    _ => 1,
-                });
+                commands::system::stop_everything(&app.state::<AppState>());
             }
         });
 }
