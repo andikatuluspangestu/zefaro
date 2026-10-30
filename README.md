@@ -41,6 +41,13 @@ Zefaro is an independent project and is not affiliated with Laravel.
 4. In Zefaro, open **Services**, install PHP, click **Start all** and set up the DNS
    rule. Home shows what's left to do. Then link a folder on **Sites**.
 
+Or install it with [Scoop](https://scoop.sh), which also keeps it updated with `scoop update zefaro`:
+
+```powershell
+scoop bucket add zefaro https://github.com/andikatuluspangestu/scoop-zefaro
+scoop install zefaro/zefaro
+```
+
 You need Windows 10 or 11 (64-bit). Installing takes no administrator rights, and
 Windows asks for them once, when you set up the `.test` DNS rule. The installer
 downloads the Microsoft Edge WebView2 Runtime if it's missing. Zefaro uses ports 80 and
