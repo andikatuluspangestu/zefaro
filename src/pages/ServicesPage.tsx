@@ -11,6 +11,7 @@ import { PhpPage } from "@/pages/PhpPage";
 import { DnsSettingsPage } from "@/pages/DnsSettingsPage";
 import { NodePage } from "@/pages/NodePage";
 import { DB_ENGINES, DatabasesPage } from "@/pages/DatabasesPage";
+import { DbServerSettingsPage } from "@/pages/DbServerSettingsPage";
 import { MailpitSettingsPage } from "@/pages/MailpitSettingsPage";
 import { ServiceLogo } from "@/components/service-logo";
 import { StatusDot } from "@/components/status-dot";
@@ -79,7 +80,6 @@ const messages = defineMessages({
     phpVersions: "PHP versions",
     dnsSettings: "DNS settings",
     nodeVersions: "Node.js versions",
-    databases: "Create, export and import databases",
     mailpitSettings: "Mailpit settings",
   },
   id: {
@@ -123,7 +123,6 @@ const messages = defineMessages({
     phpVersions: "Versi PHP",
     dnsSettings: "Pengaturan DNS",
     nodeVersions: "Versi Node.js",
-    databases: "Buat, ekspor, dan impor database",
     mailpitSettings: "Pengaturan Mailpit",
   },
 });
@@ -357,7 +356,7 @@ export function ServicesPage() {
   /** The card list, or the page a card's gear opened. */
   const t = useT(messages);
   const cm = useT(common);
-  const [view, setView] = useState<"list" | "nginx" | "php" | "dns" | "node" | "db" | "mail">("list");
+  const [view, setView] = useState<"list" | "nginx" | "php" | "dns" | "node" | "db" | "dbserver" | "mail">("list");
   /** The server the Databases page opens on. */
   const [dbEngine, setDbEngine] = useState<DbEngine>("mariadb");
   const [services, setServices] = useState<Service[] | null>(null);
@@ -470,6 +469,9 @@ export function ServicesPage() {
   }
   if (view === "node") return <NodePage backLabel={backLabel} onBack={back} />;
   if (view === "db") return <DatabasesPage engine={dbEngine} backLabel={backLabel} onBack={back} />;
+  if (view === "dbserver") {
+    return <DbServerSettingsPage engine={dbEngine} backLabel={backLabel} onBack={back} onManage={() => setView("db")} />;
+  }
   if (view === "mail") return <MailpitSettingsPage backLabel={backLabel} onBack={back} />;
 
   return (
@@ -556,7 +558,7 @@ export function ServicesPage() {
                                 : isDbEngine(s.id)
                                   ? () => {
                                       setDbEngine(s.id as DbEngine);
-                                      setView("db");
+                                      setView("dbserver");
                                     }
                                   : s.id === "mailpit"
                                     ? () => setView("mail")
@@ -569,9 +571,7 @@ export function ServicesPage() {
                             ? t.dnsSettings
                             : s.id === "node"
                               ? t.nodeVersions
-                              : isDbEngine(s.id)
-                                ? t.databases
-                                : s.id === "mailpit"
+                              : s.id === "mailpit"
                                   ? t.mailpitSettings
                                   : undefined
                       }

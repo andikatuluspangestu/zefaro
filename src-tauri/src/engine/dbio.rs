@@ -44,6 +44,14 @@ impl Engine {
         }
     }
 
+    pub fn service_id(self) -> &'static str {
+        match self {
+            Engine::MariaDb => mariadb::SERVICE_ID,
+            Engine::MySql => mysql::SERVICE_ID,
+            Engine::PostgreSql => postgres::SERVICE_ID,
+        }
+    }
+
     pub fn port(self) -> u16 {
         match self {
             Engine::MariaDb => mariadb::PORT,

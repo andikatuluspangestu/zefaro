@@ -21,6 +21,8 @@ import type {
   CaStatus,
   DbJob,
   DbEngine,
+  DbServerView,
+  DbTuning,
   TunnelInfo,
   TunnelSetup,
   DbOverview,
@@ -267,6 +269,12 @@ export const api = {
   mailStart: () => mutate(invoke<MailStatus>("mail_start")),
 
   // databases
+  dbServerSettings: (engine: DbEngine) => invoke<DbServerView>("db_server_settings", { engine }),
+  /** Saves, and restarts a running server (the old settings come back if it won't start). */
+  dbServerSave: (engine: DbEngine, settings: DbTuning) => invoke<DbServerView>("db_server_save", { engine, settings }),
+  dbServerConfigText: (engine: DbEngine) => invoke<string>("db_server_config_text", { engine }),
+  dbServerReveal: (engine: DbEngine, what: "data" | "config" | "log" | "slow") =>
+    invoke<void>("db_server_reveal", { engine, what }),
   dbOverview: (engine: DbEngine) => invoke<DbOverview>("db_overview", { engine }),
   dbCreate: (engine: DbEngine, name: string) => invoke<void>("db_create", { engine, name }),
   dbDrop: (engine: DbEngine, name: string) => invoke<void>("db_drop", { engine, name }),

@@ -8,6 +8,7 @@ import { BackupGroup } from "@/components/backup-card";
 import { TrustCaButton, UntrustCaButton, useCaStatus } from "@/components/https-trust";
 import { PageHeader } from "@/components/page-header";
 import { SettingGroup, SettingRow } from "@/components/settings-layout";
+import { ReleaseNotesPage } from "@/pages/ReleaseNotesPage";
 import { announceUpdate, openReleaseNotes, openUpdateDialog, updateMessages } from "@/components/update-check";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -70,6 +71,9 @@ const messages = defineMessages({
       check: "Check now",
       download: "Download",
       onStart: "Check on startup",
+      notes: "Release notes",
+      notesHint: "What changed in each version of Zefaro, kept inside Zefaro.",
+      notesView: "View",
     },
     https: {
       title: "HTTPS",
@@ -124,6 +128,9 @@ const messages = defineMessages({
       latest: "Sudah versi terbaru.",
       youHave: (v: string) => `Versi Anda ${v}.`,
       check: "Periksa sekarang",
+      notes: "Catatan rilis",
+      notesHint: "Perubahan di setiap versi Zefaro, tersimpan di dalam Zefaro.",
+      notesView: "Lihat",
       download: "Unduh",
       onStart: "Periksa saat dimulai",
     },
@@ -276,7 +283,16 @@ function RunningGroup({ info }: { info: AppInfo | null }) {
   );
 }
 
-function UpdatesGroup({ info, update }: { info: AppInfo | null; update: UpdateInfo | null }) {
+function UpdatesGroup({
+  info,
+  update,
+  onNotes,
+}: {
+  info: AppInfo | null;
+  update: UpdateInfo | null;
+  /** Open the release notes page, with the newer version the last check found. */
+  onNotes: (newer: UpdateInfo | null) => void;
+}) {
   const t = useT(messages).updates;
   const u = useT(updateMessages);
   const [checking, setChecking] = useState(false);
@@ -336,6 +352,12 @@ function UpdatesGroup({ info, update }: { info: AppInfo | null; update: UpdateIn
     <SettingGroup title={t.title}>
       {[
         versionRow,
+        <SettingRow key="notes" icon="clock-rotate-left" title={t.notes} description={t.notesHint}>
+          <Button size="sm" variant="outline" onClick={() => onNotes(newer)}>
+            <Icon name="scroll" />
+            {t.notesView}
+          </Button>
+        </SettingRow>,
         <SettingRow key="onstart" icon="arrows-rotate" title={t.onStart}>
           <SavedSwitch on={onStart} change={setOnStart} label={t.onStart} />
         </SettingRow>,
@@ -440,6 +462,8 @@ export function SettingsPage({ info, update = null }: { info: AppInfo | null; up
   const t = useT(messages);
   const ca = useCaStatus();
   const [tab, setTab] = useState<SettingsTab>(lastTab);
+  /** The release notes page is open (with the newer version the last check found). */
+  const [notes, setNotes] = useState<{ newer: UpdateInfo | null } | null>(null);
   const choose = (v: string) => {
     lastTab = v as SettingsTab;
     setTab(lastTab);
@@ -450,6 +474,9 @@ export function SettingsPage({ info, update = null }: { info: AppInfo | null; up
     updates: !!update?.newer,
     system: !!ca?.created && !ca.trusted,
   };
+  if (notes) {
+    return <ReleaseNotesPage info={info} newer={notes.newer} backLabel={t.title} onBack={() => setNotes(null)} />;
+  }
   return (
     <>
       <PageHeader title={t.title} />
@@ -478,7 +505,7 @@ export function SettingsPage({ info, update = null }: { info: AppInfo | null; up
           <RunningGroup info={info} />
         </TabsContent>
         <TabsContent value="updates" tabIndex={-1} className="space-y-6 outline-none">
-          <UpdatesGroup info={info} update={update} />
+          <UpdatesGroup info={info} update={update} onNotes={(newer) => setNotes({ newer })} />
           <BackupGroup />
         </TabsContent>
         <TabsContent value="system" tabIndex={-1} className="space-y-6 outline-none">

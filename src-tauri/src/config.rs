@@ -113,6 +113,108 @@ impl Default for MailpitConfig {
     }
 }
 
+/// A database server's settings (MariaDB, MySQL or PostgreSQL), edited from the
+/// gear on its card. Fields a server doesn't have are ignored for it. The
+/// defaults are what Zefaro used before these settings existed.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct DbTuning {
+    /// InnoDB's buffer pool (MariaDB, MySQL) or shared_buffers (PostgreSQL), in MB.
+    pub memory_mb: u32,
+    /// work_mem in MB: memory for each sort or hash (PostgreSQL).
+    pub work_mem_mb: u32,
+    pub max_connections: u32,
+    /// max_allowed_packet in MB (MariaDB, MySQL).
+    pub max_packet_mb: u32,
+    /// Flush the log to disk about once a second instead of at every commit:
+    /// much faster imports and tests, and a power cut can lose the last second.
+    pub fast_writes: bool,
+    /// Log queries that take longer than `slow_ms`.
+    pub slow_log: bool,
+    pub slow_ms: u32,
+    /// Extra settings: `name = value` lines for my.ini's `[mysqld]`, or for
+    /// PostgreSQL's command line.
+    pub extra: String,
+}
+
+impl DbTuning {
+    pub fn mysql_default() -> Self {
+        Self {
+            memory_mb: 128,
+            work_mem_mb: 4,
+            max_connections: 151,
+            max_packet_mb: 1024,
+            fast_writes: true,
+            slow_log: false,
+            slow_ms: 1000,
+            extra: String::new(),
+        }
+    }
+
+    pub fn postgres_default() -> Self {
+        Self { max_connections: 100, fast_writes: false, ..Self::mysql_default() }
+    }
+
+    /// The `name = value` pairs of `extra`, comments and blank lines left out.
+    pub fn extra_pairs(&self) -> Vec<(String, Option<String>)> {
+        self.extra
+            .lines()
+            .map(str::trim)
+            .filter(|l| !l.is_empty() && !l.starts_with('#') && !l.starts_with(';'))
+            .map(|l| match l.split_once('=') {
+                Some((k, v)) => (k.trim().to_owned(), Some(v.trim().trim_matches(['"', '\'']).to_owned())),
+                None => (l.to_owned(), None),
+            })
+            .collect()
+    }
+
+    /// Values Zefaro accepts; `postgres` checks PostgreSQL's settings.
+    pub fn validate(&self, postgres: bool) -> crate::error::AppResult<()> {
+        let range = |name: &str, v: u32, lo: u32, hi: u32| -> crate::error::AppResult<()> {
+            if (lo..=hi).contains(&v) {
+                Ok(())
+            } else {
+                Err(crate::error::AppError::msg(crate::tr!(
+                    format!("{name} must be between {lo} and {hi}."),
+                    format!("{name} harus antara {lo} dan {hi}.")
+                )))
+            }
+        };
+        range(if postgres { "shared_buffers" } else { "innodb_buffer_pool_size" }, self.memory_mb, 16, 32768)?;
+        range("max_connections", self.max_connections, 10, 10000)?;
+        range("slow query threshold", self.slow_ms, 0, 600_000)?;
+        if postgres {
+            range("work_mem", self.work_mem_mb, 1, 4096)?;
+        } else {
+            range("max_allowed_packet", self.max_packet_mb, 1, 1024)?;
+        }
+        for (name, value) in self.extra_pairs() {
+            let ok_name = !name.is_empty()
+                && name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'))
+                && !name.starts_with('[');
+            // PostgreSQL takes `-c name=value`, so every line needs a value.
+            if !ok_name || (postgres && value.as_deref().is_none_or(str::is_empty)) {
+                let line = if let Some(v) = &value { format!("{name} = {v}") } else { name.clone() };
+                return Err(crate::error::AppError::msg(crate::tr!(
+                    format!("\"{line}\" isn't a setting Zefaro can pass on. Write one name = value per line."),
+                    format!("\"{line}\" bukan pengaturan yang bisa diteruskan Zefaro. Tulis satu nama = nilai per baris.")
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Default for DbTuning {
+    fn default() -> Self {
+        Self::mysql_default()
+    }
+}
+
+fn postgres_tuning() -> DbTuning {
+    DbTuning::postgres_default()
+}
+
 // `default` at struct level: fields added in newer versions fall back to their
 // defaults instead of failing to parse — which would reset the whole config.
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -147,6 +249,11 @@ pub struct ZefaroConfig {
     pub dumps: bool,
     /// Services started when Zefaro opens (ids such as "mariadb"); only ones already installed.
     pub autostart: Vec<String>,
+    /// Database servers' settings, from the gear on each card.
+    pub mariadb: DbTuning,
+    pub mysql: DbTuning,
+    #[serde(default = "postgres_tuning")]
+    pub postgres: DbTuning,
 }
 
 impl ZefaroConfig {
@@ -186,6 +293,9 @@ impl Default for ZefaroConfig {
             check_updates: true,
             dumps: false,
             autostart: Vec::new(),
+            mariadb: DbTuning::mysql_default(),
+            mysql: DbTuning::mysql_default(),
+            postgres: DbTuning::postgres_default(),
         }
     }
 }

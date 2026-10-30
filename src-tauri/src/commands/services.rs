@@ -395,11 +395,13 @@ fn start_inner(cfg: &ZefaroConfig, sup: &Supervisor, id: &str) -> AppResult<()> 
         mariadb::SERVICE_ID => {
             let l = mariadb::Layout::standard();
             mariadb::prepare(&l, &downloads, false)?;
+            mariadb::write_ini(&l, &cfg.mariadb)?;
             sup.start(mariadb::spec(&l))?;
         }
         mysql::SERVICE_ID => {
             let l = mysql::Layout::standard();
             mysql::prepare(&l, &downloads, false)?;
+            mysql::write_ini(&l, &cfg.mysql)?;
             sup.start(mysql::spec(&l))?;
         }
         redis::SERVICE_ID => {
@@ -410,7 +412,7 @@ fn start_inner(cfg: &ZefaroConfig, sup: &Supervisor, id: &str) -> AppResult<()> 
         postgres::SERVICE_ID => {
             let l = postgres::Layout::standard();
             postgres::prepare(&l, &downloads, false)?;
-            sup.start(postgres::spec(&l))?;
+            sup.start(postgres::spec_with(&l, &cfg.postgres))?;
         }
         mailpit::SERVICE_ID => {
             let l = mailpit::Layout::standard(&cfg.mailpit);

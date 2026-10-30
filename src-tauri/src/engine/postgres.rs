@@ -5,6 +5,7 @@
 //! PostgreSQL's Windows builds come from EDB. Their zip also carries pgAdmin,
 //! the documentation and C headers; Zefaro unpacks only bin, lib and share.
 
+use crate::config::DbTuning;
 use crate::engine::archive::{self, Archive};
 use crate::engine::supervisor::{Probe, Spec};
 use crate::engine::{paths, process};
@@ -111,7 +112,41 @@ pub fn prepare(l: &Layout, scratch: &Path, keep_zip: bool) -> AppResult<()> {
     })
 }
 
+/// The command line with Zefaro's default settings (tests; Services uses [spec_with]).
+#[cfg(test)]
 pub fn spec(l: &Layout) -> Spec {
+    spec_with(l, &DbTuning::postgres_default())
+}
+
+/// The settings from the gear on the PostgreSQL card, as `-c` values. They
+/// come after Zefaro's own, which they can't override: `listen_addresses` and
+/// logging stay as Zefaro needs them.
+pub fn tuning_settings(s: &DbTuning) -> Vec<String> {
+    let mut out = vec![
+        format!("shared_buffers={}MB", s.memory_mb),
+        format!("work_mem={}MB", s.work_mem_mb),
+        format!("max_connections={}", s.max_connections),
+        // Off: a commit returns before its WAL is on disk. A crash can lose the
+        // last moments of commits but never corrupts the data.
+        format!("synchronous_commit={}", if s.fast_writes { "off" } else { "on" }),
+        format!("log_min_duration_statement={}", if s.slow_log { s.slow_ms as i64 } else { -1 }),
+    ];
+    for (name, value) in s.extra_pairs() {
+        if ZEFARO_OWN.contains(&name.as_str()) {
+            continue;
+        }
+        if let Some(value) = value {
+            out.push(format!("{name}={value}"));
+        }
+    }
+    out
+}
+
+/// Settings Zefaro sets itself and never takes from the user's extra lines.
+pub const ZEFARO_OWN: &[&str] = &["listen_addresses", "port", "logging_collector", "log_destination", "log_connections", "data_directory"];
+
+/// The PostgreSQL command line with the card's settings.
+pub fn spec_with(l: &Layout, s: &DbTuning) -> Spec {
     let c = |setting: &str| -> [std::ffi::OsString; 2] { ["-c".into(), setting.into()] };
     let mut args: Vec<std::ffi::OsString> = vec!["-D".into(), l.data.clone().into(), "-p".into(), l.port.to_string().into()];
     for setting in [
@@ -124,6 +159,9 @@ pub fn spec(l: &Layout) -> Spec {
         "log_connections=off",
     ] {
         args.extend(c(setting));
+    }
+    for setting in tuning_settings(s) {
+        args.extend(c(&setting));
     }
     Spec {
         id: SERVICE_ID.into(),
@@ -183,6 +221,31 @@ mod tests {
 
     fn layout(root: &Path, port: u16) -> Layout {
         Layout { base: root.join("pg"), data: root.join("data"), log: root.join("postgresql.log"), port }
+    }
+
+    #[test]
+    fn card_settings_follow_zefaros_own() {
+        // The defaults are PostgreSQL's own, which Zefaro always used.
+        let d = tuning_settings(&DbTuning::postgres_default());
+        for s in ["shared_buffers=128MB", "work_mem=4MB", "max_connections=100", "synchronous_commit=on", "log_min_duration_statement=-1"] {
+            assert!(d.contains(&s.to_owned()), "{s}");
+        }
+        let s = DbTuning {
+            memory_mb: 256,
+            fast_writes: true,
+            slow_log: true,
+            slow_ms: 200,
+            extra: "random_page_cost = 1.1\nlisten_addresses = '*'\n".into(),
+            ..DbTuning::postgres_default()
+        };
+        let l = layout(Path::new(r"C:\zefaro"), 5432);
+        let args: Vec<String> = spec_with(&l, &s).args.iter().map(|a| a.to_string_lossy().into_owned()).collect();
+        for want in ["shared_buffers=256MB", "synchronous_commit=off", "log_min_duration_statement=200", "random_page_cost=1.1"] {
+            assert!(args.windows(2).any(|w| w == ["-c", want]), "{want}: {args:?}");
+        }
+        assert!(!args.iter().any(|a| a.contains('*')), "Zefaro's listen_addresses can't be replaced");
+        let zefaro = args.iter().position(|a| a == "listen_addresses=127.0.0.1").unwrap();
+        assert!(zefaro < args.iter().position(|a| a == "shared_buffers=256MB").unwrap());
     }
 
     #[test]

@@ -916,6 +916,18 @@ export const SECTIONS: DocSection[] = [
           it without options. The <strong>New site</strong> wizard can create an app on it, and the
           site page's Data tab, Tinker and the Databases page work with it as with MariaDB.
         </P>
+        <H3>Server settings</H3>
+        <P>
+          The gear on the MariaDB, MySQL and PostgreSQL cards opens that server's settings: the memory it
+          caches data in (InnoDB's buffer pool, or <C>shared_buffers</C> and <C>work_mem</C>), the most
+          connections, the largest packet, <em>Fast writes</em> (flush the log about once a second instead of
+          at every commit; on by default for MariaDB and MySQL), the slow query log with its threshold, and
+          extra <C>name = value</C> lines. The address stays <C>127.0.0.1</C> on the server's own port; extra
+          lines that would change the port, the folders or the bind address are refused. Saving restarts a
+          running server, and if it won't start with the new settings Zefaro puts the old ones back and shows
+          the server's reason. The page also shows the data folder and the generated <C>my.ini</C>, and{" "}
+          <em>Manage databases</em> opens the Databases page.
+        </P>
         <H3>Redis</H3>
         <P>
           Redis 8 listens on <C>127.0.0.1:6379</C> without a password and saves its data to disk,
@@ -929,8 +941,8 @@ export const SECTIONS: DocSection[] = [
         </P>
         <H3>Export and import of any size</H3>
         <P>
-          <strong>Databases</strong> under Tools in the sidebar, or the gear on the MariaDB, MySQL or PostgreSQL
-          card, opens the Databases page, with a tab for each of the three servers. It lists every database with its size,
+          <strong>Databases</strong> under Tools in the sidebar, or <em>Manage databases</em> on a database
+          server's settings, opens the Databases page, with a tab for each of the three servers. It lists every database with its size,
           with <em>New database</em>, <em>Export</em>, <em>Import dump…</em> and <em>Drop</em>.
           Zefaro streams data between the server and the file, so dumps of 5 GB or more work without
           running out of memory. Uploading them to phpMyAdmin doesn't. One export or import runs at
@@ -1337,7 +1349,9 @@ export const SECTIONS: DocSection[] = [
         </P>
         <P>
           <em>Release notes</em>, in the same message and on the same tab, shows what the new version changes inside
-          Zefaro, from the notes published with the release.
+          Zefaro, from the notes published with the release. <em>Release notes</em> → <em>View</em> on that tab
+          opens the notes of every version, kept inside Zefaro so they open without the internet, with the installed
+          one marked and a newer one first when a check has found it.
         </P>
         <P>
           Nothing is downloaded until you click, and you can still take the installer from the release page yourself.

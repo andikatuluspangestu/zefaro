@@ -290,6 +290,37 @@ export interface DbInfo {
 /** The database servers the Databases page manages; also their service ids. */
 export type DbEngine = "mariadb" | "mysql" | "postgresql";
 
+/** A database server's settings (the gear on its card). Fields a server doesn't have are ignored for it. */
+export interface DbTuning {
+  /** InnoDB buffer pool (MariaDB, MySQL) or shared_buffers (PostgreSQL), MB. */
+  memoryMb: number;
+  /** work_mem, MB (PostgreSQL). */
+  workMemMb: number;
+  maxConnections: number;
+  /** max_allowed_packet, MB (MariaDB, MySQL). */
+  maxPacketMb: number;
+  fastWrites: boolean;
+  slowLog: boolean;
+  slowMs: number;
+  /** name = value lines. */
+  extra: string;
+}
+
+export interface DbServerView {
+  engine: DbEngine;
+  version: string;
+  port: number;
+  installed: boolean;
+  running: boolean;
+  settings: DbTuning;
+  defaults: DbTuning;
+  dataDir: string;
+  /** my.ini; null for PostgreSQL, whose settings go on its command line. */
+  configPath: string | null;
+  logPath: string;
+  slowLogPath: string | null;
+}
+
 export interface DbOverview {
   engine: DbEngine;
   /** The server answers on its port. */

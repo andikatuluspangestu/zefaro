@@ -3,6 +3,7 @@
 pub mod backup;
 pub mod certs;
 pub mod db;
+pub mod dbserver;
 pub mod dns;
 pub mod doctor;
 pub mod dumps;

@@ -891,6 +891,18 @@ export const SECTIONS_ID: DocSection[] = [
           tersambung tanpa opsi. Wizard <strong>Situs baru</strong> bisa membuat aplikasi di atasnya,
           dan tab Data, Tinker, serta halaman Database bekerja dengannya seperti dengan MariaDB.
         </P>
+        <H3>Pengaturan server</H3>
+        <P>
+          Roda gigi di kartu MariaDB, MySQL, dan PostgreSQL membuka pengaturan server itu: memori untuk cache
+          data (buffer pool InnoDB, atau <C>shared_buffers</C> dan <C>work_mem</C>), batas koneksi, paket
+          terbesar, <em>Tulis cepat</em> (menyimpan log ke disk sekitar sekali per detik, bukan di setiap
+          commit; aktif secara bawaan untuk MariaDB dan MySQL), log query lambat beserta ambangnya, dan baris
+          tambahan <C>nama = nilai</C>. Alamatnya tetap <C>127.0.0.1</C> di port server itu sendiri; baris
+          tambahan yang mengubah port, folder, atau bind address ditolak. Menyimpan me-restart server yang
+          sedang berjalan, dan bila server tidak mau berjalan dengan pengaturan baru, Zefaro mengembalikan
+          pengaturan lama dan menampilkan alasan dari server. Halaman ini juga menampilkan folder data dan{" "}
+          <C>my.ini</C> yang dibuat, dan <em>Kelola database</em> membuka halaman Database.
+        </P>
         <H3>Redis</H3>
         <P>
           Redis 8 mendengarkan di <C>127.0.0.1:6379</C> tanpa password dan menyimpan datanya ke
@@ -904,8 +916,8 @@ export const SECTIONS_ID: DocSection[] = [
         </P>
         <H3>Ekspor dan impor berukuran berapa pun</H3>
         <P>
-          <strong>Database</strong> di bagian Alat pada sidebar, atau roda gigi di kartu MariaDB, MySQL, atau
-          PostgreSQL, membuka halaman Database, dengan satu tab untuk tiap server. Halaman ini mencantumkan
+          <strong>Database</strong> di bagian Alat pada sidebar, atau <em>Kelola database</em> di pengaturan
+          server database, membuka halaman Database, dengan satu tab untuk tiap server. Halaman ini mencantumkan
           setiap database beserta ukurannya, dengan <em>Database baru</em>, <em>Ekspor</em>,{" "}
           <em>Impor dump…</em>, dan <em>Hapus</em>. Zefaro mengalirkan data antara server dan file,
           jadi dump 5 GB atau lebih tetap bisa diproses tanpa kehabisan memori. Lewat unggahan ke
@@ -1324,7 +1336,9 @@ export const SECTIONS_ID: DocSection[] = [
         </P>
         <P>
           <em>Catatan rilis</em>, di pesan yang sama dan di tab yang sama, menampilkan perubahan versi baru di dalam
-          Zefaro, dari catatan yang diterbitkan bersama rilis.
+          Zefaro, dari catatan yang diterbitkan bersama rilis. <em>Catatan rilis</em> → <em>Lihat</em> di tab itu
+          membuka catatan setiap versi, yang tersimpan di dalam Zefaro sehingga bisa dibuka tanpa internet, dengan
+          versi terpasang ditandai dan versi yang lebih baru di paling atas bila pengecekan sudah menemukannya.
         </P>
         <P>
           Tidak ada yang diunduh sebelum Anda mengklik, dan Anda tetap bisa mengambil installer dari halaman rilis

@@ -4,6 +4,20 @@ All notable changes to Zefaro are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Zefaro uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Settings for MariaDB, MySQL and PostgreSQL.** The gear on each database card now opens that server's
+  settings instead of the Databases page: memory (InnoDB buffer pool, or shared_buffers and work_mem), max
+  connections, max packet size, fast writes, the slow query log with its threshold, and extra `name = value` lines.
+  Saving restarts a running server; if it won't start with the new settings, Zefaro restores the previous ones
+  and shows the server's reason. Extra lines can't change the port, folders or bind address. The page shows the
+  data folder and the generated config, and Manage databases opens the Databases page.
+- **Release notes page.** Settings → Updates and backup has a Release notes row whose View button opens the notes of
+  every Zefaro version, kept inside the app so they open without the internet. The installed version is marked and
+  open; a newer version found by the last update check comes first, with its notes and Update now.
+
 ## [1.4.0] - 2026-10-30
 
 ### Added
@@ -290,6 +304,7 @@ development environment for Windows.
 - Every service listens on `127.0.0.1` only.
 - The installer isn't code-signed yet, so Windows SmartScreen asks you to confirm it.
 
+[Unreleased]: https://github.com/andikatuluspangestu/zefaro/compare/v1.4.0...HEAD
 [1.4.0]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.4.0
 [1.3.1]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.3.1
 [1.3.0]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.3.0
