@@ -6,8 +6,8 @@ import { copy, LINKS, REPO } from "./copy";
 import { guides, GUIDE_UPDATED, type Guide } from "./guides";
 
 export const SITE = "https://zefaro.pages.dev";
-export const VERSION = "1.3.1";
-export const FILE_SIZE = "3.4 MB";
+export const VERSION = "1.4.0";
+export const FILE_SIZE = "3.5 MB";
 
 /** App screenshots in public/screenshots (sample data), for schema.org and directory listings. */
 const SCREENSHOTS = ["01-home", "02-site", "03-services", "04-new-site", "05-mail", "06-dark-home"];
