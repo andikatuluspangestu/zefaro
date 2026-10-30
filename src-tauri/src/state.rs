@@ -1,7 +1,7 @@
 //! Shared application state, managed by Tauri and injected into commands.
 
 use crate::config::{self, ZefaroConfig};
-use crate::engine::{laravel, node, php::Release};
+use crate::engine::{laravel, node, php::Release, terminal};
 use crate::engine::supervisor::Supervisor;
 use std::collections::HashSet;
 use crate::model::{BackupJob, DbJob};
@@ -39,6 +39,8 @@ pub struct AppState {
     pub tinker: laravel::Sessions,
     /// Artisan and Composer runs started from a site's page.
     pub site_jobs: laravel::Jobs,
+    /// Shells open on the Terminal page.
+    pub terminals: Arc<terminal::Terminals>,
 }
 
 impl AppState {
@@ -63,6 +65,7 @@ impl AppState {
             dns_rule: Arc::new(Mutex::new(None)),
             tinker: laravel::Sessions::default(),
             site_jobs: laravel::Jobs::default(),
+            terminals: Arc::default(),
         }
     }
 }

@@ -453,8 +453,15 @@ pub(crate) mod job {
         }
 
         pub fn assign(&self, child: &Child) -> AppResult<()> {
+            self.assign_handle(child.as_raw_handle() as HANDLE)
+        }
+
+        /// Like [`assign`](Self::assign), for a process started without
+        /// `std::process` (a terminal's shell). `process` must be a valid
+        /// process handle.
+        pub fn assign_handle(&self, process: HANDLE) -> AppResult<()> {
             // SAFETY: both handles are valid for the duration of the call.
-            let ok = unsafe { AssignProcessToJobObject(self.0, child.as_raw_handle() as HANDLE) };
+            let ok = unsafe { AssignProcessToJobObject(self.0, process) };
             if ok == 0 {
                 return Err(os_error("AssignProcessToJobObject"));
             }

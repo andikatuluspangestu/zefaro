@@ -87,10 +87,11 @@ pub async fn check_update() -> AppResult<crate::engine::update::UpdateInfo> {
     super::blocking(crate::engine::update::check).await
 }
 
-/// Stop what Zefaro runs, in the order it uses on exit: serving and site workers
-/// first, databases last so they flush cleanly.
+/// Stop what Zefaro runs, in the order it uses on exit: terminals, serving and
+/// site workers first, databases last so they flush cleanly.
 pub fn stop_everything(state: &AppState) {
     use crate::engine::{laravel, mysql, postgres};
+    state.terminals.close_all();
     state.tinker.end_all();
     state.supervisor.stop_all(|id| match id {
         nginx::SERVICE_ID => 0,

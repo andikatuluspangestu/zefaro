@@ -17,6 +17,7 @@ pub mod project;
 pub mod services;
 pub mod sites;
 pub mod system;
+pub mod terminal;
 pub mod tools;
 
 use crate::error::{AppError, AppResult};

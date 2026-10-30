@@ -591,6 +591,54 @@ export const SECTIONS_ID: DocSection[] = [
     ),
   },
   {
+    id: "terminal",
+    title: "Terminal",
+    icon: "terminal",
+    group: "Situs dan runtime",
+    summary: "Shell di dalam Zefaro, dengan PHP, Composer, dan Node.js yang siap dipakai.",
+    body: (go) => (
+      <>
+        <P>
+          Halaman <strong>Terminal</strong>, di bawah <em>Alat</em>, menjalankan PowerShell, Command
+          Prompt, atau Git Bash di dalam Zefaro. Setiap terminal dimulai dengan alat Zefaro di urutan
+          pertama PATH: versi PHP, Composer, Laravel installer, Node.js, serta klien <C>mysql</C>,{" "}
+          <C>psql</C>, dan <C>redis-cli</C>. Anda tidak perlu <em>Tambahkan ke PATH</em> untuk ini.
+          <GoTo page="terminal" label="Buka Terminal" go={go} />
+        </P>
+        <List
+          items={[
+            <>
+              <strong>+</strong> membuka terminal di folder home Anda dengan shell bawaan (PowerShell 7
+              bila terpasang, selain itu Windows PowerShell). Panah di sebelahnya memilih shell lain, atau
+              sebuah situs: terminal lalu terbuka di folder situs itu dengan versi PHP situs tersebut.
+            </>,
+            <>
+              Terminal tetap berjalan saat Anda pindah halaman atau menutup jendela ke tray, dan setiap tab
+              menyimpan output-nya. Keluar dari Zefaro, atau menutup tab, menghentikan shell beserta semua
+              yang dijalankan di dalamnya, misalnya <C>npm run dev</C>.
+            </>,
+            <>
+              Saat sebuah shell berakhir, tekan Enter di tabnya untuk memulainya lagi di folder yang sama.
+            </>,
+          ]}
+        />
+        <Rows
+          rows={[
+            ["Ctrl+C", "Menyalin teks yang dipilih. Tanpa pilihan, menghentikan perintah yang sedang berjalan."],
+            ["Ctrl+V, klik kanan", "Menempel. Klik kanan menyalin bila ada teks yang dipilih."],
+            ["Ctrl+F", "Mencari teks di output. Enter ke hasil berikutnya, Shift+Enter ke hasil sebelumnya."],
+            ["Tautan", "Ctrl+klik alamat http atau https untuk membukanya di browser."],
+          ]}
+        />
+        <P>
+          PowerShell dimulai dengan execution policy <C>RemoteSigned</C> khusus untuk terminal itu,
+          jadi skrip seperti <C>npm.ps1</C> bisa berjalan tanpa mengubah setelan Windows. Terminal
+          memerlukan Windows 10 versi 1809 atau yang lebih baru.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "services",
     title: "Layanan",
     icon: "server",

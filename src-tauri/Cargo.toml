@@ -51,6 +51,10 @@ windows-sys = { version = "0.61", features = [
   "Win32_System_Registry",
   "Win32_System_JobObjects",
   "Win32_System_Threading",
+  # The Terminal page: pipes for the pseudo console, whose functions are
+  # looked up at run time (they need Windows 10 1809).
+  "Win32_System_Pipes",
+  "Win32_System_LibraryLoader",
 ] }
 
 

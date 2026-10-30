@@ -631,6 +631,54 @@ export const SECTIONS: DocSection[] = [
     ),
   },
   {
+    id: "terminal",
+    title: "Terminal",
+    icon: "terminal",
+    group: "Sites and runtimes",
+    summary: "Shells inside Zefaro, with its PHP, Composer and Node.js ready.",
+    body: (go) => (
+      <>
+        <P>
+          The <strong>Terminal</strong> page, under <em>Tools</em>, runs PowerShell, Command Prompt or
+          Git Bash inside Zefaro. Each terminal starts with Zefaro's tools first on PATH: the PHP
+          version, Composer, the Laravel installer, Node.js, and the <C>mysql</C>, <C>psql</C> and{" "}
+          <C>redis-cli</C> clients. You don't need <em>Add to PATH</em> for it.
+          <GoTo page="terminal" label="Open Terminal" go={go} />
+        </P>
+        <List
+          items={[
+            <>
+              <strong>+</strong> opens a terminal in your home folder with the default shell (PowerShell 7
+              when it is installed, otherwise Windows PowerShell). The arrow beside it picks another shell,
+              or a site: the terminal then opens in the site's folder with the site's PHP version.
+            </>,
+            <>
+              Terminals keep running when you switch pages or close the window to the tray, and each tab
+              keeps its output. Quitting Zefaro, or closing a tab, ends the shell and everything started
+              in it, such as <C>npm run dev</C>.
+            </>,
+            <>
+              When a shell ends, press Enter in its tab to start it again in the same folder.
+            </>,
+          ]}
+        />
+        <Rows
+          rows={[
+            ["Ctrl+C", "Copies the selection. With nothing selected, it stops the running command."],
+            ["Ctrl+V, right-click", "Pastes. Right-click copies instead when text is selected."],
+            ["Ctrl+F", "Finds text in the output. Enter goes to the next match, Shift+Enter to the previous one."],
+            ["Links", "Ctrl+click an http or https address to open it in your browser."],
+          ]}
+        />
+        <P>
+          PowerShell starts with the execution policy <C>RemoteSigned</C> for that terminal only, so
+          scripts such as <C>npm.ps1</C> run without changing the setting for Windows. The Terminal needs
+          Windows 10 version 1809 or later.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "services",
     title: "Services",
     icon: "server",

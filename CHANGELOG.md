@@ -14,6 +14,13 @@ All notable changes to Zefaro are listed here. The format follows
   840 MB of debug symbols. The New site wizard can create a Laravel app on it (`DB_CONNECTION=mysql`,
   `DB_PORT=3307`), the site page offers to start it when the app can't connect, its log is on the Logs page,
   and it can start with Zefaro. The Databases page, backups and phpMyAdmin stay MariaDB-only.
+- **Terminal.** A Terminal page under Tools runs PowerShell, Command Prompt or Git Bash inside Zefaro, on a
+  Windows pseudo console, so colours, prompts and interactive programs (`php artisan tinker`, `mysql`,
+  `npm run dev`) work as in Windows Terminal. Each terminal starts with Zefaro's PHP, Composer, Laravel
+  installer, Node.js and database clients first on PATH, without *Add to PATH*; one opened for a site starts in
+  its folder with its PHP version. Tabs, find, copy and paste, clickable links and text size are there.
+  Terminals keep running when you switch pages or close the window to the tray, and quitting Zefaro or closing
+  a tab ends everything started in them. Needs Windows 10 version 1809 or later.
 
 ### Changed
 

@@ -76,6 +76,7 @@ trusted certificate authority, and keeps `%USERPROFILE%\.config\zefaro` until yo
 | Mail | Mailpit 1.32 catches every email your apps send on `127.0.0.1:1025`, and PHP's `mail()` is pointed at it. The Mail page has search, attachments, links and an unread count. |
 | Logs | A live viewer for the nginx, PHP, MariaDB, MySQL, PostgreSQL, Redis and Mailpit logs, with search and a level filter. |
 | Services | One page starts and stops everything. Zefaro restarts a service that crashes. Closing the window keeps Zefaro and its services running in the system tray; quitting from the tray stops them all in order, with nginx first and the databases last. |
+| Terminal | PowerShell, Command Prompt or Git Bash inside Zefaro, in tabs, on a Windows pseudo console. Each terminal has Zefaro's PHP, Composer, Node.js and database clients on PATH, and one opened for a site starts in its folder with its PHP version. Terminals keep running in the tray; quitting Zefaro ends what runs in them. |
 | Command line | Once you add Zefaro's folder to PATH, `php`, `composer`, `laravel`, `node`, `npm`, `npx`, `mariadb`, `mysql`, `mariadb-dump`, `mysqldump`, `mariadb-admin`, `psql`, `pg_dump`, `pg_restore`, `createdb`, `dropdb` and `redis-cli` work in any terminal and connect to Zefaro's own servers. `nginx` accepts `-t`, `-T`, `-v`, `-V` and `-s reload`. |
 | Settings pages | nginx (ports, workers, timeouts, request size, gzip, HTTP/2, logs, extra directives), PHP per version, DNS, Mailpit. |
 

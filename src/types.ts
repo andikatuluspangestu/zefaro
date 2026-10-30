@@ -551,3 +551,23 @@ export interface DumpsStatus {
   enabled: boolean;
   running: boolean;
 }
+
+/** A shell the Terminal page can open. */
+export interface TerminalShell {
+  /** "pwsh" | "powershell" | "cmd" | "bash" */
+  id: string;
+  name: string;
+}
+
+export interface TerminalInfo {
+  id: number;
+  title: string;
+  shell: string;
+  shellName: string;
+  cwd: string;
+  site: string | null;
+  php: string | null;
+  /** Set once the shell has ended. */
+  exitCode: number | null;
+  startedMs: number;
+}

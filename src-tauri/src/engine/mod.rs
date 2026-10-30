@@ -39,5 +39,6 @@ pub mod shims;
 pub mod starter;
 pub mod startup;
 pub mod supervisor;
+pub mod terminal;
 pub mod tools;
 pub mod update;

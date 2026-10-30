@@ -79,7 +79,11 @@ The four brand colours, set by the project owner:
 
 ## Layout
 
-- Sidebar (collapsible to icons) + one scrolling content column, max width 5xl.
+- Sidebar (collapsible to icons) + one scrolling content column, max width 5xl. The
+  Terminal page is the exception: it fills the whole area and stays mounted while other
+  pages are open, so each terminal keeps its screen. Its colours come from the tokens
+  (card background, foreground text, primary cursor); every ANSI colour reads at 4.5:1
+  on that background, except black on the dark theme, which programs use as a fill.
 - Home is the first page: what is running, your sites, and what needs attention. While a
   fresh install has no PHP or no site, a four-step "Get started" list leads the page.
 - Minimum window 820 x 560; every page must fit without horizontal scroll.

@@ -2,7 +2,7 @@
 // so pages stay clean and refactors are localized. Mutating calls emit a
 // `zefaro:refresh` window event so the top-bar summary can stay in sync.
 
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type {
   AppInfo,
@@ -41,6 +41,8 @@ import type {
   PortStatus,
   Service,
   Site,
+  TerminalInfo,
+  TerminalShell,
   ToolsStatus,
 } from "./types";
 import type {
@@ -174,6 +176,23 @@ export const api = {
   nodeInstall: (major: string) => mutate(invoke<void>("node_install", { major })),
   nodeActivate: (major: string) => mutate(invoke<void>("node_activate", { major })),
   nodeUninstall: (major: string) => mutate(invoke<void>("node_uninstall", { major })),
+  terminalShells: () => invoke<TerminalShell[]>("terminal_shells"),
+  terminalList: () => invoke<TerminalInfo[]>("terminal_list"),
+  /** In a site's folder with its PHP line, or in `cwd` (home when null) with the active one. */
+  terminalOpen: (o: { shell: string | null; site: string | null; cwd: string | null; cols: number; rows: number }) =>
+    invoke<TerminalInfo>("terminal_open", o),
+  /** Output as raw bytes: what was kept first, then everything new. */
+  terminalAttach: (id: number, onOutput: (bytes: Uint8Array) => void) => {
+    const channel = new Channel<ArrayBuffer>();
+    channel.onmessage = (data) => onOutput(new Uint8Array(data));
+    return invoke<void>("terminal_attach", { id, onOutput: channel });
+  },
+  terminalDetach: (id: number) => invoke<void>("terminal_detach", { id }),
+  terminalWrite: (id: number, data: string) => invoke<void>("terminal_write", { id, data }),
+  terminalResize: (id: number, cols: number, rows: number) => invoke<void>("terminal_resize", { id, cols, rows }),
+  terminalClose: (id: number) => invoke<void>("terminal_close", { id }),
+  onTerminalExit: (cb: (e: { id: number; code: number | null }) => void) =>
+    listen<{ id: number; code: number | null }>("terminal-exit", (e) => cb(e.payload)),
   onNodeInstallProgress: (cb: (p: InstallProgress) => void) =>
     listen<InstallProgress>("node-install-progress", (e) => cb(e.payload)),
 

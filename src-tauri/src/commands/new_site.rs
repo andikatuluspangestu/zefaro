@@ -472,17 +472,6 @@ fn step(code: Option<i32>, what: &str) -> AppResult<()> {
     }
 }
 
-/// Variables laravel/agent-detector reads to decide it runs under an agent.
-const AGENT_VARS: &[&str] = &[
-    "AI_AGENT", "CURSOR_AGENT", "GROK_PLUGIN_ROOT", "GROK_PLUGIN_DATA", "QWEN_CODE", "GEMINI_CLI",
-    "CODEX_SANDBOX", "CODEX_CI", "CODEX_THREAD_ID", "CODEX_SANDBOX_NETWORK_DISABLED", "AUGMENT_AGENT",
-    "OPENCODE_CLIENT", "OPENCODE", "AMP_CURRENT_THREAD_ID", "CLAUDECODE", "CLAUDE_CODE", "REPL_ID",
-    "COPILOT_MODEL", "COPILOT_ALLOW_ALL", "COPILOT_GITHUB_TOKEN", "COPILOT_CLI", "ANTIGRAVITY_AGENT",
-    "ANTIGRAVITY_CLI_ALIAS", "PI_CODING_AGENT", "MATTERHORN_SESSION_ID", "JUNIE_DATA", "JUNIE_SHIM_PATH",
-    "KIRO_AGENT_PATH", "KIMI_PLUGIN_ROOT", "CLINE_ACTIVE", "GOOSE_TERMINAL", "OPENCLAW_SHELL", "ZCODE_ENV",
-    "CRUSH", "WINDSURF_CASCADE_TERMINAL", "TERM_PROGRAM",
-];
-
 /// `php laravel new …` in the parent folder, with the chosen PHP first on PATH.
 fn installer_command(o: &NewSite) -> AppResult<std::process::Command> {
     // The installer runs composer, php artisan and npm from PATH.
@@ -501,7 +490,7 @@ fn installer_command(o: &NewSite) -> AppResult<std::process::Command> {
         .env("COMPOSER_NO_INTERACTION", "1");
     // Under a coding agent the installer prints one line of JSON instead of
     // its progress. Zefaro may be started from such a terminal; show the progress.
-    for var in AGENT_VARS {
+    for var in process::AGENT_VARS {
         cmd.env_remove(var);
     }
     Ok(cmd)

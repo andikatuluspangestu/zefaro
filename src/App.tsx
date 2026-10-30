@@ -14,6 +14,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { HomePage } from "@/pages/HomePage";
 import { SitesPage } from "@/pages/SitesPage";
 import { ServicesPage } from "@/pages/ServicesPage";
+import { TerminalPage } from "@/pages/TerminalPage";
+import { cn } from "@/lib/utils";
 import { MailPage } from "@/pages/MailPage";
 import { LogsPage } from "@/pages/LogsPage";
 import { DumpsPage } from "@/pages/DumpsPage";
@@ -30,6 +32,7 @@ export type PageId =
   | "home"
   | "sites"
   | "services"
+  | "terminal"
   | "mail"
   | "logs"
   | "dumps"
@@ -75,6 +78,10 @@ export default function App() {
 function Shell() {
   const t = useT(common);
   const [page, setPage] = useState<PageId>("home");
+  const [terminalOpened, setTerminalOpened] = useState(false);
+  useEffect(() => {
+    if (page === "terminal") setTerminalOpened(true);
+  }, [page]);
   const [intent, setIntent] = useState<Intent | null>(null);
   const go = useCallback((id: PageId, next?: Intent) => {
     setIntent(next ?? null);
@@ -170,7 +177,7 @@ function Shell() {
             </div>
           </header>
           {/* SidebarInset is already the page's <main>; this is just its scroll area. */}
-          <div data-scroll-root className="flex-1 overflow-y-auto">
+          <div data-scroll-root className={cn("flex-1 overflow-y-auto", page === "terminal" && "hidden")}>
             <div className="mx-auto w-full max-w-5xl p-6">
               {page === "home" && <HomePage onNavigate={go} />}
               {page === "sites" && <SitesPage intent={intent} onIntentDone={clearIntent} />}
@@ -184,6 +191,13 @@ function Shell() {
               {page === "about" && <AboutPage info={info} onNavigate={go} />}
             </div>
           </div>
+          {/* The Terminal fills the area and, once opened, stays mounted (hidden on
+              other pages) so each terminal keeps its screen and scrollback. */}
+          {terminalOpened && (
+            <div className={cn("min-h-0 flex-1", page !== "terminal" && "hidden")}>
+              <TerminalPage visible={page === "terminal"} />
+            </div>
+          )}
         </SidebarInset>
       </SidebarProvider>
       <UpdateHost />

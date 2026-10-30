@@ -153,6 +153,7 @@ function builtWith(t: Messages["builtWith"]) {
     { name: "Tailwind CSS", license: "MIT" },
     { name: "Font Awesome Free", license: t.fontAwesome },
     { name: "Geist", license: "SIL OFL 1.1" },
+    { name: "xterm.js", license: "MIT" },
     { name: "Dashboard Icons", license: t.dashboardIcons },
     { name: "rcgen", license: "MIT / Apache-2.0" },
     { name: "ring", license: t.ring },

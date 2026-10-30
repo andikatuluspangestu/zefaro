@@ -11,6 +11,19 @@ use std::os::windows::process::CommandExt;
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
+/// Variables laravel/agent-detector reads to decide it runs under a coding
+/// agent. Zefaro may be started from such a terminal; programs it runs for
+/// the user (the Laravel installer, the Terminal page's shells) leave them out.
+pub const AGENT_VARS: &[&str] = &[
+    "AI_AGENT", "CURSOR_AGENT", "GROK_PLUGIN_ROOT", "GROK_PLUGIN_DATA", "QWEN_CODE", "GEMINI_CLI",
+    "CODEX_SANDBOX", "CODEX_CI", "CODEX_THREAD_ID", "CODEX_SANDBOX_NETWORK_DISABLED", "AUGMENT_AGENT",
+    "OPENCODE_CLIENT", "OPENCODE", "AMP_CURRENT_THREAD_ID", "CLAUDECODE", "CLAUDE_CODE", "REPL_ID",
+    "COPILOT_MODEL", "COPILOT_ALLOW_ALL", "COPILOT_GITHUB_TOKEN", "COPILOT_CLI", "ANTIGRAVITY_AGENT",
+    "ANTIGRAVITY_CLI_ALIAS", "PI_CODING_AGENT", "MATTERHORN_SESSION_ID", "JUNIE_DATA", "JUNIE_SHIM_PATH",
+    "KIRO_AGENT_PATH", "KIMI_PLUGIN_ROOT", "CLINE_ACTIVE", "GOOSE_TERMINAL", "OPENCLAW_SHELL", "ZCODE_ENV",
+    "CRUSH", "WINDSURF_CASCADE_TERMINAL", "TERM_PROGRAM",
+];
+
 pub fn command(program: impl AsRef<OsStr>) -> Command {
     #[allow(unused_mut)]
     let mut cmd = Command::new(program);

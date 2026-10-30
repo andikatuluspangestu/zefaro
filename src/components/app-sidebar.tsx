@@ -40,6 +40,7 @@ const GROUPS: { label: keyof Nav; items: NavItem[] }[] = [
     label: "tools",
     items: [
       { id: "services", icon: "server" },
+      { id: "terminal", icon: "terminal" },
       { id: "mail", icon: "envelope" },
       { id: "logs", icon: "file-lines" },
       { id: "dumps", icon: "bug" },
