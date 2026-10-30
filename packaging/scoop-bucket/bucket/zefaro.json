@@ -1,5 +1,5 @@
 {
-    "version": "1.3.0",
+    "version": "1.3.1",
     "description": "Free, open-source local PHP and Laravel development environment for Windows, an alternative to XAMPP and Laragon.",
     "homepage": "https://zefaro.pages.dev",
     "license": "MIT",
@@ -10,8 +10,8 @@
     ],
     "architecture": {
         "64bit": {
-            "url": "https://github.com/andikatuluspangestu/zefaro/releases/download/v1.3.0/Zefaro_1.3.0_x64-setup.exe#/dl.7z",
-            "hash": "79cf1ee4d5c6f40fcfd708d21e2bf7385bcbfd262a837e3de33c1ba96520c470"
+            "url": "https://github.com/andikatuluspangestu/zefaro/releases/download/v1.3.1/Zefaro_1.3.1_x64-setup.exe#/dl.7z",
+            "hash": "1c053a78ffcf79573d5546921a6be7ad54fb7d00495a3fd58e5a3afff3e258de"
         }
     },
     "pre_install": "Remove-Item \"$dir\\`$PLUGINSDIR\", \"$dir\\`$TEMP\", \"$dir\\uninstall.exe\" -Recurse -Force -ErrorAction SilentlyContinue",
