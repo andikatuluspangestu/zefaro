@@ -21,6 +21,8 @@ import type {
   CaStatus,
   DbJob,
   DbEngine,
+  TunnelInfo,
+  TunnelSetup,
   DbOverview,
   DumpInfo,
   PhpExtension,
@@ -58,6 +60,7 @@ import type {
   NewSiteDefaults,
   NewSiteTarget,
   Overview,
+  PackagesReport,
   RoutesResponse,
   RowsRequest,
   RowsResponse,
@@ -92,7 +95,8 @@ export const api = {
   importDbDump: (names: string[]) => invoke<string[]>("import_db_dump", { names }),
   importDbLoad: () => mutate(invoke<string[]>("import_db_load")),
   phpXdebugVersion: (version: string) => invoke<string | null>("php_xdebug_version", { version }),
-  phpXdebugInstall: (version: string) => invoke<PhpExtension[]>("php_xdebug_install", { version }),
+  /** Xdebug on (downloading it first if needed) or off for one line; restarts its php-cgi. */
+  phpXdebugSet: (version: string, on: boolean) => invoke<PhpExtension[]>("php_xdebug_set", { version, on }),
   dumpsStatus: () => invoke<DumpsStatus>("dumps_status"),
   dumpsSetEnabled: (on: boolean) => mutate(invoke<DumpsStatus>("dumps_set_enabled", { on })),
   dumpsList: () => invoke<DumpEntry[]>("dumps_list"),
@@ -128,6 +132,16 @@ export const api = {
   siteConfig: (name: string) => invoke<ConfigResponse>("site_config", { name }),
   siteRoutes: (name: string) => invoke<RoutesResponse>("site_routes", { name }),
   siteEnv: (name: string) => invoke<EnvEntry[]>("site_env", { name }),
+  tunnelSetup: () => invoke<TunnelSetup>("tunnel_setup"),
+  tunnelList: () => invoke<TunnelInfo[]>("tunnel_list"),
+  /** Share a site publicly; downloads cloudflared first when it isn't there. */
+  tunnelStart: (site: string) => invoke<TunnelInfo>("tunnel_start", { site }),
+  tunnelStatus: (site: string) => invoke<TunnelInfo | null>("tunnel_status", { site }),
+  tunnelStop: (site: string) => invoke<void>("tunnel_stop", { site }),
+  /** composer audit and composer outdated for a site (asks packagist.org). */
+  sitePackages: (name: string) => invoke<PackagesReport>("site_packages", { name }),
+  /** The site's .env.example parsed, or null when it has none. */
+  siteEnvExample: (name: string) => invoke<EnvEntry[] | null>("site_env_example", { name }),
   /** Ends the site's Tinker session and clears a cached config. */
   siteEnvSet: (name: string, values: [string, string][]) => invoke<EnvEntry[]>("site_env_set", { name, values }),
   tinkerEval: (name: string, code: string, rollback: boolean) =>

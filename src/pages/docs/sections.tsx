@@ -428,7 +428,22 @@ export const SECTIONS: DocSection[] = [
                 The <C>.env</C> file as an editor, the values the app sees after merging its
                 config files (click one to copy its <C>config()</C> call), and every route.
                 Saving a value writes <C>.env</C>, ends the Tinker session so the next run reads
-                it, and clears a cached config.
+                it, and clears a cached config. Values of keys that look secret (keys, passwords,
+                tokens) stay hidden until you show them. Compared with <C>.env.example</C>, variables
+                it has that <C>.env</C> lacks are listed to add one by one or all at once, and variables
+                only in <C>.env</C> are marked. A site without <C>.env</C> can create one from the example.
+              </>,
+            ],
+            [
+              "Packages",
+              <>
+                <C>composer audit</C> and <C>composer outdated</C> on the site's{" "}
+                <C>composer.lock</C>, run when you first open the tab and again with{" "}
+                <em>Check again</em>. Known vulnerabilities are listed by package, most severe
+                first, with the locked version, the CVE, the affected versions and a link to the
+                advisory. Abandoned packages show what to use instead. Newer releases are marked as
+                a safe update (allowed by <C>composer.json</C>) or as needing a constraint change.
+                The checks ask packagist.org, so they need the internet.
               </>,
             ],
             [
@@ -470,6 +485,23 @@ export const SECTIONS: DocSection[] = [
             ],
           ]}
         />
+        <H3>Share on the internet</H3>
+        <P>
+          The share button in a site's header gives it a temporary public{" "}
+          <C>https://….trycloudflare.com</C> address through a Cloudflare Quick Tunnel, to test a
+          webhook or show your work to a client. It needs no Cloudflare account and opens no port on
+          your router. Zefaro asks first and explains what it means; the first time, it downloads{" "}
+          <C>cloudflared</C> (53 MB) from Cloudflare's GitHub releases and checks it against its
+          SHA-256. A banner shows the address with <em>Stop sharing</em>, and the top bar shows how
+          many sites are public. Sharing ends when you stop it, stop nginx, or quit Zefaro.
+        </P>
+        <P>
+          Zefaro serves the shared site on a port of its own and tells the app the public address
+          over HTTPS, so links, redirects and assets point at the tunnel instead of{" "}
+          <C>.test</C>. Anyone with the link can open the site, so share only what a stranger may
+          see, and turn off <C>APP_DEBUG</C> first: its error pages show your code and{" "}
+          <C>.env</C>. Quick Tunnels are meant for testing, not for running a live site.
+        </P>
         <H3>Good to know</H3>
         <List
           items={[
@@ -897,8 +929,8 @@ export const SECTIONS: DocSection[] = [
         </P>
         <H3>Export and import of any size</H3>
         <P>
-          The gear on the MariaDB, MySQL or PostgreSQL card opens the <strong>Databases</strong>{" "}
-          page, with a tab for each of the three servers. It lists every database with its size,
+          <strong>Databases</strong> under Tools in the sidebar, or the gear on the MariaDB, MySQL or PostgreSQL
+          card, opens the Databases page, with a tab for each of the three servers. It lists every database with its size,
           with <em>New database</em>, <em>Export</em>, <em>Import dump…</em> and <em>Drop</em>.
           Zefaro streams data between the server and the file, so dumps of 5 GB or more work without
           running out of memory. Uploading them to phpMyAdmin doesn't. One export or import runs at
@@ -1225,7 +1257,10 @@ export const SECTIONS: DocSection[] = [
         <H3>Dumps</H3>
         <P>
           Turn on <em>Catch dumps</em> on the Dumps page and <C>dump()</C> and <C>dd()</C> from your sites appear there,
-          newest first, with the file and line they came from, instead of in the page.
+          newest first, with the file and line they came from, instead of in the page. Each dump is labelled with the
+          site that sent it, found from the page's address (or, for <C>php artisan</C>, from the folder of the file).
+          Pick a site to see only its dumps, and type in the search box to find dumps by file, address, command, or
+          anything inside the dumped value.
           <GoTo page="dumps" label="Open Dumps" go={go} />
         </P>
         <P>
@@ -1236,8 +1271,7 @@ export const SECTIONS: DocSection[] = [
         <H3>Xdebug</H3>
         <Steps
           items={[
-            <>Open a PHP version's settings (the gear on the PHP page) and click <em>Download Xdebug</em>. Zefaro checks the file against its SHA-256 before using it.</>,
-            <>Turn on <C>xdebug</C> in the extension list and save. Zefaro adds the settings below to that version's php.ini.</>,
+            <>On the PHP versions page, turn on the <em>Xdebug</em> switch in that version's row (or on the Xdebug card in its settings). The first time, Zefaro downloads Xdebug and checks it against its SHA-256. It then adds the settings below to that version's php.ini and restarts its PHP. Each version has its own switch.</>,
             <>In VS Code, install the PHP Debug extension, paste the launch.json Zefaro copies for you, and start <em>Listen for Xdebug</em>.</>,
             <>Start a request with the <C>XDEBUG_TRIGGER</C> cookie or query parameter (a browser extension such as Xdebug Helper sets it).</>,
           ]}
@@ -1300,6 +1334,10 @@ export const SECTIONS: DocSection[] = [
           project's GitHub release and checks it against the SHA-256 published with the release. A file that doesn't
           match is deleted and never run. Then Zefaro stops your services, closes, and the installer replaces it and
           opens it again; your sites, settings, databases, the DNS rule and the HTTPS certificate stay.
+        </P>
+        <P>
+          <em>Release notes</em>, in the same message and on the same tab, shows what the new version changes inside
+          Zefaro, from the notes published with the release.
         </P>
         <P>
           Nothing is downloaded until you click, and you can still take the installer from the release page yourself.

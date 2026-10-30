@@ -14,7 +14,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { defineMessages, useT } from "@/i18n";
+import { Markdown } from "@/components/markdown";
+import { defineMessages, localeOf, useLang, useT } from "@/i18n";
 import type { AppInfo, UpdateInfo, UpdateProgress } from "@/types";
 
 export const updateMessages = defineMessages({
@@ -42,6 +43,9 @@ export const updateMessages = defineMessages({
     nothingChanged: "Nothing was installed. You can try again, or download the installer yourself.",
     close: "Close",
     releasePage: "Release page",
+    notesTitle: (v: string) => `What's new in Zefaro ${v}`,
+    published: (date: string) => `Released ${date}`,
+    noNotes: "This release has no notes.",
   },
   id: {
     available: (v: string) => `Zefaro ${v} sudah tersedia`,
@@ -67,14 +71,23 @@ export const updateMessages = defineMessages({
     nothingChanged: "Tidak ada yang terpasang. Anda bisa mencoba lagi, atau mengunduh installer sendiri.",
     close: "Tutup",
     releasePage: "Halaman rilis",
+    notesTitle: (v: string) => `Yang baru di Zefaro ${v}`,
+    published: (date: string) => `Dirilis ${date}`,
+    noNotes: "Rilis ini tidak punya catatan.",
   },
 });
 
 const EVENT = "zefaro:update-now";
+const NOTES_EVENT = "zefaro:release-notes";
 
 /** Ask for the update dialog (shown by `UpdateHost`, mounted once in the app). */
 export function openUpdateDialog(u: UpdateInfo) {
   window.dispatchEvent(new CustomEvent<UpdateInfo>(EVENT, { detail: u }));
+}
+
+/** Show a release's notes inside Zefaro (also by `UpdateHost`). */
+export function openReleaseNotes(u: UpdateInfo) {
+  window.dispatchEvent(new CustomEvent<UpdateInfo>(NOTES_EVENT, { detail: u }));
 }
 
 /** Tell the user about a newer version, with buttons to update or read its page. */
@@ -85,7 +98,7 @@ export function announceUpdate(u: UpdateInfo, t: (typeof updateMessages)["en"]) 
     description: t.availableBody(u.current),
     duration: 15000,
     action: u.canInstall ? { label: t.updateNow, onClick: () => openUpdateDialog(u) } : { label: t.download, onClick: page },
-    cancel: u.canInstall ? { label: t.notes, onClick: page } : undefined,
+    cancel: { label: t.notes, onClick: () => openReleaseNotes(u) },
   });
 }
 
@@ -168,60 +181,106 @@ export function UpdateHost() {
   const pct = progress?.total ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : 0;
 
   return (
-    <AlertDialog open={update !== null} onOpenChange={(o) => !o && !running && setUpdate(null)}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{error ? t.updateFailed : t.confirmTitle(update?.latest ?? "")}</AlertDialogTitle>
-          <AlertDialogDescription asChild>
-            <div className="space-y-2 text-sm">
+    <>
+      <ReleaseNotesDialog />
+      <AlertDialog open={update !== null} onOpenChange={(o) => !o && !running && setUpdate(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{error ? t.updateFailed : t.confirmTitle(update?.latest ?? "")}</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                {error ? (
+                  <>
+                    <p className="text-destructive">{error}</p>
+                    <p>{t.nothingChanged}</p>
+                  </>
+                ) : running ? (
+                  <>
+                    <p>{t.phases[progress?.phase ?? "checking"]}</p>
+                    <Progress value={progress?.phase === "installing" ? 100 : pct} className="h-2" />
+                  </>
+                ) : (
+                  <>
+                    <p>{t.confirmDownload(megabytes(update?.installerSize))}</p>
+                    <p>{t.confirmInstall}</p>
+                  </>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {!running && (
+            <AlertDialogFooter>
               {error ? (
                 <>
-                  <p className="text-destructive">{error}</p>
-                  <p>{t.nothingChanged}</p>
-                </>
-              ) : running ? (
-                <>
-                  <p>{t.phases[progress?.phase ?? "checking"]}</p>
-                  <Progress value={progress?.phase === "installing" ? 100 : pct} className="h-2" />
+                  <Button variant="outline" onClick={() => update && openUrl(update.url).catch(() => {})}>
+                    {t.releasePage}
+                  </Button>
+                  <AlertDialogCancel>{t.close}</AlertDialogCancel>
+                  <Button onClick={start}>{t.updateNow}</Button>
                 </>
               ) : (
                 <>
-                  <p>{t.confirmDownload(megabytes(update?.installerSize))}</p>
-                  <p>{t.confirmInstall}</p>
+                  <Button variant="outline" onClick={() => update && openReleaseNotes(update)}>
+                    {t.notes}
+                  </Button>
+                  <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={(e) => {
+                      // Stay open: the dialog now shows the download.
+                      e.preventDefault();
+                      start();
+                    }}
+                  >
+                    {t.updateNow}
+                  </AlertDialogAction>
                 </>
               )}
-            </div>
-          </AlertDialogDescription>
+            </AlertDialogFooter>
+          )}
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
+/** A release's notes, read inside Zefaro; "Update now" from there when it can. */
+function ReleaseNotesDialog() {
+  const t = useT(updateMessages);
+  const { lang } = useLang();
+  const [release, setRelease] = useState<UpdateInfo | null>(null);
+
+  useEffect(() => {
+    const open = (e: Event) => setRelease((e as CustomEvent<UpdateInfo>).detail);
+    window.addEventListener(NOTES_EVENT, open);
+    return () => window.removeEventListener(NOTES_EVENT, open);
+  }, []);
+
+  // The dialog's title names the version, so the notes' own "# Zefaro x.y.z" goes.
+  const notes = release?.notes?.replace(/^#\s+Zefaro\b[^\n]*\n+/, "") ?? "";
+  const date = release?.published
+    ? new Date(release.published).toLocaleDateString(localeOf(lang), { dateStyle: "long" })
+    : null;
+
+  return (
+    <AlertDialog open={release !== null} onOpenChange={(o) => !o && setRelease(null)}>
+      <AlertDialogContent className="data-[size=default]:sm:max-w-2xl">
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t.notesTitle(release?.latest ?? "")}</AlertDialogTitle>
+          {date && <AlertDialogDescription>{t.published(date)}</AlertDialogDescription>}
         </AlertDialogHeader>
-        {!running && (
-          <AlertDialogFooter>
-            {error ? (
-              <>
-                <Button variant="outline" onClick={() => update && openUrl(update.url).catch(() => {})}>
-                  {t.releasePage}
-                </Button>
-                <AlertDialogCancel>{t.close}</AlertDialogCancel>
-                <Button onClick={start}>{t.updateNow}</Button>
-              </>
-            ) : (
-              <>
-                <Button variant="outline" onClick={() => update && openUrl(update.url).catch(() => {})}>
-                  {t.notes}
-                </Button>
-                <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={(e) => {
-                    // Stay open: the dialog now shows the download.
-                    e.preventDefault();
-                    start();
-                  }}
-                >
-                  {t.updateNow}
-                </AlertDialogAction>
-              </>
-            )}
-          </AlertDialogFooter>
-        )}
+        <div className="-mx-6 max-h-[60vh] overflow-y-auto border-y px-6 py-4">
+          {notes ? (
+            <Markdown text={notes} className="space-y-3 text-sm leading-relaxed text-muted-foreground" />
+          ) : (
+            <p className="text-sm text-muted-foreground">{t.noNotes}</p>
+          )}
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t.close}</AlertDialogCancel>
+          {release?.newer && release.canInstall && (
+            <AlertDialogAction onClick={() => openUpdateDialog(release)}>{t.updateNow}</AlertDialogAction>
+          )}
+        </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );

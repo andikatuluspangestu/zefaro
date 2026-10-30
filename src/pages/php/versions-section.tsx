@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Spinner } from "@/components/ui/spinner";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -33,6 +34,11 @@ const messages = defineMessages({
     colProvider: "Provider",
     colInstalled: "Installed",
     colActive: "Active",
+    colXdebug: "Xdebug",
+    xdebugOn: (x: string) => `Xdebug ${x} is on. Your editor listens on port 9003; debugging starts when a request asks (XDEBUG_TRIGGER).`,
+    xdebugOff: (x: string, v: string) => `Turn on Xdebug ${x} for PHP ${v}. Zefaro downloads it the first time.`,
+    xdebugNone: (v: string) => `Zefaro has no Xdebug build for PHP ${v}.`,
+    xdebugLabel: (v: string) => `Xdebug for PHP ${v}`,
     colOptions: "Options",
     providerTitle: "Official builds from windows.php.net (non-thread-safe, 64-bit)",
     official: "Official · NTS x64",
@@ -55,6 +61,11 @@ const messages = defineMessages({
     colProvider: "Penyedia",
     colInstalled: "Terpasang",
     colActive: "Aktif",
+    colXdebug: "Xdebug",
+    xdebugOn: (x: string) => `Xdebug ${x} aktif. Editor Anda listening di port 9003; debugging berjalan saat request memintanya (XDEBUG_TRIGGER).`,
+    xdebugOff: (x: string, v: string) => `Nyalakan Xdebug ${x} untuk PHP ${v}. Zefaro mengunduhnya saat pertama kali.`,
+    xdebugNone: (v: string) => `Zefaro tidak punya build Xdebug untuk PHP ${v}.`,
+    xdebugLabel: (v: string) => `Xdebug untuk PHP ${v}`,
     colOptions: "Opsi",
     providerTitle: "Build resmi dari windows.php.net (non-thread-safe, 64-bit)",
     official: "Resmi · NTS x64",
@@ -92,6 +103,8 @@ export function VersionsSection({
   installing,
   onInstall,
   onActivate,
+  xdebugBusy,
+  onXdebug,
   onSettings,
 }: {
   data: PhpVersionsResponse | null;
@@ -99,6 +112,9 @@ export function VersionsSection({
   installing: Set<string>;
   onInstall: (v: PhpVersion) => void;
   onActivate: (v: PhpVersion) => void;
+  /** Lines whose Xdebug switch is being applied. */
+  xdebugBusy: Set<string>;
+  onXdebug: (v: PhpVersion, on: boolean) => void;
   /** Opens an installed version's settings page. */
   onSettings: (v: PhpVersion) => void;
 }) {
@@ -126,6 +142,7 @@ export function VersionsSection({
                 <TableHead className="text-xs tracking-wide uppercase">{t.colProvider}</TableHead>
                 <TableHead className="text-xs tracking-wide uppercase">{t.colInstalled}</TableHead>
                 <TableHead className="text-xs tracking-wide uppercase">{t.colActive}</TableHead>
+                <TableHead className="text-xs tracking-wide uppercase">{t.colXdebug}</TableHead>
                 <TableHead className="w-16 pr-3 text-right text-xs tracking-wide uppercase">{t.colOptions}</TableHead>
               </TableRow>
             </TableHeader>
@@ -200,6 +217,33 @@ export function VersionsSection({
                           </TooltipTrigger>
                           <TooltipContent>{v.isActive ? t.activeHint : `${t.activate} PHP ${v.version}`}</TooltipContent>
                         </Tooltip>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>
+                      {v.installed && !busy ? (
+                        xdebugBusy.has(v.version) ? (
+                          <Spinner className="size-4 text-muted-foreground" />
+                        ) : (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex">
+                                <Switch
+                                  checked={v.xdebug}
+                                  disabled={!v.xdebugVersion}
+                                  onCheckedChange={(on) => onXdebug(v, on)}
+                                  aria-label={t.xdebugLabel(v.version)}
+                                />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-64">
+                              {!v.xdebugVersion
+                                ? t.xdebugNone(v.version)
+                                : v.xdebug
+                                  ? t.xdebugOn(v.xdebugVersion)
+                                  : t.xdebugOff(v.xdebugVersion, v.version)}
+                            </TooltipContent>
+                          </Tooltip>
+                        )
                       ) : null}
                     </TableCell>
                     <TableCell className="pr-3 text-right">

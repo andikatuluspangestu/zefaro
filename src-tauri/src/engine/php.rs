@@ -53,6 +53,11 @@ const XDEBUG: &[(&str, &str, &str, &str)] = &[
 ];
 const XDEBUG_FILES: &str = "https://xdebug.org/files/";
 
+/// Xdebug has been downloaded into the line's ext folder.
+pub fn xdebug_installed(minor: &str) -> bool {
+    paths::php_dir(minor).join("ext").join("php_xdebug.dll").is_file()
+}
+
 /// The Xdebug version Zefaro installs for a line, if there's a build for it.
 pub fn xdebug_version(minor: &str) -> Option<&'static str> {
     XDEBUG.iter().find(|x| x.0 == minor).map(|x| x.1)
@@ -268,6 +273,9 @@ pub fn list(releases: &[Release], active: &str, base_port: u16) -> Vec<PhpVersio
                 latest: release.map(|r| r.version.clone()),
                 size: release.and_then(|r| r.size.clone()),
                 installed: inst,
+                // Whether it's on comes from the settings (php_versions fills it in).
+                xdebug: false,
+                xdebug_version: xdebug_version(&minor).map(str::to_owned),
                 version: minor,
             }
         })

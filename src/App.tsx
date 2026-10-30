@@ -10,7 +10,7 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/s
 import { Toaster } from "@/components/ui/sonner";
 import { CloseDialog } from "@/components/close-dialog";
 import { UpdateHost, useStartupUpdateCheck } from "@/components/update-check";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { HomePage } from "@/pages/HomePage";
 import { SitesPage } from "@/pages/SitesPage";
 import { ServicesPage } from "@/pages/ServicesPage";
@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { MailPage } from "@/pages/MailPage";
 import { LogsPage } from "@/pages/LogsPage";
 import { DumpsPage } from "@/pages/DumpsPage";
+import { DatabasesPage } from "@/pages/DatabasesPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { AboutPage } from "@/pages/AboutPage";
 import { DocsPage } from "@/pages/docs/DocsPage";
@@ -32,6 +33,7 @@ export type PageId =
   | "home"
   | "sites"
   | "services"
+  | "databases"
   | "terminal"
   | "mail"
   | "logs"
@@ -91,6 +93,23 @@ function Shell() {
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [summary, setSummary] = useState({ sites: 0, running: 0, total: 0 });
   const [unreadMail, setUnreadMail] = useState(0);
+  /** Sites shared on the internet right now, for the warning chip in the top bar. */
+  const [shared, setShared] = useState<string[]>([]);
+
+  useEffect(() => {
+    const check = () =>
+      api
+        .tunnelList()
+        .then((list) => setShared(list.filter((s) => s.state !== "failed").map((s) => s.site)))
+        .catch(() => {});
+    check();
+    const timer = window.setInterval(check, 3000);
+    window.addEventListener("zefaro:tunnels", check);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("zefaro:tunnels", check);
+    };
+  }, []);
 
   // Unread mail for the sidebar badge (0 while Mailpit isn't running), and
   // whether settings are waiting for config.json to be free.
@@ -163,6 +182,19 @@ function Shell() {
             <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-4" />
             <span className="text-sm font-medium">{t.nav[page]}</span>
             <div className="ml-auto flex items-center gap-2">
+              {shared.length > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" onClick={() => go("sites", { type: "open-site", name: shared[0] })}>
+                      <Badge variant="outline" className="border-warning/50 text-warning">
+                        <Icon name="share-nodes" className="w-3" />
+                        {t.header.shared(shared.length)}
+                      </Badge>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t.header.sharedSites(shared.join(", "))}</TooltipContent>
+                </Tooltip>
+              )}
               <Badge variant="outline">
                 <Icon name="globe" className="w-3" />
                 {t.header.sites(summary.sites)}
@@ -182,6 +214,7 @@ function Shell() {
               {page === "home" && <HomePage onNavigate={go} />}
               {page === "sites" && <SitesPage intent={intent} onIntentDone={clearIntent} />}
               {page === "services" && <ServicesPage />}
+              {page === "databases" && <DatabasesPage />}
               {page === "mail" && <MailPage />}
               {page === "logs" && <LogsPage />}
               {page === "dumps" && <DumpsPage />}

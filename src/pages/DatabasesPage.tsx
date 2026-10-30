@@ -211,14 +211,16 @@ type ImportDraft = {
   from: string | null;
 };
 
+/** The Database tool (Tools in the sidebar), also opened from a database card's gear on Services. */
 export function DatabasesPage({
   engine: initialEngine = "mariadb",
   backLabel,
   onBack,
 }: {
   engine?: DbEngine;
-  backLabel: string;
-  onBack: () => void;
+  /** Opened from a service card: a link back to Services. */
+  backLabel?: string;
+  onBack?: () => void;
 }) {
   const t = useT(messages);
   const c = useT(common);
@@ -391,7 +393,7 @@ export function DatabasesPage({
 
   return (
     <>
-      <BackButton label={backLabel} onClick={onBack} />
+      {onBack && <BackButton label={backLabel ?? ""} onClick={onBack} />}
       <PageHeader
         title={t.title}
         description={t.description(server, data?.port ?? DEFAULT_PORT[engine])}

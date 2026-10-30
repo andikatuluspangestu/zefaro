@@ -34,14 +34,15 @@ async fn releases(state: &AppState) -> (Vec<Release>, bool) {
 #[tauri::command]
 pub async fn php_versions(state: State<'_, AppState>) -> AppResult<PhpVersionsResponse> {
     let (releases, offline) = releases(&state).await;
-    let (active, base_port) = {
+    let (active, base_port, php_cfg) = {
         let cfg = state.config.lock().unwrap();
-        (cfg.default_php.clone(), cfg.php.base_port)
+        (cfg.default_php.clone(), cfg.php.base_port, cfg.php.clone())
     };
-    Ok(PhpVersionsResponse {
-        versions: php::list(&releases, &active, base_port),
-        offline,
-    })
+    let mut versions = php::list(&releases, &active, base_port);
+    for v in versions.iter_mut().filter(|v| v.installed.is_some()) {
+        v.xdebug = php_cfg.extensions_for(&v.version).get("xdebug") == Some(&true) && php::xdebug_installed(&v.version);
+    }
+    Ok(PhpVersionsResponse { versions, offline })
 }
 
 /// The installed PHP lines, newest first, read from disk only: what a site can
@@ -233,6 +234,38 @@ pub async fn php_save_extensions(
     version: String,
     changes: BTreeMap<String, bool>,
 ) -> AppResult<Vec<php::PhpExtension>> {
+    save_extensions(&state, version, changes).await
+}
+
+/// Xdebug on or off for one line, in one step: on downloads it first if needed
+/// (checked against its SHA-256), then php.ini gets it with Zefaro's settings
+/// (debugging on request, editor on port 9003) and the line's php-cgi restarts.
+/// If PHP can't load it, it is switched off again and the reason returned.
+#[tauri::command]
+pub async fn php_xdebug_set(state: State<'_, AppState>, version: String, on: bool) -> AppResult<Vec<php::PhpExtension>> {
+    require_installed(&version)?;
+    if on && !php::xdebug_installed(&version) {
+        let v = version.clone();
+        blocking(move || php::install_xdebug(&v).map(|_| ())).await?;
+    }
+    let change = |on: bool| BTreeMap::from([("xdebug".to_owned(), on)]);
+    let list = save_extensions(&state, version.clone(), change(on)).await?;
+    let failed = list.iter().find(|e| e.name == "xdebug").and_then(|e| e.error.clone());
+    if let (true, Some(reason)) = (on, failed) {
+        save_extensions(&state, version.clone(), change(false)).await?;
+        return Err(AppError::msg(crate::tr!(
+            format!("PHP {version} couldn't load Xdebug, so Zefaro switched it off again: {reason}"),
+            format!("PHP {version} tidak bisa memuat Xdebug, jadi Zefaro mematikannya lagi: {reason}")
+        )));
+    }
+    Ok(list)
+}
+
+async fn save_extensions(
+    state: &AppState,
+    version: String,
+    changes: BTreeMap<String, bool>,
+) -> AppResult<Vec<php::PhpExtension>> {
     require_installed(&version)?;
     let dir = paths::php_dir(&version);
     let shipped = php::shipped_extensions(&dir.join("ext"));
@@ -277,18 +310,6 @@ pub fn php_xdebug_version(version: String) -> Option<&'static str> {
     php::xdebug_version(&version)
 }
 
-/// Download Xdebug for one line. It then appears with the line's extensions,
-/// off until switched on.
-#[tauri::command]
-pub async fn php_xdebug_install(state: State<'_, AppState>, version: String) -> AppResult<Vec<php::PhpExtension>> {
-    require_installed(&version)?;
-    let choices = state.config.lock().unwrap().php.extensions_for(&version);
-    blocking(move || {
-        php::install_xdebug(&version)?;
-        Ok(php::extension_list(&paths::php_dir(&version), &choices))
-    })
-    .await
-}
 
 /// One line's php.ini, as php-cgi reads it.
 #[tauri::command]

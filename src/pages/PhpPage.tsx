@@ -15,12 +15,18 @@ const messages = defineMessages({
     description: "Install PHP versions and choose the active one. A row's gear opens its settings.",
     installed: (v: string) => `PHP ${v} installed`,
     activated: (v: string) => `PHP ${v} is now active`,
+    xdebugOn: (v: string) => `Xdebug is on for PHP ${v}`,
+    xdebugOnBody: "Start listening in your editor on port 9003. Debugging begins when a request sets XDEBUG_TRIGGER.",
+    xdebugOff: (v: string) => `Xdebug is off for PHP ${v}`,
   },
   id: {
     title: "Versi PHP",
     description: "Instal versi PHP dan pilih yang aktif. Ikon roda gigi di tiap baris membuka pengaturannya.",
     installed: (v: string) => `PHP ${v} terpasang`,
     activated: (v: string) => `PHP ${v} sekarang aktif`,
+    xdebugOn: (v: string) => `Xdebug aktif untuk PHP ${v}`,
+    xdebugOnBody: "Mulai listening di editor Anda pada port 9003. Debugging berjalan saat request memasang XDEBUG_TRIGGER.",
+    xdebugOff: (v: string) => `Xdebug mati untuk PHP ${v}`,
   },
 });
 
@@ -32,6 +38,8 @@ export function PhpPage({ backLabel, onBack }: { backLabel: string; onBack: () =
   const [tools, setTools] = useState<ToolsStatus | null>(null);
   const [progress, setProgress] = useState<Record<string, InstallProgress>>({});
   const [installing, setInstalling] = useState<Set<string>>(new Set());
+  /** Lines whose Xdebug switch is being applied (a download, then a php-cgi restart). */
+  const [xdebugBusy, setXdebugBusy] = useState<Set<string>>(new Set());
   /** Version whose settings page is open (from a row's gear). */
   const [settingsFor, setSettingsFor] = useState<string | null>(null);
 
@@ -92,6 +100,24 @@ export function PhpPage({ backLabel, onBack }: { backLabel: string; onBack: () =
     loadTools();
   };
 
+  const setXdebug = async (v: PhpVersion, on: boolean) => {
+    setXdebugBusy((s) => new Set(s).add(v.version));
+    try {
+      await api.phpXdebugSet(v.version, on);
+      if (on) toast.success(t.xdebugOn(v.version), { description: t.xdebugOnBody });
+      else toast.success(t.xdebugOff(v.version));
+    } catch (e) {
+      toast.error(String(e));
+    } finally {
+      setXdebugBusy((s) => {
+        const next = new Set(s);
+        next.delete(v.version);
+        return next;
+      });
+      loadVersions();
+    }
+  };
+
   if (settingsFor) {
     return (
       <PhpSettingsPage
@@ -119,6 +145,8 @@ export function PhpPage({ backLabel, onBack }: { backLabel: string; onBack: () =
           installing={installing}
           onInstall={install}
           onActivate={activate}
+          xdebugBusy={xdebugBusy}
+          onXdebug={setXdebug}
           onSettings={(v) => setSettingsFor(v.version)}
         />
         <ToolsSection tools={tools} onChanged={loadTools} />

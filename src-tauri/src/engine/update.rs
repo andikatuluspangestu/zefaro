@@ -38,6 +38,25 @@ pub struct UpdateInfo {
     pub can_install: bool,
     /// The installer's size in bytes, for the confirmation.
     pub installer_size: Option<u64>,
+    /// The release notes (GitHub-flavoured Markdown), which Zefaro shows itself.
+    pub notes: Option<String>,
+}
+
+/// Longer notes are cut here; a release's notes are a few kilobytes.
+const NOTES_MAX: usize = 64 * 1024;
+
+/// The release's notes, without carriage returns, cut at a character boundary.
+fn notes_of(json: &serde_json::Value) -> Option<String> {
+    let body = json.get("body")?.as_str()?.replace('\r', "");
+    let body = body.trim();
+    if body.is_empty() {
+        return None;
+    }
+    let mut end = body.len().min(NOTES_MAX);
+    while !body.is_char_boundary(end) {
+        end -= 1;
+    }
+    Some(body[..end].to_owned())
 }
 
 /// "v1.2.3", "1.2.3" or "1.2" → (1, 2, 3). Anything after a "-" (pre-release
@@ -120,6 +139,7 @@ pub fn from_release(json: &serde_json::Value, current: &str) -> Option<UpdateInf
         published: json.get("published_at").and_then(|v| v.as_str()).map(str::to_owned),
         can_install: installer.as_ref().is_some_and(|i| i.digest.is_some() || i.sums_url.is_some()),
         installer_size: installer.as_ref().and_then(|i| i.size),
+        notes: notes_of(json),
         latest,
     })
 }
@@ -316,6 +336,12 @@ mod tests {
         assert_eq!(from_release(&json!({ "message": "Not Found" }), "1.0.1"), None);
         // No assets listed: nothing to install from, but the news still shows.
         assert!(!info.can_install && info.installer_size.is_none());
+        assert_eq!(info.notes, None, "no body, no notes");
+        let with_notes = json!({ "tag_name": "v1.0.2", "body": "# Zefaro 1.0.2\r\n\r\n- **Fixed** ünïcode\r\n\r\n" });
+        assert_eq!(from_release(&with_notes, "1.0.1").unwrap().notes.as_deref(), Some("# Zefaro 1.0.2\n\n- **Fixed** ünïcode"));
+        let long = json!({ "tag_name": "v1.0.2", "body": "é".repeat(NOTES_MAX) });
+        let cut = from_release(&long, "1.0.1").unwrap().notes.unwrap();
+        assert!(cut.len() <= NOTES_MAX && cut.chars().all(|c| c == 'é'));
     }
 
     #[test]

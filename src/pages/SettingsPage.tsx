@@ -8,7 +8,7 @@ import { BackupGroup } from "@/components/backup-card";
 import { TrustCaButton, UntrustCaButton, useCaStatus } from "@/components/https-trust";
 import { PageHeader } from "@/components/page-header";
 import { SettingGroup, SettingRow } from "@/components/settings-layout";
-import { announceUpdate, openUpdateDialog, updateMessages } from "@/components/update-check";
+import { announceUpdate, openReleaseNotes, openUpdateDialog, updateMessages } from "@/components/update-check";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -304,7 +304,7 @@ function UpdatesGroup({ info, update }: { info: AppInfo | null; update: UpdateIn
 
   const versionRow = newer ? (
     <SettingRow key="version" icon="circle-arrow-up" title={u.available(newer.latest)} description={t.youHave(newer.current)}>
-      <Button size="sm" variant="ghost" onClick={() => page(newer.url)}>
+      <Button size="sm" variant="ghost" onClick={() => openReleaseNotes(newer)}>
         {u.notes}
       </Button>
       {newer.canInstall ? (

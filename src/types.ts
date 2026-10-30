@@ -25,6 +25,10 @@ export interface PhpVersion {
   /** php-cgi FastCGI port: base port + 10 × major + minor. */
   port: number;
   size: string | null;
+  /** Xdebug is downloaded and on for this line. */
+  xdebug: boolean;
+  /** The Xdebug version Zefaro can install for this line; null when there is no build. */
+  xdebugVersion: string | null;
 }
 
 export interface PhpVersionsResponse {
@@ -470,6 +474,8 @@ export interface UpdateInfo {
   canInstall: boolean;
   /** The installer's size in bytes. */
   installerSize: number | null;
+  /** The release notes in Markdown, shown inside Zefaro. */
+  notes: string | null;
 }
 
 /** How far "Update now" has got. */
@@ -554,7 +560,29 @@ export interface DumpEntry {
   name: string | null;
   /** The command line, for dumps from artisan or other PHP scripts. */
   command: string | null;
+  /** The request's address and method, for dumps from a page. */
+  uri?: string | null;
+  method?: string | null;
+  /** The site it came from: by the request's host, else the file's folder. */
+  site: string | null;
   node: import("./pages/site/types").DumpNode;
+}
+
+/** A site shared on the internet through a Cloudflare quick tunnel. */
+export interface TunnelInfo {
+  site: string;
+  /** https://….trycloudflare.com, once Cloudflare has made it. */
+  url: string | null;
+  state: "starting" | "running" | "failed";
+  error: string | null;
+  startedMs: number;
+}
+
+/** What sharing needs: cloudflared, downloaded once. */
+export interface TunnelSetup {
+  installed: boolean;
+  version: string;
+  downloadBytes: number;
 }
 
 export interface DumpsStatus {

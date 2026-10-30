@@ -20,7 +20,7 @@ fn components() -> Vec<Component> {
         c("PHP", "7.4 to 8.5".into(), "PHP License", "downloads.php.net/~windows"),
         c("Node.js", "Current and maintained LTS".into(), "MIT", "nodejs.org/dist"),
         c("MariaDB", format!("{} LTS", mariadb::VERSION), "GPL-2.0", "archive.mariadb.org"),
-        c("MySQL", format!("{} LTS", crate::engine::mysql::VERSION), "GPL-2.0", "dev.mysql.com"),
+        c("MySQL", format!("{} LTS", crate::engine::mysql::VERSION), "GPL-2.0", "cdn.mysql.com"),
         c("PostgreSQL", crate::engine::postgres::VERSION.into(), "PostgreSQL License", "get.enterprisedb.com"),
         c(
             "Redis",
@@ -30,6 +30,7 @@ fn components() -> Vec<Component> {
         ),
         c("phpMyAdmin", phpmyadmin::VERSION.into(), "GPL-2.0", "files.phpmyadmin.net"),
         c("Mailpit", mailpit::VERSION.into(), "MIT", "github.com/axllent/mailpit"),
+        c("cloudflared", crate::engine::tunnel::VERSION.into(), "Apache-2.0", "github.com/cloudflare/cloudflared"),
         c("Composer", "latest stable".into(), "MIT", "getcomposer.org"),
         c("Laravel Installer", "latest".into(), "MIT", "packagist.org"),
         c("CA certificates", "Mozilla (via curl)".into(), "MPL-2.0", "curl.se/ca"),
@@ -92,6 +93,8 @@ pub async fn check_update() -> AppResult<crate::engine::update::UpdateInfo> {
 pub fn stop_everything(state: &AppState) {
     use crate::engine::{laravel, mysql, postgres};
     state.terminals.close_all();
+    // Nothing stays public once Zefaro stops serving.
+    state.tunnels.stop_all();
     state.tinker.end_all();
     state.supervisor.stop_all(|id| match id {
         nginx::SERVICE_ID => 0,

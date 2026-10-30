@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/api";
 import { cn } from "@/lib/utils";
@@ -45,6 +45,19 @@ const messages = defineMessages({
     loadFailed: "Zefaro couldn't read this",
     reload: "Try again",
     typeLabel: "Type",
+    missingTitle: (n: number) => `${n} ${n === 1 ? "variable" : "variables"} from .env.example ${n === 1 ? "is" : "are"} missing in .env`,
+    missingHint: "The app may expect these. Add one with its example value and change it, or add them all at once.",
+    addOne: "Add",
+    addAll: "Add all with example values",
+    addedAll: (n: number) => `Added ${n} ${n === 1 ? "variable" : "variables"} from .env.example`,
+    emptyExample: "empty in the example",
+    notInExample: "Not in .env.example",
+    notInExampleHint: "This variable isn't in .env.example, so a fresh copy of the app won't have it.",
+    emptyValue: "Empty",
+    inSync: "Every variable in .env.example is in .env.",
+    noEnvFile: "This site has no .env file yet.",
+    createFromExample: "Create .env from .env.example",
+    created: "Created .env from .env.example",
   },
   id: {
     parts: { env: ".env", config: "Nilai config", routes: "Route" },
@@ -75,6 +88,19 @@ const messages = defineMessages({
     loadFailed: "Zefaro tidak bisa membaca ini",
     reload: "Coba lagi",
     typeLabel: "Tipe",
+    missingTitle: (n: number) => `${n} variabel dari .env.example belum ada di .env`,
+    missingHint: "Aplikasi mungkin membutuhkannya. Tambahkan satu dengan nilai contohnya lalu ubah, atau tambahkan semuanya sekaligus.",
+    addOne: "Tambah",
+    addAll: "Tambah semua dengan nilai contoh",
+    addedAll: (n: number) => `${n} variabel dari .env.example ditambahkan`,
+    emptyExample: "kosong di contoh",
+    notInExample: "Tidak ada di .env.example",
+    notInExampleHint: "Variabel ini tidak ada di .env.example, jadi salinan baru aplikasi tidak akan memilikinya.",
+    emptyValue: "Kosong",
+    inSync: "Semua variabel di .env.example sudah ada di .env.",
+    noEnvFile: "Situs ini belum punya file .env.",
+    createFromExample: "Buat .env dari .env.example",
+    created: ".env dibuat dari .env.example",
   },
 });
 
@@ -108,13 +134,47 @@ function EnvPart({ site, onChanged }: { site: string; onChanged: () => void }) {
   const [filter, setFilter] = useState("");
   const [editing, setEditing] = useState<{ key: string; value: string } | null>(null);
   const [draft, setDraft] = useState({ key: "", value: "" });
+  /** The parsed .env.example; null when the site has none, undefined while loading. */
+  const [example, setExample] = useState<EnvEntry[] | null | undefined>(undefined);
+  const keyInput = useRef<HTMLInputElement>(null);
+  const valueInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     api.siteEnv(site).then(setEntries).catch((e) => {
       setEntries([]);
       toast.error(String(e));
     });
+    api.siteEnvExample(site).then(setExample).catch(() => setExample(null));
   }, [site]);
+
+  const has = useMemo(() => new Set((entries ?? []).map((e) => e.key)), [entries]);
+  const inExample = useMemo(() => new Set((example ?? []).map((e) => e.key)), [example]);
+  const missing = useMemo(() => (example ?? []).filter((e) => !has.has(e.key)), [example, has]);
+
+  const addAll = async () => {
+    try {
+      setEntries(await api.siteEnvSet(site, missing.map((e) => [e.key, e.value] as [string, string])));
+      toast.success(t.addedAll(missing.length));
+      onChanged();
+    } catch (e) {
+      toast.error(String(e));
+    }
+  };
+  const createFromExample = async () => {
+    try {
+      setEntries(await api.siteEnvSet(site, []));
+      toast.success(t.created);
+      onChanged();
+    } catch (e) {
+      toast.error(String(e));
+    }
+  };
+  /** Fill the New variable form with an example's key and value, ready to change. */
+  const prefill = (e: EnvEntry) => {
+    setDraft({ key: e.key, value: e.value });
+    keyInput.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    window.setTimeout(() => valueInput.current?.select(), 50);
+  };
 
   const save = async (key: string, value: string) => {
     try {
@@ -138,6 +198,59 @@ function EnvPart({ site, onChanged }: { site: string; onChanged: () => void }) {
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">{t.envHint}</p>
+      {entries.length === 0 && example ? (
+        <IconAlert
+          icon="file-circle-plus"
+          title={t.noEnvFile}
+          action={
+            <Button size="sm" onClick={createFromExample}>
+              {t.createFromExample}
+            </Button>
+          }
+        />
+      ) : missing.length > 0 ? (
+        <Card className="gap-3 border-warning/40 p-4">
+          <div className="flex flex-wrap items-start gap-3">
+            <Icon name="triangle-exclamation" className="mt-0.5 text-warning" />
+            <div className="min-w-0 flex-1 basis-64">
+              <p className="text-sm font-medium">{t.missingTitle(missing.length)}</p>
+              <p className="text-xs text-muted-foreground">{t.missingHint}</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={addAll}>
+              <Icon name="plus" className="w-3" />
+              {t.addAll}
+            </Button>
+          </div>
+          <ul className="divide-y rounded-md border">
+            {missing.map((e) => (
+              <li key={e.key} className="flex items-center gap-3 px-3 py-1.5 text-sm">
+                <code className="w-56 shrink-0 truncate font-mono text-xs text-warning" title={`.env.example (${t.line(e.line)})`}>
+                  {e.key}
+                </code>
+                <span className="min-w-0 flex-1 font-mono text-xs text-muted-foreground">
+                  {e.value === "" ? (
+                    <span className="italic">{t.emptyExample}</span>
+                  ) : isSecretKey(e.key) ? (
+                    <Masked value={e.value} />
+                  ) : (
+                    <span className="block truncate" title={e.value}>
+                      {e.value}
+                    </span>
+                  )}
+                </span>
+                <Button size="xs" variant="ghost" onClick={() => prefill(e)}>
+                  {t.addOne}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : example && entries.length > 0 ? (
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Icon name="circle-check" className="w-3 text-success" />
+          {t.inSync}
+        </p>
+      ) : null}
       <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t.filter} aria-label={t.filter} className="max-w-xs" />
       <Card className="gap-0 overflow-hidden py-0">
         {entries.length === 0 ? (
@@ -171,8 +284,21 @@ function EnvPart({ site, onChanged }: { site: string; onChanged: () => void }) {
                 ) : (
                   <>
                     <span className="min-w-0 flex-1 font-mono text-xs">
-                      {isSecretKey(e.key) ? <Masked value={e.value} /> : <span className="block truncate" title={e.value}>{e.value}</span>}
+                      {e.value === "" ? (
+                        <span className="text-muted-foreground/70 italic">{t.emptyValue}</span>
+                      ) : isSecretKey(e.key) ? (
+                        <Masked value={e.value} />
+                      ) : (
+                        <span className="block truncate" title={e.value}>
+                          {e.value}
+                        </span>
+                      )}
                     </span>
+                    {example && !inExample.has(e.key) && (
+                      <Badge variant="outline" className="shrink-0 text-[10px] text-muted-foreground" title={t.notInExampleHint}>
+                        {t.notInExample}
+                      </Badge>
+                    )}
                     <Button size="icon-xs" variant="ghost" className="text-muted-foreground" aria-label={t.edit} title={t.edit} onClick={() => setEditing({ key: e.key, value: e.value })}>
                       <Icon name="pen" className="w-3" />
                     </Button>
@@ -192,8 +318,8 @@ function EnvPart({ site, onChanged }: { site: string; onChanged: () => void }) {
             if (await save(draft.key.trim(), draft.value)) setDraft({ key: "", value: "" });
           }}
         >
-          <Input value={draft.key} onChange={(e) => setDraft({ ...draft, key: e.target.value.toUpperCase() })} placeholder={t.name} aria-label={t.name} className="w-56 font-mono text-xs" />
-          <Input value={draft.value} onChange={(e) => setDraft({ ...draft, value: e.target.value })} placeholder={t.value} aria-label={t.value} className="min-w-48 flex-1 font-mono text-xs" />
+          <Input ref={keyInput} value={draft.key} onChange={(e) => setDraft({ ...draft, key: e.target.value.toUpperCase() })} placeholder={t.name} aria-label={t.name} className="w-56 font-mono text-xs" />
+          <Input ref={valueInput} value={draft.value} onChange={(e) => setDraft({ ...draft, value: e.target.value })} placeholder={t.value} aria-label={t.value} className="min-w-48 flex-1 font-mono text-xs" />
           <Button type="submit" disabled={!draft.key.trim()}>
             <Icon name="plus" className="w-3" />
             {t.add}

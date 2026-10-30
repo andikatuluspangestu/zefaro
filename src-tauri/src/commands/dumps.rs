@@ -51,10 +51,14 @@ pub async fn dumps_set_enabled(on: bool, state: State<'_, AppState>) -> AppResul
     Ok(status(&state))
 }
 
-/// The newest dumps first.
+/// The newest dumps first, each with the site it came from.
 #[tauri::command]
-pub async fn dumps_list() -> AppResult<Vec<serde_json::Value>> {
-    blocking(|| Ok(dumps::read())).await
+pub async fn dumps_list(state: State<'_, AppState>) -> AppResult<Vec<serde_json::Value>> {
+    let (sites, tld) = {
+        let cfg = state.config.lock().unwrap();
+        (cfg.sites.clone(), cfg.tld.clone())
+    };
+    blocking(move || Ok(dumps::read(&sites, &tld))).await
 }
 
 #[tauri::command]

@@ -1,7 +1,7 @@
 //! Shared application state, managed by Tauri and injected into commands.
 
 use crate::config::{self, ZefaroConfig};
-use crate::engine::{laravel, node, php::Release, terminal};
+use crate::engine::{laravel, node, php::Release, terminal, tunnel};
 use crate::engine::supervisor::Supervisor;
 use std::collections::HashSet;
 use crate::model::{BackupJob, DbJob};
@@ -41,6 +41,8 @@ pub struct AppState {
     pub site_jobs: laravel::Jobs,
     /// Shells open on the Terminal page.
     pub terminals: Arc<terminal::Terminals>,
+    /// Sites shared on the internet through a Cloudflare tunnel.
+    pub tunnels: Arc<tunnel::Tunnels>,
 }
 
 impl AppState {
@@ -66,6 +68,7 @@ impl AppState {
             tinker: laravel::Sessions::default(),
             site_jobs: laravel::Jobs::default(),
             terminals: Arc::default(),
+            tunnels: Arc::default(),
         }
     }
 }

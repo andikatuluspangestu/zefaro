@@ -4,6 +4,47 @@ All notable changes to Zefaro are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Zefaro uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Database in Tools.** The Databases page has its own place under Tools in the sidebar, so it opens without
+  going through a service card's gear first.
+
+- **Dumps by site, and search.** Each dump on the Dumps page is labelled with the site that sent it, from the
+  page's address, or for `php artisan` and other scripts from the folder of the file that called `dump()`. A
+  site picker shows one site's dumps, and a search box finds dumps by file, address, command or anything in the
+  dumped value.
+
+- **Xdebug with one switch per PHP version.** The PHP versions page has an Xdebug column with a switch in each
+  installed version's row, and the Xdebug card in a version's settings has the same switch. Turning it on downloads
+  Xdebug the first time (checked against its SHA-256), adds it to that version's php.ini with debugging on request
+  and the editor on port 9003, and restarts that PHP. If PHP can't load it, Zefaro switches it off again and says
+  why. Before, it took a download, a switch in the extension list and a save.
+
+- **.env compared with .env.example.** On a site's Configuration tab, the .env editor lists the variables
+  `.env.example` has that `.env` lacks, to add one at a time (its example value ready to change) or all at once.
+  Variables only in `.env` are marked, empty values are labelled, and a site without `.env` can create it from
+  the example. Secret-looking values stay hidden as before.
+
+- **Packages tab: security and updates.** A site's Packages tab runs `composer audit` and `composer outdated`
+  on its `composer.lock` and lists known vulnerabilities by package (severity, CVE, affected versions, a link to
+  the advisory), abandoned packages with their replacements, and newer releases marked as safe updates or as
+  needing a constraint change.
+- **Share a site on the internet.** The share button on a site's page gives it a temporary
+  `https://….trycloudflare.com` address through a Cloudflare Quick Tunnel, for webhooks or a client demo. Zefaro
+  explains what sharing means and asks for a confirmation first, downloads `cloudflared` 2026.10.6 (53 MB,
+  checked against its SHA-256) the first time, and shows the address with a Stop sharing button; the top bar
+  shows how many sites are public. The site gets its own nginx listener that tells the app its public address
+  over HTTPS, so links and assets work through the tunnel. Sharing ends on Stop, when nginx stops, or when
+  Zefaro quits.
+
+### Changed
+
+- **Release notes open inside Zefaro.** *Release notes* in the update message and in Settings shows the new
+  version's notes in Zefaro, read from the release Zefaro already checked, instead of opening GitHub. From there,
+  *Update now* starts the update.
+
 ## [1.3.1] - 2026-10-30
 
 ### Added
@@ -249,6 +290,7 @@ development environment for Windows.
 - Every service listens on `127.0.0.1` only.
 - The installer isn't code-signed yet, so Windows SmartScreen asks you to confirm it.
 
+[Unreleased]: https://github.com/andikatuluspangestu/zefaro/compare/v1.3.1...HEAD
 [1.3.1]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.3.1
 [1.3.0]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.3.0
 [1.2.0]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.2.0

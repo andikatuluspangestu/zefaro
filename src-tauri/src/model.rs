@@ -42,6 +42,12 @@ pub struct PhpVersion {
     pub port: u16,
     /// Download size as published, e.g. "34.38MB".
     pub size: Option<String>,
+    /// Xdebug is downloaded and switched on for this line.
+    #[serde(default)]
+    pub xdebug: bool,
+    /// The Xdebug version Zefaro can install for this line; none means no build.
+    #[serde(default)]
+    pub xdebug_version: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

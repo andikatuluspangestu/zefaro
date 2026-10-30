@@ -19,6 +19,7 @@ pub mod sites;
 pub mod system;
 pub mod terminal;
 pub mod tools;
+pub mod tunnel;
 
 use crate::error::{AppError, AppResult};
 

@@ -373,7 +373,19 @@ export function PhpSettingsPage({
             ]}
           </SettingGroup>
 
-          <XdebugCard version={view.version} extensions={exts} onInstalled={setExts} />
+          <XdebugCard
+            version={view.version}
+            extensions={exts}
+            onChanged={(list) => {
+              setExts(list);
+              // Saved by the card: a pending xdebug switch in the list below is moot.
+              setExtDraft((d) => {
+                const next = { ...d };
+                delete next.xdebug;
+                return next;
+              });
+            }}
+          />
 
           <ExtensionsSection
             version={view.version}

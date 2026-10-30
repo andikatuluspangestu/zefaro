@@ -29,6 +29,7 @@ export const common = defineMessages({
       home: "Home",
       sites: "Sites",
       services: "Services",
+      databases: "Databases",
       terminal: "Terminal",
       mail: "Mail",
       logs: "Logs",
@@ -47,6 +48,8 @@ export const common = defineMessages({
     header: {
       sites: (n: number) => `${n} ${n === 1 ? "site" : "sites"}`,
       running: (on: number, all: number) => `${on}/${all} services running`,
+      shared: (n: number) => `${n} public`,
+      sharedSites: (sites: string) => `Shared on the internet: ${sites}. Open the site to stop sharing.`,
     },
   },
   id: {
@@ -75,6 +78,7 @@ export const common = defineMessages({
       home: "Beranda",
       sites: "Situs",
       services: "Layanan",
+      databases: "Database",
       terminal: "Terminal",
       mail: "Email",
       logs: "Log",
@@ -93,6 +97,8 @@ export const common = defineMessages({
     header: {
       sites: (n: number) => `${n} situs`,
       running: (on: number, all: number) => `${on}/${all} layanan berjalan`,
+      shared: (n: number) => `${n} publik`,
+      sharedSites: (sites: string) => `Dibagikan ke internet: ${sites}. Buka situsnya untuk berhenti berbagi.`,
     },
   },
 });

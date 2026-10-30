@@ -181,7 +181,7 @@ fn read_in_background(pipe: Option<impl Read + Send + 'static>) -> std::thread::
     })
 }
 
-fn last_lines(text: &str, n: usize) -> String {
+pub fn last_lines(text: &str, n: usize) -> String {
     let lines: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
     lines[lines.len().saturating_sub(n)..].join("\n")
 }

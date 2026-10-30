@@ -4,7 +4,7 @@
 use super::blocking;
 use crate::engine::laravel::{self, App, ArtisanCommand, EnvEntry, JobOutput, SiteJob, Worker};
 use crate::engine::supervisor::{self, Health};
-use crate::engine::{applog, apps, mariadb, mysql, paths, postgres};
+use crate::engine::{applog, apps, mariadb, mysql, packages, paths, postgres};
 use crate::error::{AppError, AppResult};
 use crate::model::Site;
 use crate::state::AppState;
@@ -150,6 +150,25 @@ pub fn site_env(name: String, state: State<AppState>) -> AppResult<Vec<EnvEntry>
     match std::fs::read_to_string(&path) {
         Ok(text) => Ok(laravel::parse_env(&text)),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
+        Err(e) => Err(e.into()),
+    }
+}
+
+/// `composer audit` and `composer outdated` for a site, from its composer.lock.
+/// Asks packagist.org, so it takes a few seconds and needs the internet.
+#[tauri::command]
+pub async fn site_packages(name: String, state: State<'_, AppState>) -> AppResult<packages::Report> {
+    let app = app_for(&state, &name)?;
+    blocking(move || packages::check(&app)).await
+}
+
+/// The site's `.env.example`, to compare `.env` with; none when it has no such file.
+#[tauri::command]
+pub fn site_env_example(name: String, state: State<AppState>) -> AppResult<Option<Vec<EnvEntry>>> {
+    let path = env_path(&state, &name)?.with_file_name(".env.example");
+    match std::fs::read_to_string(&path) {
+        Ok(text) => Ok(Some(laravel::parse_env(&text))),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(e) => Err(e.into()),
     }
 }

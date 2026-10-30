@@ -381,7 +381,23 @@ export const SECTIONS_ID: DocSection[] = [
                 File <C>.env</C> sebagai editor, nilai yang dilihat aplikasi setelah file
                 config-nya digabung (klik satu untuk menyalin pemanggilan <C>config()</C>-nya),
                 dan semua route. Menyimpan nilai menulis <C>.env</C>, mengakhiri sesi Tinker agar
-                proses berikutnya membacanya, dan membersihkan config yang di-cache.
+                proses berikutnya membacanya, dan membersihkan config yang di-cache. Nilai kunci yang
+                tampak rahasia (key, password, token) tetap tersembunyi sampai Anda menampilkannya.
+                Dibandingkan dengan <C>.env.example</C>, variabel yang ada di sana tetapi belum ada di
+                <C>.env</C> ditampilkan untuk ditambahkan satu per satu atau sekaligus, dan variabel yang
+                hanya ada di <C>.env</C> ditandai. Situs tanpa <C>.env</C> bisa membuatnya dari contoh.
+              </>,
+            ],
+            [
+              "Paket",
+              <>
+                <C>composer audit</C> dan <C>composer outdated</C> pada <C>composer.lock</C> situs,
+                dijalankan saat tab pertama dibuka dan lagi lewat <em>Periksa lagi</em>. Kerentanan
+                yang diketahui ditampilkan per paket, yang paling parah lebih dulu, dengan versi
+                terkunci, CVE, versi terdampak, dan link ke peringatannya. Paket yang ditinggalkan
+                menampilkan penggantinya. Rilis yang lebih baru ditandai sebagai pembaruan aman
+                (diizinkan <C>composer.json</C>) atau yang perlu mengubah batas versi. Pemeriksaan
+                ini bertanya ke packagist.org, jadi butuh internet.
               </>,
             ],
             [
@@ -425,6 +441,25 @@ export const SECTIONS_ID: DocSection[] = [
             ],
           ]}
         />
+        <H3>Bagikan ke internet</H3>
+        <P>
+          Tombol bagikan di header situs memberi situs alamat publik sementara{" "}
+          <C>https://….trycloudflare.com</C> lewat Cloudflare Quick Tunnel, untuk menguji webhook
+          atau menunjukkan hasil ke klien. Tidak perlu akun Cloudflare dan tidak membuka port di
+          router. Zefaro bertanya dulu dan menjelaskan artinya; saat pertama kali, Zefaro mengunduh{" "}
+          <C>cloudflared</C> (53 MB) dari rilis Cloudflare di GitHub dan memeriksanya dengan
+          SHA-256-nya. Banner menampilkan alamatnya beserta <em>Berhenti berbagi</em>, dan bilah atas
+          menunjukkan berapa situs yang sedang publik. Berbagi berakhir saat Anda menghentikannya,
+          menghentikan nginx, atau menutup Zefaro.
+        </P>
+        <P>
+          Zefaro menyajikan situs yang dibagikan di port tersendiri dan memberi tahu aplikasi alamat
+          publiknya lewat HTTPS, jadi link, redirect, dan aset mengarah ke tunnel, bukan ke{" "}
+          <C>.test</C>. Siapa pun yang punya link bisa membuka situsnya, jadi bagikan hanya yang
+          boleh dilihat orang asing, dan matikan <C>APP_DEBUG</C> dulu: halaman error-nya
+          menampilkan kode dan <C>.env</C> Anda. Quick Tunnel dibuat untuk pengujian, bukan untuk
+          menjalankan situs produksi.
+        </P>
         <H3>Perlu diketahui</H3>
         <List
           items={[
@@ -869,8 +904,8 @@ export const SECTIONS_ID: DocSection[] = [
         </P>
         <H3>Ekspor dan impor berukuran berapa pun</H3>
         <P>
-          Roda gigi di kartu MariaDB, MySQL, atau PostgreSQL membuka halaman{" "}
-          <strong>Database</strong>, dengan satu tab untuk tiap server. Halaman ini mencantumkan
+          <strong>Database</strong> di bagian Alat pada sidebar, atau roda gigi di kartu MariaDB, MySQL, atau
+          PostgreSQL, membuka halaman Database, dengan satu tab untuk tiap server. Halaman ini mencantumkan
           setiap database beserta ukurannya, dengan <em>Database baru</em>, <em>Ekspor</em>,{" "}
           <em>Impor dump…</em>, dan <em>Hapus</em>. Zefaro mengalirkan data antara server dan file,
           jadi dump 5 GB atau lebih tetap bisa diproses tanpa kehabisan memori. Lewat unggahan ke
@@ -1205,7 +1240,10 @@ export const SECTIONS_ID: DocSection[] = [
         <H3>Dump</H3>
         <P>
           Nyalakan <em>Tangkap dump</em> di halaman Dump, lalu <C>dump()</C> dan <C>dd()</C> dari situs Anda muncul di sana,
-          yang terbaru di atas, lengkap dengan file dan barisnya, bukan di halaman.
+          yang terbaru di atas, lengkap dengan file dan barisnya, bukan di halaman. Setiap dump diberi label situs
+          pengirimnya, yang dikenali dari alamat halaman (atau, untuk <C>php artisan</C>, dari folder file-nya). Pilih
+          satu situs untuk melihat dump-nya saja, dan ketik di kotak cari untuk menemukan dump berdasarkan file, alamat,
+          perintah, atau isi nilai yang di-dump.
           <GoTo page="dumps" label="Buka Dump" go={go} />
         </P>
         <P>
@@ -1217,8 +1255,7 @@ export const SECTIONS_ID: DocSection[] = [
         <H3>Xdebug</H3>
         <Steps
           items={[
-            <>Buka pengaturan sebuah versi PHP (ikon roda gigi di halaman PHP) lalu klik <em>Unduh Xdebug</em>. Zefaro memeriksa file itu dengan SHA-256-nya sebelum dipakai.</>,
-            <>Nyalakan <C>xdebug</C> di daftar ekstensi lalu simpan. Zefaro menambahkan pengaturan di bawah ke php.ini versi itu.</>,
+            <>Di halaman versi PHP, nyalakan switch <em>Xdebug</em> di baris versi itu (atau di kartu Xdebug pada pengaturannya). Saat pertama kali, Zefaro mengunduh Xdebug dan memeriksanya dengan SHA-256-nya. Lalu Zefaro menambahkan pengaturan di bawah ke php.ini versi itu dan me-restart PHP-nya. Setiap versi punya switch sendiri.</>,
             <>Di VS Code, pasang ekstensi PHP Debug, tempel launch.json yang disalin Zefaro, lalu jalankan <em>Listen for Xdebug</em>.</>,
             <>Mulai request dengan cookie atau parameter <C>XDEBUG_TRIGGER</C> (ekstensi browser seperti Xdebug Helper mengisinya).</>,
           ]}
@@ -1284,6 +1321,10 @@ export const SECTIONS_ID: DocSection[] = [
           tidak cocok dihapus dan tidak pernah dijalankan. Setelah itu Zefaro menghentikan layanan Anda, menutup diri,
           dan installer menggantikannya lalu membukanya lagi; situs, pengaturan, database, aturan DNS, dan sertifikat
           HTTPS Anda tetap.
+        </P>
+        <P>
+          <em>Catatan rilis</em>, di pesan yang sama dan di tab yang sama, menampilkan perubahan versi baru di dalam
+          Zefaro, dari catatan yang diterbitkan bersama rilis.
         </P>
         <P>
           Tidak ada yang diunduh sebelum Anda mengklik, dan Anda tetap bisa mengambil installer dari halaman rilis

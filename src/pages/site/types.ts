@@ -143,6 +143,40 @@ export interface EnvEntry {
   line: number;
 }
 
+/** A known vulnerability in a locked package (composer audit). */
+export interface Advisory {
+  package: string;
+  title: string;
+  severity: "critical" | "high" | "medium" | "low" | null;
+  cve: string | null;
+  link: string | null;
+  affectedVersions: string;
+  /** The version in composer.lock. */
+  version: string | null;
+  reportedAt: string | null;
+}
+
+/** A package with a newer release (composer outdated). */
+export interface OutdatedPackage {
+  name: string;
+  version: string;
+  latest: string;
+  /** "semver-safe-update": allowed by composer.json; "update-possible": needs a constraint change. */
+  status: string;
+  direct: boolean | null;
+  description: string | null;
+}
+
+export interface PackagesReport {
+  advisories: Advisory[];
+  abandoned: { package: string; replacement: string | null }[];
+  outdated: OutdatedPackage[];
+  /** Packages in composer.lock, dev included. */
+  locked: number;
+  auditError: string | null;
+  outdatedError: string | null;
+}
+
 /** A value from a Tinker run, as a tree. */
 export interface DumpNode {
   /** null, bool, int, float, string, binary, resource, array, object, model,

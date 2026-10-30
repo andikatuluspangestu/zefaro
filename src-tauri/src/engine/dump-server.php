@@ -160,6 +160,8 @@ function zefaro_record(string $line, string $file): void
     $table = $props['data'] ?? [];
     $root = $table[(int) ($props['position'] ?? 0)][$props['key'] ?? 0] ?? null;
     $source = is_array($context['source'] ?? null) ? $context['source'] : [];
+    // From a web request: its address, which names the site it came from.
+    $request = is_array($context['request'] ?? null) ? $context['request'] : [];
     static $seq = 0;
     $entry = [
         'id' => sprintf('%.6f-%d', microtime(true), ++$seq),
@@ -168,6 +170,8 @@ function zefaro_record(string $line, string $file): void
         'line' => isset($source['line']) ? (int) $source['line'] : null,
         'name' => $source['name'] ?? null,
         'command' => $context['cli']['command_line'] ?? null,
+        'uri' => is_string($request['uri'] ?? null) ? $request['uri'] : null,
+        'method' => is_string($request['method'] ?? null) ? $request['method'] : null,
         'node' => zefaro_node($root, $table, 0),
     ];
     if (is_file($file) && filesize($file) > ZEFARO_MAX_FILE) {

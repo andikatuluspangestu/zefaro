@@ -525,5 +525,9 @@ pub async fn stop_service(state: State<'_, AppState>, id: String) -> AppResult<(
         let cfg = set_phpmyadmin(&state, false)?;
         return blocking(move || nginx::sync(&cfg, &sup)).await;
     }
+    if id == nginx::SERVICE_ID {
+        // Shared sites go dark with nginx; don't leave tunnels pointing at nothing.
+        state.tunnels.stop_all();
+    }
     blocking(move || sup.stop(&id)).await
 }
