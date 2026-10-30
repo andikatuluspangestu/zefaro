@@ -4,6 +4,27 @@ All notable changes to Zefaro are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Zefaro uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **MySQL 9.7 LTS.** A MySQL card on the Services page, next to MariaDB. It listens on `127.0.0.1:3307` with
+  user `root` and no password, so MariaDB keeps 3306 and both can run at once. The first start downloads
+  Oracle's zip (328 MB, checked against a pinned SHA-256) and unpacks the server and its tools without the
+  840 MB of debug symbols. The New site wizard can create a Laravel app on it (`DB_CONNECTION=mysql`,
+  `DB_PORT=3307`), the site page offers to start it when the app can't connect, its log is on the Logs page,
+  and it can start with Zefaro. The Databases page, backups and phpMyAdmin stay MariaDB-only.
+
+### Changed
+
+- In `zefaro.json`, the database driver `mysql` now means Zefaro's MySQL. Use `mariadb` for MariaDB; Zefaro
+  writes `mysql` only for an app whose `.env` uses port 3307.
+
+### Fixed
+
+- The `mysql` and `mariadb` commands can sign in to MySQL 8 and later (`-P 3307` for Zefaro's own). They
+  couldn't find MariaDB's `caching_sha2_password` plugin before.
+
 ## [1.2.0] - 2026-10-30
 
 ### Added

@@ -76,6 +76,9 @@ const messages = defineMessages({
         mariadb: "MariaDB isn't running. Start it on the Services page, or here.",
         start: "Start MariaDB",
         started: "MariaDB started",
+        mysql: "MySQL isn't running. Start it on the Services page, or here.",
+        startMysql: "Start MySQL",
+        startedMysql: "MySQL started",
         postgres: "PostgreSQL isn't running. Start it on the Services page, or here.",
         startPostgres: "Start PostgreSQL",
         startedPostgres: "PostgreSQL started",
@@ -187,6 +190,9 @@ const messages = defineMessages({
         mariadb: "MariaDB belum berjalan. Mulai di halaman Layanan, atau di sini.",
         start: "Mulai MariaDB",
         started: "MariaDB dimulai",
+        mysql: "MySQL belum berjalan. Mulai di halaman Layanan, atau di sini.",
+        startMysql: "Mulai MySQL",
+        startedMysql: "MySQL dimulai",
         postgres: "PostgreSQL belum berjalan. Mulai di halaman Layanan, atau di sini.",
         startPostgres: "Mulai PostgreSQL",
         startedPostgres: "PostgreSQL dimulai",
@@ -322,36 +328,37 @@ export function OverviewTab({
     warnings.push({ id: "key", icon: "key", title: t.fix.key.title, body: t.fix.key.body, action: { label: t.fix.key.action, run: artisan(["key:generate"], t.fix.key.done) } });
 
   if (!overview.database.connected) {
-    const mariaDown = mysqlLike && local && !info.mariadbRunning;
-    const pgDown = d.databaseDriver === "pgsql" && local && !info.postgresRunning;
+    const f = t.fix.dbDown;
+    // MariaDB and MySQL share the mysql driver; Zefaro runs MySQL on 3307.
+    const onMysql = mysqlLike && d.databasePort === "3307";
+    const down = !local
+      ? null
+      : mysqlLike && onMysql && !info.mysqlRunning
+        ? { id: "mysql", note: f.mysql, label: f.startMysql, done: f.startedMysql }
+        : mysqlLike && !onMysql && !info.mariadbRunning
+          ? { id: "mariadb", note: f.mariadb, label: f.start, done: f.started }
+          : d.databaseDriver === "pgsql" && !info.postgresRunning
+            ? { id: "postgresql", note: f.postgres, label: f.startPostgres, done: f.startedPostgres }
+            : null;
     warnings.push({
       id: "db",
       icon: "database",
-      title: t.fix.dbDown.title,
+      title: f.title,
       body: (
         <>
-          {t.fix.dbDown.body(overview.database.error ?? "")}
-          {mariaDown && <span className="mt-1 block">{t.fix.dbDown.mariadb}</span>}
-          {pgDown && <span className="mt-1 block">{t.fix.dbDown.postgres}</span>}
+          {f.body(overview.database.error ?? "")}
+          {down && <span className="mt-1 block">{down.note}</span>}
         </>
       ),
-      action: mariaDown
+      action: down
         ? {
-            label: t.fix.dbDown.start,
+            label: down.label,
             run: async () => {
-              await api.startService("mariadb");
-              toast.success(t.fix.dbDown.started);
+              await api.startService(down.id);
+              toast.success(down.done);
             },
           }
-        : pgDown
-          ? {
-              label: t.fix.dbDown.startPostgres,
-              run: async () => {
-                await api.startService("postgresql");
-                toast.success(t.fix.dbDown.startedPostgres);
-              },
-            }
-          : undefined,
+        : undefined,
     });
   } else if (overview.pendingMigrations && overview.pendingMigrations.length > 0) {
     warnings.push({

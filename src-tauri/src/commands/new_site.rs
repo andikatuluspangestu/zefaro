@@ -4,7 +4,7 @@
 
 use super::blocking;
 use crate::engine::laravel::{self, JobHandle, SiteJob};
-use crate::engine::{dbio, mariadb, node, paths, php, postgres, process, supervisor};
+use crate::engine::{dbio, mariadb, mysql, node, paths, php, postgres, process, supervisor};
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
@@ -36,7 +36,7 @@ pub struct NewSite {
     pub auth: bool,
     pub teams: bool,
     pub livewire_class: bool,
-    /// "sqlite" | "mariadb" | "pgsql"
+    /// "sqlite" | "mariadb" | "mysql" | "pgsql"
     pub database: String,
     /// "pest" | "phpunit"
     pub testing: String,
@@ -61,6 +61,10 @@ pub struct NewSiteDefaults {
     pub node: Option<String>,
     pub git: bool,
     pub mariadb_running: bool,
+    pub mysql_running: bool,
+    /// MySQL is downloaded; its first start otherwise downloads it.
+    pub mysql_installed: bool,
+    pub mysql_download_mb: u32,
     pub postgres_running: bool,
     /// PostgreSQL is downloaded; its first start otherwise downloads it.
     pub postgres_installed: bool,
@@ -92,6 +96,9 @@ pub async fn new_site_defaults(state: State<'_, AppState>) -> AppResult<NewSiteD
             node: node::is_installed(&cfg.node_default).then(|| cfg.node_default.clone()),
             git,
             mariadb_running: supervisor::port_open(mariadb::PORT),
+            mysql_running: supervisor::port_open(mysql::PORT),
+            mysql_installed: mysql::installed(&mysql::Layout::standard()),
+            mysql_download_mb: mysql::DOWNLOAD_MB,
             postgres_running: supervisor::port_open(postgres::PORT),
             postgres_installed: postgres::installed(&postgres::Layout::standard()),
             postgres_download_mb: postgres::DOWNLOAD_MB,
@@ -106,7 +113,7 @@ pub async fn new_site_defaults(state: State<'_, AppState>) -> AppResult<NewSiteD
 pub struct NewSiteTarget {
     pub path: String,
     pub url: String,
-    /// Database name when MariaDB is chosen: the name with - turned into _.
+    /// Database name when a database server is chosen: the name with - turned into _.
     pub database: String,
 }
 
@@ -191,6 +198,7 @@ pub fn installer_args(o: &NewSite) -> Vec<String> {
         "--database={}",
         match o.database.as_str() {
             "mariadb" => "mariadb",
+            "mysql" => "mysql",
             "pgsql" => "pgsql",
             _ => "sqlite",
         }
@@ -249,6 +257,12 @@ pub fn new_site_create(options: NewSite, app: AppHandle, state: State<AppState>)
         return Err(AppError::msg(crate::tr!(
             "Start MariaDB first (Services → MariaDB).",
             "Mulai MariaDB terlebih dahulu (Layanan → MariaDB)."
+        )));
+    }
+    if o.database == "mysql" && !supervisor::port_open(mysql::PORT) {
+        return Err(AppError::msg(crate::tr!(
+            "Start MySQL first (Services → MySQL).",
+            "Mulai MySQL terlebih dahulu (Layanan → MySQL)."
         )));
     }
     if o.database == "pgsql" && !supervisor::port_open(postgres::PORT) {
@@ -509,6 +523,21 @@ fn create(state: &AppState, job: &JobHandle, o: &NewSite, target: &NewSiteTarget
             ));
         }
     }
+    if o.database == "mysql" {
+        let my = mysql::Layout::standard();
+        if mysql::database_exists(&my, &target.database)? {
+            job.line(crate::tr!(
+                format!("Using the existing MySQL database {}.", target.database),
+                format!("Memakai database MySQL {} yang sudah ada.", target.database)
+            ));
+        } else {
+            mysql::create_database(&my, &target.database)?;
+            job.line(crate::tr!(
+                format!("Created the MySQL database {}.", target.database),
+                format!("Database MySQL {} dibuat.", target.database)
+            ));
+        }
+    }
     if o.database == "mariadb" {
         let client = dbio::Client::standard();
         if dbio::exists(&client, &target.database)? {
@@ -565,8 +594,13 @@ fn create(state: &AppState, job: &JobHandle, o: &NewSite, target: &NewSiteTarget
             ("MAIL_PASSWORD", "null".to_owned()),
         ]);
     }
-    if o.database == "mariadb" || o.database == "pgsql" {
-        let port = if o.database == "pgsql" { postgres::PORT } else { mariadb::PORT };
+    let db_port = match o.database.as_str() {
+        "mariadb" => Some(mariadb::PORT),
+        "mysql" => Some(mysql::PORT),
+        "pgsql" => Some(postgres::PORT),
+        _ => None,
+    };
+    if let Some(port) = db_port {
         values.extend([
             ("DB_HOST", "127.0.0.1".to_owned()),
             ("DB_PORT", port.to_string()),
@@ -637,6 +671,8 @@ mod tests {
         }
         let o = NewSite { database: "pgsql".into(), ..options() };
         assert!(installer_args(&o).contains(&"--database=pgsql".to_owned()));
+        let o = NewSite { database: "mysql".into(), ..options() };
+        assert!(installer_args(&o).contains(&"--database=mysql".to_owned()));
         let o = NewSite { kit: "react".into(), auth: false, teams: true, ..options() };
         let args = installer_args(&o);
         assert!(args.contains(&"--no-authentication".to_owned()));

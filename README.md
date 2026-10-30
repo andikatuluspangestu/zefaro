@@ -72,15 +72,15 @@ trusted certificate authority, and keeps `%USERPROFILE%\.config\zefaro` until yo
 | PHP | Versions 7.4 to 8.5 side by side, from the official Windows builds, each with its own limits. Composer and the Laravel installer live in Zefaro's own `COMPOSER_HOME`. |
 | Node.js | The Current line and every maintained LTS line from nodejs.org. You pick the active version for `node`, `npm`, `npx` and `corepack`. |
 | DNS | Zefaro's built-in DNS server answers `*.test` (or `*.internal`). A Windows name resolution rule sends those lookups to it, so there is no hosts file to edit. |
-| Databases | MariaDB 11.8 LTS, PostgreSQL 18, Redis 8.10 and phpMyAdmin 5.2 at `phpmyadmin.test`. The Databases page creates, drops, exports and imports databases, streaming dumps to and from disk so they don't have to fit in memory. The live test round-trips 1 GB. |
+| Databases | MariaDB 11.8 LTS, MySQL 9.7 LTS (port 3307, so both can run), PostgreSQL 18, Redis 8.10 and phpMyAdmin 5.2 at `phpmyadmin.test`. The Databases page creates, drops, exports and imports databases, streaming dumps to and from disk so they don't have to fit in memory. The live test round-trips 1 GB. |
 | Mail | Mailpit 1.32 catches every email your apps send on `127.0.0.1:1025`, and PHP's `mail()` is pointed at it. The Mail page has search, attachments, links and an unread count. |
-| Logs | A live viewer for the nginx, PHP, MariaDB, Redis and Mailpit logs, with search and a level filter. |
+| Logs | A live viewer for the nginx, PHP, MariaDB, MySQL, PostgreSQL, Redis and Mailpit logs, with search and a level filter. |
 | Services | One page starts and stops everything. Zefaro restarts a service that crashes. Closing the window keeps Zefaro and its services running in the system tray; quitting from the tray stops them all in order, with nginx first and the databases last. |
 | Command line | Once you add Zefaro's folder to PATH, `php`, `composer`, `laravel`, `node`, `npm`, `npx`, `mariadb`, `mysql`, `mariadb-dump`, `mysqldump`, `mariadb-admin`, `psql`, `pg_dump`, `pg_restore`, `createdb`, `dropdb` and `redis-cli` work in any terminal and connect to Zefaro's own servers. `nginx` accepts `-t`, `-T`, `-v`, `-V` and `-s reload`. |
 | Settings pages | nginx (ports, workers, timeouts, request size, gzip, HTTP/2, logs, extra directives), PHP per version, DNS, Mailpit. |
 
 Every program Zefaro downloads comes from its project's official source and is checked
-before use. The hashes for nginx, MariaDB, PostgreSQL, Redis, phpMyAdmin and Mailpit are
+before use. The hashes for nginx, MariaDB, MySQL, PostgreSQL, Redis, phpMyAdmin and Mailpit are
 built into Zefaro. For PHP, Node.js and Composer, Zefaro checks the hash each project publishes.
 
 Zefaro keeps its settings, programs and data in `%USERPROFILE%\.config\zefaro`. Every
@@ -211,7 +211,7 @@ closed without review.
 
 Zefaro is released under the [MIT License](LICENSE), © 2026 Zefaro contributors.
 
-The software Zefaro downloads (nginx, PHP, Node.js, Composer, MariaDB, Redis, phpMyAdmin,
-Mailpit) comes from each project's official source and keeps its own licence. The About
+The software Zefaro downloads (nginx, PHP, Node.js, Composer, MariaDB, MySQL, PostgreSQL,
+Redis, phpMyAdmin, Mailpit) comes from each project's official source and keeps its own licence. The About
 page lists them. Service logos come from Dashboard Icons (Apache-2.0), and each logo is
 its project's trademark.

@@ -4,7 +4,7 @@
 //! the site page can write one from the site's current settings.
 
 use crate::engine::laravel::EnvEntry;
-use crate::engine::{mailpit, mariadb, postgres, redis};
+use crate::engine::{mailpit, mariadb, mysql, postgres, redis};
 use crate::error::{AppError, AppResult};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -13,7 +13,8 @@ use std::path::{Path, PathBuf};
 pub const FILE_NAME: &str = "zefaro.json";
 
 /// Services a project can ask for, by their ids on the Services page.
-pub const SERVICES: &[&str] = &[mariadb::SERVICE_ID, postgres::SERVICE_ID, redis::SERVICE_ID, mailpit::SERVICE_ID];
+pub const SERVICES: &[&str] =
+    &[mariadb::SERVICE_ID, mysql::SERVICE_ID, postgres::SERVICE_ID, redis::SERVICE_ID, mailpit::SERVICE_ID];
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
@@ -30,7 +31,7 @@ pub struct ProjectFile {
     /// of serving the folder with PHP.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proxy: Option<u16>,
-    /// Services to start: "mariadb", "postgresql", "redis", "mailpit".
+    /// Services to start: "mariadb", "mysql", "postgresql", "redis", "mailpit".
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub services: Vec<String>,
     /// A database to create when it doesn't exist yet.
@@ -43,7 +44,7 @@ pub struct ProjectFile {
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
 pub struct ProjectDatabase {
-    /// "mariadb" or "pgsql".
+    /// "mariadb", "mysql" or "pgsql".
     pub driver: String,
     pub name: String,
 }
@@ -104,11 +105,13 @@ pub fn infer_from_env(env: &[EnvEntry], mailpit_port: u16) -> (Vec<String>, Opti
 
     let db_host = get("DB_HOST");
     match get("DB_CONNECTION").as_str() {
+        // Both speak the MySQL protocol; the port tells Zefaro's two servers apart.
         "mysql" | "mariadb" if local(&db_host) => {
-            services.push(mariadb::SERVICE_ID.to_owned());
+            let id = if get("DB_PORT") == mysql::PORT.to_string() { mysql::SERVICE_ID } else { mariadb::SERVICE_ID };
+            services.push(id.to_owned());
             let name = get("DB_DATABASE");
             if !name.is_empty() {
-                database = Some(ProjectDatabase { driver: "mariadb".into(), name });
+                database = Some(ProjectDatabase { driver: id.into(), name });
             }
         }
         "pgsql" if local(&db_host) => {
@@ -165,6 +168,12 @@ mod tests {
         let (services, db) = infer_from_env(&env, 1025);
         assert_eq!(services, ["mariadb", "redis", "mailpit"]);
         assert_eq!(db, Some(ProjectDatabase { driver: "mariadb".into(), name: "shop".into() }));
+
+        let on_mysql = parse_env("DB_CONNECTION=mysql\nDB_HOST=127.0.0.1\nDB_PORT=3307\nDB_DATABASE=blog\n");
+        assert_eq!(
+            infer_from_env(&on_mysql, 1025),
+            (vec!["mysql".to_owned()], Some(ProjectDatabase { driver: "mysql".into(), name: "blog".into() }))
+        );
 
         let remote = parse_env("DB_CONNECTION=pgsql\nDB_HOST=db.example.com\nDB_DATABASE=x\nMAIL_MAILER=log\n");
         assert_eq!(infer_from_env(&remote, 1025), (vec![], None));

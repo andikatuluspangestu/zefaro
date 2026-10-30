@@ -56,6 +56,7 @@ fn view(cfg: &ZefaroConfig, sup: &Supervisor) -> NginxSettingsView {
 fn reserved(cfg: &ZefaroConfig) -> Vec<(u16, String)> {
     let mut out = vec![
         (mariadb::PORT, "MariaDB".to_owned()),
+        (crate::engine::mysql::PORT, "MySQL".to_owned()),
         (redis::PORT, "Redis".to_owned()),
         (crate::engine::postgres::PORT, "PostgreSQL".to_owned()),
     ];

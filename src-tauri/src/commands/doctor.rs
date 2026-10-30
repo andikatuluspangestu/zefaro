@@ -4,7 +4,7 @@
 
 use super::{blocking, sites};
 use crate::engine::import::{self, FoundProject};
-use crate::engine::{dbio, dns, mailpit, mariadb, nginx, php, postgres, redis, supervisor, tools};
+use crate::engine::{dbio, dns, mailpit, mariadb, mysql, nginx, php, postgres, redis, supervisor, tools};
 use crate::error::{AppError, AppResult};
 use crate::model::Site;
 use crate::state::AppState;
@@ -96,8 +96,8 @@ fn run_checks(cfg: &crate::config::ZefaroConfig, sup: &supervisor::Supervisor, d
             "error",
             crate::tr!("The Visual C++ runtime is missing", "Runtime Visual C++ tidak ada").into(),
             crate::tr!(
-                format!("{} not found. PHP and MariaDB won't start without it. Install Microsoft's Visual C++ Redistributable (x64), then restart Zefaro.", missing.join(", ")),
-                format!("{} tidak ditemukan. PHP dan MariaDB tidak bisa berjalan tanpanya. Pasang Visual C++ Redistributable (x64) dari Microsoft, lalu buka ulang Zefaro.", missing.join(", "))
+                format!("{} not found. PHP, MariaDB and MySQL won't start without it. Install Microsoft's Visual C++ Redistributable (x64), then restart Zefaro.", missing.join(", ")),
+                format!("{} tidak ditemukan. PHP, MariaDB, dan MySQL tidak bisa berjalan tanpanya. Pasang Visual C++ Redistributable (x64) dari Microsoft, lalu buka ulang Zefaro.", missing.join(", "))
             ),
             Some(&format!("url:{VC_REDIST_URL}")),
         ));
@@ -105,10 +105,11 @@ fn run_checks(cfg: &crate::config::ZefaroConfig, sup: &supervisor::Supervisor, d
 
     // Ports: a port Zefaro needs, held by another program while Zefaro's own
     // service is stopped.
-    let ports: [(&str, &str, u16, bool, &str); 8] = [
+    let ports: [(&str, &str, u16, bool, &str); 9] = [
         (nginx::SERVICE_ID, "nginx (HTTP)", cfg.nginx.http_port, false, "nginx"),
         (nginx::SERVICE_ID, "nginx (HTTPS)", cfg.nginx.https_port, false, "nginx"),
         (mariadb::SERVICE_ID, "MariaDB", mariadb::PORT, false, "services"),
+        (mysql::SERVICE_ID, "MySQL", mysql::PORT, false, "services"),
         (postgres::SERVICE_ID, "PostgreSQL", postgres::PORT, false, "services"),
         (redis::SERVICE_ID, "Redis", redis::PORT, false, "services"),
         (mailpit::SERVICE_ID, "Mailpit (SMTP)", cfg.mailpit.smtp_port, false, "services"),

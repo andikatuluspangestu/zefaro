@@ -4,7 +4,7 @@
 use super::blocking;
 use crate::engine::laravel::{self, App, ArtisanCommand, EnvEntry, JobOutput, SiteJob, Worker};
 use crate::engine::supervisor::{self, Health};
-use crate::engine::{applog, apps, mariadb, paths, postgres};
+use crate::engine::{applog, apps, mariadb, mysql, paths, postgres};
 use crate::error::{AppError, AppResult};
 use crate::model::Site;
 use crate::state::AppState;
@@ -30,6 +30,7 @@ pub struct SiteInfo {
     /// site's isn't installed). None when no PHP is installed.
     pub php: Option<String>,
     pub mariadb_running: bool,
+    pub mysql_running: bool,
     pub postgres_running: bool,
     pub mailpit_smtp_port: u16,
     pub mailpit_running: bool,
@@ -54,15 +55,17 @@ pub async fn site_info(name: String, state: State<'_, AppState>) -> AppResult<Si
         let php = App::for_site(&cfg, &name).ok().map(|a| a.php);
         (site, php, cfg.mailpit.smtp_port)
     };
-    // A port nobody listens on costs a timeout, so ask about all three at once,
-    // off the thread that draws the window.
+    // A port nobody listens on costs a timeout, so ask about all of them at
+    // once, off the thread that draws the window.
     blocking(move || {
         let folder = PathBuf::from(&site.path);
-        let (mariadb_running, postgres_running, mailpit_running) = std::thread::scope(|s| {
+        let (mariadb_running, mysql_running, postgres_running, mailpit_running) = std::thread::scope(|s| {
             let mariadb = s.spawn(|| supervisor::port_open(mariadb::PORT));
+            let mysql = s.spawn(|| supervisor::port_open(mysql::PORT));
             let postgres = s.spawn(|| supervisor::port_open(postgres::PORT));
             let mailpit = supervisor::port_open(mailpit_smtp_port);
-            (mariadb.join().unwrap_or(false), postgres.join().unwrap_or(false), mailpit)
+            let up = |h: std::thread::ScopedJoinHandle<'_, bool>| h.join().unwrap_or(false);
+            (up(mariadb), up(mysql), up(postgres), mailpit)
         });
         Ok(SiteInfo {
             is_laravel: folder.join("artisan").is_file(),
@@ -70,6 +73,7 @@ pub async fn site_info(name: String, state: State<'_, AppState>) -> AppResult<Si
             has_env: folder.join(".env").is_file(),
             php,
             mariadb_running,
+            mysql_running,
             postgres_running,
             mailpit_smtp_port,
             mailpit_running,
@@ -220,7 +224,8 @@ fn open_targets(state: &AppState, name: &str) -> AppResult<(PathBuf, Option<apps
             _ => true,
         })
         .collect();
-    if phpmyadmin && matches!(db, Some(apps::Database::Mysql { .. })) {
+    // phpMyAdmin signs in to MariaDB only.
+    if phpmyadmin && matches!(db, Some(apps::Database::Mysql { port, .. }) if port == mariadb::PORT) {
         list.push(apps::ExternalApp { id: "phpmyadmin".into(), name: "phpMyAdmin".into(), kind: "database".into(), exe: PathBuf::new() });
     }
     list.push(apps::ExternalApp { id: "explorer".into(), name: "File Explorer".into(), kind: "folder".into(), exe: PathBuf::new() });

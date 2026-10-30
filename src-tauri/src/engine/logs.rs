@@ -1,7 +1,7 @@
 //! Reading the service logs in `~/.config/zefaro/logs` for the Logs page.
 //!
 //! Every service Zefaro runs appends to its own file there (nginx error and
-//! access logs, php-cgi output per PHP line, MariaDB, Redis, DNS). This module
+//! access logs, php-cgi output per PHP line, MariaDB, MySQL, Redis, DNS). This module
 //! lists those files and turns the end of one into entries with a time, a
 //! level and a message, understanding each service's own line format.
 
@@ -24,6 +24,7 @@ enum Kind {
     NginxAccess,
     Php,
     MariaDb,
+    MySql,
     Redis,
     Postgres,
     Plain,
@@ -50,6 +51,12 @@ fn describe(id: &str) -> (String, &'static str, String, Kind) {
             "Databases",
             crate::tr!("Database server", "Server database").into(),
             Kind::MariaDb,
+        ),
+        "mysql" => (
+            "MySQL".into(),
+            "Databases",
+            crate::tr!("Database server", "Server database").into(),
+            Kind::MySql,
         ),
         "postgresql" => (
             "PostgreSQL".into(),
@@ -254,6 +261,7 @@ fn parse(kind: Kind, raw: &str) -> LogEntry {
         Kind::NginxAccess => nginx_access(raw),
         Kind::Php => php_line(raw),
         Kind::MariaDb => mariadb(raw),
+        Kind::MySql => mysql(raw),
         Kind::Redis => redis(raw),
         Kind::Postgres => postgres(raw),
         Kind::Plain => None,
@@ -486,6 +494,30 @@ fn mariadb(raw: &str) -> Option<LogEntry> {
     Some(entry(Some(format!("{date} {time}")), level, Some(lvl.into()), message.into(), raw))
 }
 
+/// `2026-10-30T09:42:41.495807+07:00 0 [Warning] [MY-010068] [Server] CA certificate ca.pem is self signed.`
+/// The error code becomes the tag; the subsystem (`[Server]`, `[InnoDB]`) stays in the message.
+fn mysql(raw: &str) -> Option<LogEntry> {
+    let date = raw.get(0..10)?;
+    let time = raw.get(11..19)?;
+    if !(digits(date.get(0..4)?, 4) && raw.get(10..11)? == "T" && clock(time)) {
+        return None;
+    }
+    let (_stamp, rest) = raw.split_once(' ')?;
+    let (_thread, rest) = rest.split_once(' ')?;
+    let (lvl, rest) = rest.strip_prefix('[')?.split_once("] ")?;
+    let (code, message) = match rest.strip_prefix('[').and_then(|r| r.split_once("] ")) {
+        Some((code, message)) if code.starts_with("MY-") => (Some(code.to_owned()), message),
+        _ => (None, rest),
+    };
+    let level = match lvl {
+        "ERROR" => "error",
+        "Warning" => "warn",
+        "System" | "Note" => "info",
+        _ => return None,
+    };
+    Some(entry(Some(format!("{date} {time}")), level, code, message.into(), raw))
+}
+
 /// `2026-10-27 16:30:01.123 WIB [4242] LOG:  database system is ready to accept connections`
 fn postgres(raw: &str) -> Option<LogEntry> {
     let date = raw.get(0..10)?;
@@ -576,6 +608,15 @@ mod tests {
         assert_eq!((m.level.as_str(), m.message.as_str()), ("warn", "Aborted connection 140"));
         let m = parse(Kind::MariaDb, "2026-10-21 16:08:31 0 [ERROR] Can't start server");
         assert_eq!(m.level, "error");
+
+        let y = parse(Kind::MySql, "2026-10-30T09:42:41.495807+07:00 0 [Warning] [MY-010068] [Server] CA certificate ca.pem is self signed.");
+        assert_eq!(y.ts.as_deref(), Some("2026-10-30 09:42:41"));
+        assert_eq!((y.level.as_str(), y.tag.as_deref()), ("warn", Some("MY-010068")));
+        assert_eq!(y.message, "[Server] CA certificate ca.pem is self signed.");
+        let y = parse(Kind::MySql, "2026-10-30T09:42:41.033825+07:00 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.");
+        assert_eq!(y.level, "info");
+        let y = parse(Kind::MySql, "2026-10-30T02:42:41.000000Z 0 [ERROR] [MY-010119] [Server] Aborting");
+        assert_eq!((y.level.as_str(), y.message.as_str()), ("error", "[Server] Aborting"));
 
         let r = parse(Kind::Redis, "4242:M 21 Oct 2026 16:08:31.123 * Ready to accept connections tcp");
         assert_eq!(r.ts.as_deref(), Some("2026-10-21 16:08:31"));

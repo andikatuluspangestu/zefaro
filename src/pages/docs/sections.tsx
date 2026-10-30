@@ -63,7 +63,7 @@ export function FaqList({ items }: { items: [string, ReactNode][] }) {
 const FAQ: [string, ReactNode][] = [
   [
     "Is Zefaro really free?",
-    <>Yes, every feature: several PHP versions side by side, HTTPS, MariaDB, PostgreSQL, Redis, phpMyAdmin,
+    <>Yes, every feature: several PHP versions side by side, HTTPS, MariaDB, MySQL, PostgreSQL, Redis, phpMyAdmin,
     Mailpit, Node.js, a log viewer and local DNS. There is no paid tier.</>,
   ],
   [
@@ -110,7 +110,7 @@ const FAQ: [string, ReactNode][] = [
   ],
   [
     "Can other computers on my network open my sites?",
-    <>No. nginx, PHP, MariaDB, PostgreSQL, Redis, Mailpit and the DNS server all listen on{" "}
+    <>No. nginx, PHP, MariaDB, MySQL, PostgreSQL, Redis, Mailpit and the DNS server all listen on{" "}
     <C>127.0.0.1</C> only.</>,
   ],
 ];
@@ -720,8 +720,8 @@ export const SECTIONS: DocSection[] = [
         <P>
           On the <em>General</em> tab of Settings, <em>Start with Windows</em> adds Zefaro to the
           programs Windows starts for you. It opens hidden in the system tray, with no window. Below it,
-          <em>Start services with Zefaro</em> starts your services whenever Zefaro opens: nginx (which starts each site's PHP), MariaDB, PostgreSQL,
-          Redis, Mailpit and, with <C>.test</C>, DNS. Databases start first and nginx last.
+          <em>Start services with Zefaro</em> starts your services whenever Zefaro opens: nginx (which starts each site's PHP), MariaDB, MySQL,
+          PostgreSQL, Redis, Mailpit and, with <C>.test</C>, DNS. Databases start first and nginx last.
         </P>
         <P>
           Only services that are already installed start, so opening Zefaro never downloads anything; one you install
@@ -806,7 +806,7 @@ export const SECTIONS: DocSection[] = [
     title: "Databases",
     icon: "database",
     group: "Services",
-    summary: "MariaDB, PostgreSQL, Redis, phpMyAdmin, and export and import of large dumps.",
+    summary: "MariaDB, MySQL, PostgreSQL, Redis, phpMyAdmin, and export and import of large dumps.",
     body: () => (
       <>
         <H3>MariaDB</H3>
@@ -814,6 +814,15 @@ export const SECTIONS: DocSection[] = [
           MariaDB 11.8 LTS listens on <C>127.0.0.1:3306</C> with user <C>root</C> and no
           password, which is what a new Laravel app expects. The first start downloads it (93 MB)
           and creates the data folder. Zefaro shuts it down cleanly when you stop it or quit Zefaro.
+        </P>
+        <H3>MySQL</H3>
+        <P>
+          MySQL 9.7 LTS listens on <C>127.0.0.1:3307</C> with user <C>root</C> and no password. Port
+          3306 stays MariaDB's, so both can run at once. Set <C>DB_CONNECTION=mysql</C> and{" "}
+          <C>DB_PORT=3307</C>. The first start downloads it (328 MB, of which Zefaro keeps the server
+          and its tools, without debug files) and creates the data folder. In a terminal,{" "}
+          <C>mysql -P 3307</C> connects to it. The <strong>New site</strong> wizard can create an app
+          on it. The Databases page, backups and phpMyAdmin work with MariaDB only.
         </P>
         <H3>PostgreSQL</H3>
         <P>
@@ -1003,7 +1012,7 @@ export const SECTIONS: DocSection[] = [
             ["Web server errors", <>nginx errors, plus PHP errors and warnings from your sites (<C>nginx-error.log</C>).</>],
             ["Requests", <>Every request with its method, path, status, site, size and time (<C>nginx-access.log</C>).</>],
             ["PHP <version>", <>What php-cgi itself prints, such as startup problems (<C>php-&lt;version&gt;.log</C>).</>],
-            ["MariaDB, PostgreSQL, Redis", <>The database servers (<C>mariadb.log</C>, <C>postgresql.log</C>, <C>redis.log</C>).</>],
+            ["MariaDB, MySQL, PostgreSQL, Redis", <>The database servers (<C>mariadb.log</C>, <C>mysql.log</C>, <C>postgresql.log</C>, <C>redis.log</C>).</>],
             ["DNS, nginx output", <>Zefaro's <C>.test</C> name server and nginx's console (<C>dns.log</C>, <C>nginx-stdout.log</C>).</>],
           ]}
         />
@@ -1132,8 +1141,8 @@ export const SECTIONS: DocSection[] = [
             ["php", <>A PHP line such as <C>8.4</C>.</>],
             ["https", "Serve the site over HTTPS."],
             ["proxy", "A dev server's port, for a site that forwards instead of running PHP."],
-            ["services", <><C>mariadb</C>, <C>postgresql</C>, <C>redis</C> or <C>mailpit</C>, started when the folder is linked.</>],
-            ["database", <>A database to create when it doesn't exist (<C>mariadb</C> or <C>pgsql</C>).</>],
+            ["services", <><C>mariadb</C>, <C>mysql</C>, <C>postgresql</C>, <C>redis</C> or <C>mailpit</C>, started when the folder is linked.</>],
+            ["database", <>A database to create when it doesn't exist (<C>mariadb</C>, <C>mysql</C> or <C>pgsql</C>). Written from a <C>.env</C>, <C>mysql</C> means a <C>DB_PORT</C> of 3307.</>],
             ["workers", "Commands Zefaro keeps running for the site, as on the Workers tab."],
           ]}
         />
@@ -1210,7 +1219,7 @@ export const SECTIONS: DocSection[] = [
         <Rows
           rows={[
             ["In the backup", <>Your sites and settings (the same <C>config.json</C> Zefaro keeps), and one SQL dump per MariaDB database.</>],
-            ["Left out", "The HTTPS certificate authority (its private key is encrypted for your Windows account and can't be opened elsewhere, so Zefaro makes a new one and you trust it again), PostgreSQL databases, downloaded programs, mail and your project folders."],
+            ["Left out", "The HTTPS certificate authority (its private key is encrypted for your Windows account and can't be opened elsewhere, so Zefaro makes a new one and you trust it again), MySQL and PostgreSQL databases, downloaded programs, mail and your project folders."],
             ["Databases on restore", "Loaded into new databases. One that already exists is skipped and never overwritten; drop it on the Databases page first if you want the backup's copy."],
             ["Sites and settings on restore", <>Replace what you have now. A copy of the current <C>config.json</C> is kept next to it as <C>config.before-restore-…json</C>. Open Diagnostics afterwards: site folders and the local domain may differ on another computer.</>],
           ]}

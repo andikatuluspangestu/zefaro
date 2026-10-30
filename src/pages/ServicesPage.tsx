@@ -41,7 +41,7 @@ const messages = defineMessages({
   en: {
     cats: {
       core: { label: "Core", hint: "nginx, one PHP listener per version, and *.test DNS" },
-      database: { label: "Databases", hint: "MariaDB, PostgreSQL, Redis and phpMyAdmin" },
+      database: { label: "Databases", hint: "MariaDB, MySQL, PostgreSQL, Redis and phpMyAdmin" },
       mail: { label: "Mail", hint: "Mailpit catches the mail your apps send" },
     },
     installName: (name: string) => `Install ${name}`,
@@ -85,7 +85,7 @@ const messages = defineMessages({
   id: {
     cats: {
       core: { label: "Inti", hint: "nginx, satu listener PHP per versi, dan DNS *.test" },
-      database: { label: "Database", hint: "MariaDB, PostgreSQL, Redis, dan phpMyAdmin" },
+      database: { label: "Database", hint: "MariaDB, MySQL, PostgreSQL, Redis, dan phpMyAdmin" },
       mail: { label: "Email", hint: "Mailpit menangkap email yang dikirim aplikasi Anda" },
     },
     installName: (name: string) => `Instal ${name}`,

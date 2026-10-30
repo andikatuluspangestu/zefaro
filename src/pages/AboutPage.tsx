@@ -73,7 +73,7 @@ const messages = defineMessages({
       licence:
         "Zefaro is open source under the MIT License, © 2026 Zefaro contributors. Icons by Font Awesome (fontawesome.com) are used under the CC BY 4.0 licence.",
       trademarks:
-        "Zefaro is an independent project and is not affiliated with, endorsed by or connected to Laravel. PHP, MariaDB, PostgreSQL, Redis, nginx, phpMyAdmin, Mailpit, Node.js and Composer are trademarks of their respective owners.",
+        "Zefaro is an independent project and is not affiliated with, endorsed by or connected to Laravel. PHP, MariaDB, MySQL, PostgreSQL, Redis, nginx, phpMyAdmin, Mailpit, Node.js and Composer are trademarks of their respective owners.",
     },
   },
   id: {
@@ -128,7 +128,7 @@ const messages = defineMessages({
       licence:
         "Zefaro adalah open source dengan MIT License, © 2026 kontributor Zefaro. Ikon dari Font Awesome (fontawesome.com) dipakai dengan lisensi CC BY 4.0.",
       trademarks:
-        "Zefaro adalah proyek independen dan tidak berafiliasi dengan, didukung oleh, atau terhubung dengan Laravel. PHP, MariaDB, PostgreSQL, Redis, nginx, phpMyAdmin, Mailpit, Node.js, dan Composer adalah merek dagang milik pemiliknya masing-masing.",
+        "Zefaro adalah proyek independen dan tidak berafiliasi dengan, didukung oleh, atau terhubung dengan Laravel. PHP, MariaDB, MySQL, PostgreSQL, Redis, nginx, phpMyAdmin, Mailpit, Node.js, dan Composer adalah merek dagang milik pemiliknya masing-masing.",
     },
   },
 });
@@ -165,6 +165,8 @@ const LOGO_IDS: Record<string, string> = {
   php: "php",
   "node.js": "node",
   mariadb: "mariadb",
+  mysql: "mysql",
+  postgresql: "postgresql",
   redis: "redis",
   phpmyadmin: "phpmyadmin",
   mailpit: "mailpit",

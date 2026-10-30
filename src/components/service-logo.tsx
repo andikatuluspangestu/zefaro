@@ -6,6 +6,7 @@ import { Icon } from "@/components/icon";
 import dnsLogo from "@/assets/service-logos/dns.svg";
 import mailpitLogo from "@/assets/service-logos/mailpit.svg";
 import mariadbLogo from "@/assets/service-logos/mariadb.svg";
+import mysqlLogo from "@/assets/service-logos/mysql.svg";
 import nginxLogo from "@/assets/service-logos/nginx.svg";
 import nodeLogo from "@/assets/service-logos/nodejs.svg";
 import phpLogo from "@/assets/service-logos/php.svg";
@@ -14,7 +15,8 @@ import postgresqlLogo from "@/assets/service-logos/postgresql.svg";
 import redisLogo from "@/assets/service-logos/redis.svg";
 
 /**
- * `tile`: a light tile for logos drawn in dark colours (MariaDB's navy seal).
+ * `tile`: a light tile for logos drawn in dark colours (MariaDB's navy seal,
+ * MySQL's dark blue wordmark).
  * `wide`: landscape logos get less padding so they don't shrink to a sliver.
  */
 const LOGOS: Record<string, { src: string; tile?: "light"; wide?: boolean }> = {
@@ -23,6 +25,7 @@ const LOGOS: Record<string, { src: string; tile?: "light"; wide?: boolean }> = {
   node: { src: nodeLogo },
   dns: { src: dnsLogo },
   mariadb: { src: mariadbLogo, tile: "light" },
+  mysql: { src: mysqlLogo, tile: "light", wide: true },
   postgresql: { src: postgresqlLogo },
   redis: { src: redisLogo },
   phpmyadmin: { src: phpmyadminLogo, wide: true },

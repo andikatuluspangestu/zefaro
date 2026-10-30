@@ -9,7 +9,7 @@ import { FaqList, GoTo, LARAVEL_ENV, type DocSection } from "./sections";
 const FAQ: [string, ReactNode][] = [
   [
     "Apakah Zefaro benar-benar gratis?",
-    <>Ya, semua fiturnya: beberapa versi PHP berdampingan, HTTPS, MariaDB, PostgreSQL, Redis, phpMyAdmin,
+    <>Ya, semua fiturnya: beberapa versi PHP berdampingan, HTTPS, MariaDB, MySQL, PostgreSQL, Redis, phpMyAdmin,
     Mailpit, Node.js, penampil log, dan DNS lokal. Tidak ada versi berbayar.</>,
   ],
   [
@@ -58,7 +58,7 @@ const FAQ: [string, ReactNode][] = [
   ],
   [
     "Bisakah komputer lain di jaringan saya membuka situs saya?",
-    <>Tidak. nginx, PHP, MariaDB, PostgreSQL, Redis, Mailpit, dan server DNS hanya mendengarkan di{" "}
+    <>Tidak. nginx, PHP, MariaDB, MySQL, PostgreSQL, Redis, Mailpit, dan server DNS hanya mendengarkan di{" "}
     <C>127.0.0.1</C>.</>,
   ],
 ];
@@ -687,7 +687,7 @@ export const SECTIONS_ID: DocSection[] = [
           Di tab <em>Umum</em> Pengaturan, <em>Mulai bersama Windows</em> menambahkan
           Zefaro ke program yang dijalankan Windows untuk Anda. Zefaro terbuka tersembunyi di system tray, tanpa jendela.
           Di bawahnya, <em>Mulai layanan bersama Zefaro</em> memulai layanan Anda setiap kali Zefaro terbuka: nginx (yang menyalakan PHP tiap
-          situs), MariaDB, PostgreSQL, Redis, Mailpit, dan, dengan <C>.test</C>, DNS. Database dimulai lebih dulu dan
+          situs), MariaDB, MySQL, PostgreSQL, Redis, Mailpit, dan, dengan <C>.test</C>, DNS. Database dimulai lebih dulu dan
           nginx terakhir.
         </P>
         <P>
@@ -776,7 +776,7 @@ export const SECTIONS_ID: DocSection[] = [
     title: "Database",
     icon: "database",
     group: "Layanan",
-    summary: "MariaDB, PostgreSQL, Redis, phpMyAdmin, serta ekspor dan impor dump besar.",
+    summary: "MariaDB, MySQL, PostgreSQL, Redis, phpMyAdmin, serta ekspor dan impor dump besar.",
     body: () => (
       <>
         <H3>MariaDB</H3>
@@ -785,6 +785,16 @@ export const SECTIONS_ID: DocSection[] = [
           password, sesuai yang diharapkan aplikasi Laravel baru. Saat pertama dimulai, Zefaro
           mengunduhnya (93 MB) dan membuat folder data. Zefaro mematikannya dengan rapi saat Anda
           menghentikannya atau keluar dari Zefaro.
+        </P>
+        <H3>MySQL</H3>
+        <P>
+          MySQL 9.7 LTS mendengarkan di <C>127.0.0.1:3307</C> dengan pengguna <C>root</C> tanpa
+          kata sandi. Port 3306 tetap milik MariaDB, jadi keduanya bisa berjalan bersamaan. Isi{" "}
+          <C>DB_CONNECTION=mysql</C> dan <C>DB_PORT=3307</C>. Saat pertama dimulai, Zefaro
+          mengunduhnya (328 MB, Zefaro hanya menyimpan server dan alatnya, tanpa file debug) lalu
+          membuat folder data. Di terminal, <C>mysql -P 3307</C> terhubung ke MySQL. Wizard{" "}
+          <strong>Situs baru</strong> bisa membuat aplikasi di atasnya. Halaman Database, cadangan,
+          dan phpMyAdmin hanya bekerja dengan MariaDB.
         </P>
         <H3>PostgreSQL</H3>
         <P>
@@ -984,7 +994,7 @@ export const SECTIONS_ID: DocSection[] = [
             ["Error server web", <>Error nginx, ditambah error dan peringatan PHP dari situs Anda (<C>nginx-error.log</C>).</>],
             ["Permintaan", <>Setiap permintaan dengan metode, path, status, situs, ukuran, dan waktunya (<C>nginx-access.log</C>).</>],
             ["PHP <versi>", <>Apa yang dicetak php-cgi sendiri, seperti masalah saat dimulai (<C>php-&lt;versi&gt;.log</C>).</>],
-            ["MariaDB, PostgreSQL, Redis", <>Server database (<C>mariadb.log</C>, <C>postgresql.log</C>, <C>redis.log</C>).</>],
+            ["MariaDB, MySQL, PostgreSQL, Redis", <>Server database (<C>mariadb.log</C>, <C>mysql.log</C>, <C>postgresql.log</C>, <C>redis.log</C>).</>],
             ["DNS, output nginx", <>Name server <C>.test</C> milik Zefaro dan konsol nginx (<C>dns.log</C>, <C>nginx-stdout.log</C>).</>],
           ]}
         />
@@ -1112,8 +1122,8 @@ export const SECTIONS_ID: DocSection[] = [
             ["php", <>Versi PHP, misalnya <C>8.4</C>.</>],
             ["https", "Sajikan situs lewat HTTPS."],
             ["proxy", "Port dev server, untuk situs yang meneruskan alih-alih menjalankan PHP."],
-            ["services", <><C>mariadb</C>, <C>postgresql</C>, <C>redis</C>, atau <C>mailpit</C>, dimulai saat folder ditautkan.</>],
-            ["database", <>Database yang dibuat bila belum ada (<C>mariadb</C> atau <C>pgsql</C>).</>],
+            ["services", <><C>mariadb</C>, <C>mysql</C>, <C>postgresql</C>, <C>redis</C>, atau <C>mailpit</C>, dimulai saat folder ditautkan.</>],
+            ["database", <>Database yang dibuat bila belum ada (<C>mariadb</C>, <C>mysql</C>, atau <C>pgsql</C>). Bila ditulis dari <C>.env</C>, <C>mysql</C> berarti <C>DB_PORT</C> 3307.</>],
             ["workers", "Perintah yang dijaga tetap berjalan oleh Zefaro, seperti di tab Worker."],
           ]}
         />
@@ -1192,7 +1202,7 @@ export const SECTIONS_ID: DocSection[] = [
         <Rows
           rows={[
             ["Isi cadangan", <>Situs dan pengaturan Anda (<C>config.json</C> yang sama dengan yang disimpan Zefaro), dan satu dump SQL per database MariaDB.</>],
-            ["Yang tidak ikut", "Otoritas sertifikat HTTPS (kunci pribadinya dienkripsi untuk akun Windows Anda dan tidak bisa dibuka di tempat lain, jadi Zefaro membuat yang baru dan Anda mempercayainya lagi), database PostgreSQL, program unduhan, email, dan folder proyek Anda."],
+            ["Yang tidak ikut", "Otoritas sertifikat HTTPS (kunci pribadinya dienkripsi untuk akun Windows Anda dan tidak bisa dibuka di tempat lain, jadi Zefaro membuat yang baru dan Anda mempercayainya lagi), database MySQL dan PostgreSQL, program unduhan, email, dan folder proyek Anda."],
             ["Database saat pemulihan", "Dimuat ke database baru. Database yang sudah ada dilewati dan tidak pernah ditimpa; hapus dulu di halaman Database jika Anda ingin salinan dari cadangan."],
             ["Situs dan pengaturan saat pemulihan", <>Menggantikan yang Anda punya sekarang. Salinan <C>config.json</C> saat ini disimpan di sebelahnya sebagai <C>config.before-restore-…json</C>. Buka Pemeriksa sesudahnya: folder situs dan domain lokal bisa berbeda di komputer lain.</>],
           ]}

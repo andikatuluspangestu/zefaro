@@ -80,6 +80,10 @@ const messages = defineMessages({
     mariadb: { label: "MariaDB", hint: (db: string) => `Zefaro's MariaDB, in a database named ${db}.` },
     mariadbDown: "MariaDB isn't running.",
     startMariadb: "Start MariaDB",
+    mysql: { label: "MySQL", hint: (db: string) => `Zefaro's MySQL on port 3307, in a database named ${db}.` },
+    mysqlDown: "MySQL isn't running.",
+    mysqlInstall: (mb: number) => `MySQL isn't installed yet. Starting it downloads it (${mb} MB).`,
+    startMysql: "Start MySQL",
     pgsql: { label: "PostgreSQL", hint: (db: string) => `Zefaro's PostgreSQL, in a database named ${db}.` },
     pgsqlDown: "PostgreSQL isn't running.",
     pgsqlInstall: (mb: number) => `PostgreSQL isn't installed yet. Starting it downloads it (${mb} MB).`,
@@ -175,6 +179,10 @@ const messages = defineMessages({
     mariadb: { label: "MariaDB", hint: (db: string) => `MariaDB milik Zefaro, di database bernama ${db}.` },
     mariadbDown: "MariaDB belum berjalan.",
     startMariadb: "Mulai MariaDB",
+    mysql: { label: "MySQL", hint: (db: string) => `MySQL milik Zefaro di port 3307, di database bernama ${db}.` },
+    mysqlDown: "MySQL belum berjalan.",
+    mysqlInstall: (mb: number) => `MySQL belum terpasang. Memulainya akan mengunduhnya (${mb} MB).`,
+    startMysql: "Mulai MySQL",
     pgsql: { label: "PostgreSQL", hint: (db: string) => `PostgreSQL milik Zefaro, di database bernama ${db}.` },
     pgsqlDown: "PostgreSQL belum berjalan.",
     pgsqlInstall: (mb: number) => `PostgreSQL belum terpasang. Memulainya akan mengunduhnya (${mb} MB).`,
@@ -324,6 +332,7 @@ export function NewSitePage({ onBack, onOpenSite }: { onBack: () => void; onOpen
         (kind !== "laravel" ||
           ((form.kit !== "community" || form.community.includes("/")) &&
             (form.database !== "mariadb" || defaults.mariadbRunning) &&
+            (form.database !== "mysql" || defaults.mysqlRunning) &&
             (form.database !== "pgsql" || defaults.postgresRunning)));
 
   const run = async (key: string, work: () => Promise<unknown>, done?: string) => {
@@ -592,8 +601,8 @@ export function NewSitePage({ onBack, onOpenSite }: { onBack: () => void; onOpen
         </Section>
 
         <Section title={t.database}>
-          <div className="grid gap-2 sm:grid-cols-3">
-            {(["sqlite", "mariadb", "pgsql"] as const).map((db) => (
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {(["sqlite", "mariadb", "mysql", "pgsql"] as const).map((db) => (
               <button
                 key={db}
                 type="button"
@@ -606,9 +615,9 @@ export function NewSitePage({ onBack, onOpenSite }: { onBack: () => void; onOpen
               >
                 <Icon name={db === "sqlite" ? "file" : "database"} className={cn("mt-0.5 text-muted-foreground", form.database === db && "text-primary")} />
                 <span>
-                  <span className="block text-sm font-medium">{db === "sqlite" ? t.sqlite.label : db === "mariadb" ? t.mariadb.label : t.pgsql.label}</span>
+                  <span className="block text-sm font-medium">{t[db].label}</span>
                   <span className="block text-xs text-muted-foreground">
-                    {db === "sqlite" ? t.sqlite.hint : (db === "mariadb" ? t.mariadb : t.pgsql).hint(target?.database ?? (form.name.replace(/-/g, "_") || "my_app"))}
+                    {db === "sqlite" ? t.sqlite.hint : t[db].hint(target?.database ?? (form.name.replace(/-/g, "_") || "my_app"))}
                   </span>
                 </span>
               </button>
@@ -621,6 +630,16 @@ export function NewSitePage({ onBack, onOpenSite }: { onBack: () => void; onOpen
               <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => run("mariadb", () => api.startService("mariadb"))}>
                 {busy === "mariadb" && <Spinner className="size-3" />}
                 {t.startMariadb}
+              </Button>
+            </div>
+          )}
+          {form.database === "mysql" && !defaults.mysqlRunning && (
+            <div className="flex flex-wrap items-center gap-3 text-sm text-warning">
+              <Icon name="triangle-exclamation" />
+              {defaults.mysqlInstalled ? t.mysqlDown : t.mysqlInstall(defaults.mysqlDownloadMb)}
+              <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => run("mysql", () => api.startService("mysql"))}>
+                {busy === "mysql" && <Spinner className="size-3" />}
+                {t.startMysql}
               </Button>
             </div>
           )}

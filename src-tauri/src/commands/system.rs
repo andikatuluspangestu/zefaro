@@ -20,6 +20,7 @@ fn components() -> Vec<Component> {
         c("PHP", "7.4 to 8.5".into(), "PHP License", "downloads.php.net/~windows"),
         c("Node.js", "Current and maintained LTS".into(), "MIT", "nodejs.org/dist"),
         c("MariaDB", format!("{} LTS", mariadb::VERSION), "GPL-2.0", "archive.mariadb.org"),
+        c("MySQL", format!("{} LTS", crate::engine::mysql::VERSION), "GPL-2.0", "dev.mysql.com"),
         c("PostgreSQL", crate::engine::postgres::VERSION.into(), "PostgreSQL License", "get.enterprisedb.com"),
         c(
             "Redis",
@@ -89,12 +90,12 @@ pub async fn check_update() -> AppResult<crate::engine::update::UpdateInfo> {
 /// Stop what Zefaro runs, in the order it uses on exit: serving and site workers
 /// first, databases last so they flush cleanly.
 pub fn stop_everything(state: &AppState) {
-    use crate::engine::{laravel, postgres};
+    use crate::engine::{laravel, mysql, postgres};
     state.tinker.end_all();
     state.supervisor.stop_all(|id| match id {
         nginx::SERVICE_ID => 0,
         id if id.starts_with(laravel::WORKER_PREFIX) => 0,
-        mariadb::SERVICE_ID | redis::SERVICE_ID | postgres::SERVICE_ID => 2,
+        mariadb::SERVICE_ID | mysql::SERVICE_ID | redis::SERVICE_ID | postgres::SERVICE_ID => 2,
         _ => 1,
     });
 }

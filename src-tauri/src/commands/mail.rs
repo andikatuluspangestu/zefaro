@@ -119,6 +119,7 @@ fn validate(s: &MailpitConfig, cfg: &ZefaroConfig) -> AppResult<()> {
         (cfg.nginx.http_port, "nginx (HTTP)"),
         (cfg.nginx.https_port, "nginx (HTTPS)"),
         (mariadb::PORT, "MariaDB"),
+        (crate::engine::mysql::PORT, "MySQL"),
         (redis::PORT, "Redis"),
         (crate::engine::postgres::PORT, "PostgreSQL"),
         (crate::engine::dns::PORT, "DNS"),

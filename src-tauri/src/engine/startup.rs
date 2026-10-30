@@ -8,7 +8,7 @@
 
 use crate::config::ZefaroConfig;
 use crate::engine::supervisor::Supervisor;
-use crate::engine::{dns, mailpit, mariadb, nginx, postgres, redis};
+use crate::engine::{dns, mailpit, mariadb, mysql, nginx, postgres, redis};
 use crate::error::AppResult;
 use std::path::Path;
 
@@ -21,8 +21,15 @@ const VALUE_NAME: &str = "Zefaro";
 /// The services that can start when Zefaro opens, in the order they start:
 /// the name server and the databases first, nginx last (it starts each site's
 /// PHP and should find the databases up).
-pub const STARTABLE: &[&str] =
-    &[dns::SERVICE_ID, mariadb::SERVICE_ID, postgres::SERVICE_ID, redis::SERVICE_ID, mailpit::SERVICE_ID, nginx::SERVICE_ID];
+pub const STARTABLE: &[&str] = &[
+    dns::SERVICE_ID,
+    mariadb::SERVICE_ID,
+    mysql::SERVICE_ID,
+    postgres::SERVICE_ID,
+    redis::SERVICE_ID,
+    mailpit::SERVICE_ID,
+    nginx::SERVICE_ID,
+];
 
 /// What goes into the `Run` value: the quoted path of this program, then the
 /// argument that keeps its window hidden.
@@ -64,6 +71,7 @@ fn installed(cfg: &ZefaroConfig, id: &str) -> bool {
     match id {
         nginx::SERVICE_ID => nginx::installed(),
         mariadb::SERVICE_ID => mariadb::installed(&mariadb::Layout::standard()),
+        mysql::SERVICE_ID => mysql::installed(&mysql::Layout::standard()),
         postgres::SERVICE_ID => postgres::installed(&postgres::Layout::standard()),
         redis::SERVICE_ID => redis::installed(&redis::Layout::standard()),
         mailpit::SERVICE_ID => mailpit::installed(&mailpit::Layout::standard(&cfg.mailpit)),

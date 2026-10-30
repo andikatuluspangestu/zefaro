@@ -2,7 +2,8 @@
 //! (the one "Add to PATH" adds), next to the PHP and Node.js shims:
 //!
 //! - `mariadb`, `mysql`, `mariadb-dump`, `mysqldump`, `mariadb-admin`: connect
-//!   to Zefaro's MariaDB on 127.0.0.1 as root unless told otherwise.
+//!   to Zefaro's MariaDB on 127.0.0.1 as root unless told otherwise. With
+//!   `-P 3307` they reach Zefaro's MySQL instead.
 //! - `redis-cli`: connects to Zefaro's Redis.
 //! - `nginx`: runs against Zefaro's generated config, for `-t`, `-T`, `-v`, `-V`
 //!   and `-s reload` only. Starting or stopping nginx stays with the Services
@@ -105,8 +106,15 @@ impl Sources {
 pub fn write_into(bin: &Path, src: &Sources) -> AppResult<()> {
     fs::create_dir_all(bin)?;
     // --skip-ssl: loopback only, and it silences the client's warning about
-    // TLS with a passwordless login.
-    let client = format!("--host=127.0.0.1 --port={} --user=root --skip-ssl", mariadb::PORT);
+    // TLS with a passwordless login. --plugin-dir: MySQL 8 and later (Zefaro's
+    // MySQL included) need the caching_sha2_password plugin, which the client
+    // doesn't find on its own.
+    let plugins = src.mariadb_bin.parent().map(|base| base.join("lib").join("plugin")).unwrap_or_default();
+    let client = format!(
+        "--host=127.0.0.1 --port={} --user=root --skip-ssl \"--plugin-dir={}\"",
+        mariadb::PORT,
+        plugins.display()
+    );
     for (name, exe) in MARIADB_TOOLS {
         let path = src.mariadb_bin.join(exe);
         put(bin, name, path.is_file().then(|| render_client(&path, &client)))?;
@@ -212,6 +220,11 @@ mod tests {
         if crate::engine::supervisor::port_open(mariadb::PORT) {
             let (ok, out) = run_bat(&bin.join("mariadb.bat"), &["-N", "-e", "SELECT 40+2"]);
             assert!(ok && out.trim().ends_with("42"), "mariadb -e: {out}");
+        }
+        // And MySQL with its port; the later --port wins.
+        if crate::engine::supervisor::port_open(crate::engine::mysql::PORT) {
+            let (ok, out) = run_bat(&bin.join("mysql.bat"), &["-P", "3307", "-N", "-e", "SELECT VERSION()"]);
+            assert!(ok && out.trim().ends_with(crate::engine::mysql::VERSION), "mysql -P 3307: {out}");
         }
         let _ = fs::remove_dir_all(&bin);
     }

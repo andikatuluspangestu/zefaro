@@ -31,7 +31,7 @@ function list(items: string[], and: string) {
 }
 
 /** The services that can start with Zefaro, in the order they are listed. */
-const STARTABLE = ["nginx", "mariadb", "postgresql", "redis", "mailpit", "dns"];
+const STARTABLE = ["nginx", "mariadb", "mysql", "postgresql", "redis", "mailpit", "dns"];
 
 type SettingsTab = "general" | "updates" | "system";
 const TAB_ICON: Record<SettingsTab, string> = { general: "sliders", updates: "box-archive", system: "lock" };

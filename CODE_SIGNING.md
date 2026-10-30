@@ -10,7 +10,7 @@ signature names SignPath Foundation as the publisher. `SHA256SUMS.txt`, publishe
 release, lists the SHA-256 of the signed installer; Zefaro's *Update now* checks it before it runs
 an update.
 
-Only Zefaro's own installer is signed. Zefaro downloads PHP, nginx, MariaDB, PostgreSQL, Redis,
+Only Zefaro's own installer is signed. Zefaro downloads PHP, nginx, MariaDB, MySQL, PostgreSQL, Redis,
 Mailpit, phpMyAdmin, Node.js, Composer and the other tools from their publishers when you ask it
 to; those files are not signed under this policy.
 
@@ -41,7 +41,7 @@ It connects to other computers only to fetch software and version information:
 - **At most once every 30 minutes**, on the PHP page, it reads the list of PHP releases from
   `downloads.php.net`.
 - **When you click** to install, download or update something, it downloads it from its
-  publisher: PHP, Xdebug, nginx, MariaDB, PostgreSQL, Redis, Mailpit, phpMyAdmin, Node.js,
+  publisher: PHP, Xdebug, nginx, MariaDB, MySQL, PostgreSQL, Redis, Mailpit, phpMyAdmin, Node.js,
   Composer, WordPress, or a new Zefaro installer from this project's GitHub releases.
 
 These requests carry nothing but what any download does (your IP address and a user agent).

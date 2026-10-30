@@ -3,7 +3,7 @@
 use super::blocking;
 use crate::config::{self, ZefaroConfig};
 use crate::engine::supervisor::{self, Health, Supervisor};
-use crate::engine::{dns, mailpit, mariadb, nginx, node, paths, php, phpmyadmin, postgres, redis, shims};
+use crate::engine::{dns, mailpit, mariadb, mysql, nginx, node, paths, php, phpmyadmin, postgres, redis, shims};
 use crate::error::{AppError, AppResult};
 use crate::model::Service;
 use crate::state::AppState;
@@ -134,7 +134,7 @@ fn phpmyadmin_service(cfg: &ZefaroConfig, sup: &Supervisor) -> Service {
 }
 
 /// Core (nginx, one php-cgi per installed PHP line, DNS), then databases
-/// (MariaDB, Redis, phpMyAdmin), then planned services.
+/// (MariaDB, MySQL, Redis, PostgreSQL, phpMyAdmin), then Mailpit.
 /// `dns_rule`: whether the Windows rule for the TLD exists (None = unknown yet).
 pub fn list(cfg: &ZefaroConfig, sup: &Supervisor, dns_rule: Option<bool>) -> Vec<Service> {
     let mut out = vec![supervised(
@@ -223,6 +223,28 @@ pub fn list(cfg: &ZefaroConfig, sup: &Supervisor, dns_rule: Option<bool>) -> Vec
             )
         },
         !mdb_installed,
+    ));
+
+    let my = mysql::Layout::standard();
+    let my_installed = mysql::installed(&my);
+    out.push(supervised(
+        sup,
+        mysql::SERVICE_ID,
+        "MySQL".into(),
+        "database",
+        mysql::PORT,
+        if my_installed {
+            crate::tr!(
+                format!("MySQL {} LTS · user root, no password", mysql::VERSION),
+                format!("MySQL {} LTS · pengguna root, tanpa kata sandi", mysql::VERSION)
+            )
+        } else {
+            crate::tr!(
+                format!("MySQL {} LTS · {} MB download", mysql::VERSION, mysql::DOWNLOAD_MB),
+                format!("MySQL {} LTS · unduhan {} MB", mysql::VERSION, mysql::DOWNLOAD_MB)
+            )
+        },
+        !my_installed,
     ));
 
     let rds = redis::Layout::standard();
@@ -374,6 +396,11 @@ fn start_inner(cfg: &ZefaroConfig, sup: &Supervisor, id: &str) -> AppResult<()> 
             let l = mariadb::Layout::standard();
             mariadb::prepare(&l, &downloads, false)?;
             sup.start(mariadb::spec(&l))?;
+        }
+        mysql::SERVICE_ID => {
+            let l = mysql::Layout::standard();
+            mysql::prepare(&l, &downloads, false)?;
+            sup.start(mysql::spec(&l))?;
         }
         redis::SERVICE_ID => {
             let l = redis::Layout::standard();

@@ -63,6 +63,16 @@ impl Archive {
     /// Like [`install`](Self::install), but folders of `inner` named in
     /// `skip` are not unpacked (PostgreSQL's zip carries pgAdmin and docs).
     pub fn install_without(&self, dest: &Path, scratch: &Path, keep_zip: bool, skip: &[&str]) -> AppResult<()> {
+        self.install_filtered(dest, scratch, keep_zip, |rel| {
+            let top = rel.components().next().map(|c| c.as_os_str().to_string_lossy().into_owned()).unwrap_or_default();
+            !skip.iter().any(|s| s.eq_ignore_ascii_case(&top))
+        })
+    }
+
+    /// Like [`install`](Self::install), but only the entries `keep` accepts
+    /// are unpacked. `keep` sees each path relative to `inner` (MySQL's zip
+    /// carries 840 MB of debug symbols).
+    pub fn install_filtered(&self, dest: &Path, scratch: &Path, keep_zip: bool, keep: impl Fn(&Path) -> bool) -> AppResult<()> {
         let zip_path = scratch.join(self.file_name());
         let cached = zip_path.is_file() && sha256_file(&zip_path)? == self.sha256;
         if !cached {
@@ -83,7 +93,7 @@ impl Archive {
         }
         fs::create_dir_all(&staging)?;
         let mut zip = zip::ZipArchive::new(fs::File::open(&zip_path)?)?;
-        extract_except(&mut zip, &staging, self.inner, skip)?;
+        extract_where(&mut zip, &staging, self.inner, &keep)?;
         let inner = staging.join(self.inner);
         if !inner.is_dir() {
             let _ = fs::remove_dir_all(&staging);
@@ -110,9 +120,9 @@ impl Archive {
     }
 }
 
-/// Unpack every entry except those under `inner/<skipped folder>/`,
+/// Unpack every entry except those under `inner/` that `keep` refuses,
 /// reporting how many entries are done.
-fn extract_except(zip: &mut zip::ZipArchive<fs::File>, to: &Path, inner: &str, skip: &[&str]) -> AppResult<()> {
+fn extract_where(zip: &mut zip::ZipArchive<fs::File>, to: &Path, inner: &str, keep: &dyn Fn(&Path) -> bool) -> AppResult<()> {
     let count = zip.len() as u64;
     for i in 0..zip.len() {
         if i % 64 == 0 {
@@ -121,10 +131,7 @@ fn extract_except(zip: &mut zip::ZipArchive<fs::File>, to: &Path, inner: &str, s
         let mut entry = zip.by_index(i)?;
         // enclosed_name refuses absolute paths and `..`.
         let Some(rel) = entry.enclosed_name() else { continue };
-        let mut parts = rel.components().map(|c| c.as_os_str().to_string_lossy().into_owned());
-        let top = parts.next().unwrap_or_default();
-        let second = parts.next().unwrap_or_default();
-        if top == inner && skip.iter().any(|s| s.eq_ignore_ascii_case(&second)) {
+        if rel.strip_prefix(inner).is_ok_and(|r| !r.as_os_str().is_empty() && !keep(r)) {
             continue;
         }
         let out = to.join(&rel);

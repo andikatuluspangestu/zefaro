@@ -11,6 +11,7 @@ export interface SiteInfo {
   /** PHP line the tools use; null when no PHP is installed. */
   php: string | null;
   mariadbRunning: boolean;
+  mysqlRunning: boolean;
   postgresRunning: boolean;
   mailpitSmtpPort: number;
   mailpitRunning: boolean;
@@ -265,7 +266,7 @@ export interface NewSite {
   auth: boolean;
   teams: boolean;
   livewireClass: boolean;
-  database: "sqlite" | "mariadb" | "pgsql";
+  database: "sqlite" | "mariadb" | "mysql" | "pgsql";
   testing: "pest" | "phpunit";
   node: boolean;
   git: boolean;
@@ -284,6 +285,10 @@ export interface NewSiteDefaults {
   node: string | null;
   git: boolean;
   mariadbRunning: boolean;
+  mysqlRunning: boolean;
+  /** Its first start otherwise downloads it. */
+  mysqlInstalled: boolean;
+  mysqlDownloadMb: number;
   postgresRunning: boolean;
   /** Its first start otherwise downloads it. */
   postgresInstalled: boolean;
@@ -294,7 +299,7 @@ export interface NewSiteDefaults {
 export interface NewSiteTarget {
   path: string;
   url: string;
-  /** MariaDB or PostgreSQL database name: the site name with - turned into _. */
+  /** Database name on a database server: the site name with - turned into _. */
   database: string;
 }
 

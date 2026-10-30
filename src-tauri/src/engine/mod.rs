@@ -23,6 +23,7 @@ pub mod locks;
 pub mod logs;
 pub mod mailpit;
 pub mod mariadb;
+pub mod mysql;
 pub mod net;
 pub mod nginx;
 pub mod node;

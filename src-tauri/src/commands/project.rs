@@ -4,7 +4,7 @@
 use super::{blocking, services, sites};
 use crate::engine::laravel::{self, Worker};
 use crate::engine::project::{self, ProjectFile, ProjectWorker};
-use crate::engine::{dbio, mariadb, php, postgres, supervisor};
+use crate::engine::{dbio, mariadb, mysql, php, postgres, supervisor};
 use crate::error::{AppError, AppResult};
 use crate::model::Site;
 use crate::state::AppState;
@@ -137,7 +137,7 @@ pub async fn project_link(path: String, state: State<'_, AppState>) -> AppResult
 fn ensure_database(driver: &str, name: &str) -> AppResult<String> {
     dbio::validate_name(name)?;
     match driver {
-        "mariadb" | "mysql" => {
+        "mariadb" => {
             if !supervisor::port_open(mariadb::PORT) {
                 return Err(AppError::msg(crate::tr!(
                     format!("MariaDB isn't running, so the database {name} wasn't created. Start MariaDB, then create it on the Databases page."),
@@ -149,6 +149,19 @@ fn ensure_database(driver: &str, name: &str) -> AppResult<String> {
                 return Ok(crate::tr!(format!("The database {name} already exists."), format!("Database {name} sudah ada.")));
             }
             dbio::create_db(&client, name)?;
+        }
+        "mysql" => {
+            if !supervisor::port_open(mysql::PORT) {
+                return Err(AppError::msg(crate::tr!(
+                    format!("MySQL isn't running, so the database {name} wasn't created."),
+                    format!("MySQL belum berjalan, jadi database {name} tidak dibuat.")
+                )));
+            }
+            let my = mysql::Layout::standard();
+            if mysql::database_exists(&my, name)? {
+                return Ok(crate::tr!(format!("The database {name} already exists."), format!("Database {name} sudah ada.")));
+            }
+            mysql::create_database(&my, name)?;
         }
         "pgsql" | "postgresql" => {
             if !supervisor::port_open(postgres::PORT) {
