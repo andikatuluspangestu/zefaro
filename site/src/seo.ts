@@ -6,7 +6,7 @@ import { copy, LINKS, REPO } from "./copy";
 import { guides, GUIDE_UPDATED, type Guide } from "./guides";
 
 export const SITE = "https://zefaro.pages.dev";
-export const VERSION = "1.3.0";
+export const VERSION = "1.3.1";
 export const FILE_SIZE = "3.4 MB";
 
 /** App screenshots in public/screenshots (sample data), for schema.org and directory listings. */
