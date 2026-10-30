@@ -283,9 +283,16 @@ export interface DbInfo {
   tables: number;
 }
 
+/** The database servers the Databases page manages; also their service ids. */
+export type DbEngine = "mariadb" | "mysql" | "postgresql";
+
 export interface DbOverview {
-  /** MariaDB answers on its port. */
+  engine: DbEngine;
+  /** The server answers on its port. */
   running: boolean;
+  /** Zefaro has downloaded the server (its first start does that). */
+  installed: boolean;
+  port: number;
   databases: DbInfo[];
   dataDir: string;
   /** Free bytes on the drive holding the data folder. */
@@ -316,11 +323,14 @@ export interface DumpInfo {
   databases: { name: string; bytes: number }[];
   /** System databases in the dump, which Zefaro never imports. */
   system: string[];
+  /** A pg_dump archive in its custom format, loaded with pg_restore. */
+  custom: boolean;
 }
 
 /** The database export/import in progress, or the last one. */
 export interface DbJob {
   kind: "export" | "import";
+  engine: DbEngine;
   database: string;
   file: string;
   state: "running" | "done" | "failed" | "cancelled";

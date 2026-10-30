@@ -322,6 +322,7 @@ pub struct BackupJob {
 pub struct DbJob {
     /// "export" | "import"
     pub kind: String,
+    pub engine: crate::engine::dbio::Engine,
     pub database: String,
     pub file: String,
     /// "running" | "done" | "failed" | "cancelled"

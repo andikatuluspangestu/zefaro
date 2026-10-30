@@ -235,6 +235,137 @@ impl Router {
     }
 }
 
+/// How much of a line of pg_dump SQL decides what it is. The statements
+/// `PgFilter` drops are short; a longer line always runs.
+const PG_PREFIX: usize = 1024;
+
+/// Reads pg_dump's plain SQL as it streams to `psql` and leaves out what would
+/// fail or reach outside the target database:
+///
+/// - `\connect` and `CREATE`/`ALTER`/`DROP DATABASE`, from a dump made with
+///   `--create`, and `COMMENT ON DATABASE`, which names the old database;
+/// - `ALTER … OWNER TO`, `GRANT`, `REVOKE` and `ALTER DEFAULT PRIVILEGES`,
+///   which name roles of the server the dump came from.
+///
+/// Rows inside `COPY … FROM stdin;` blocks always pass, whatever they hold.
+/// A dropped line becomes an empty line, so psql's line numbers still match.
+#[derive(Default)]
+pub struct PgFilter {
+    prefix: Vec<u8>,
+    /// Part-way through a long line: true if it runs.
+    streaming: Option<bool>,
+    /// Inside a COPY block's rows.
+    copy: bool,
+    /// The end of a long `COPY` line, to see whether it starts a block.
+    tail: Vec<u8>,
+    long_copy: bool,
+}
+
+impl PgFilter {
+    pub fn feed(&mut self, mut data: &[u8], out: &mut Vec<u8>) {
+        while !data.is_empty() {
+            if let Some(keep) = self.streaming {
+                let end = memchr(b'\n', data).map(|i| i + 1);
+                let piece = &data[..end.unwrap_or(data.len())];
+                if keep {
+                    out.extend_from_slice(piece);
+                }
+                if self.long_copy {
+                    self.tail.extend_from_slice(piece);
+                    let cut = self.tail.len().saturating_sub(32);
+                    self.tail.drain(..cut);
+                }
+                data = &data[piece.len()..];
+                if end.is_some() {
+                    if !keep {
+                        out.push(b'\n');
+                    }
+                    if self.long_copy {
+                        self.copy = starts_copy(&self.tail);
+                        self.long_copy = false;
+                        self.tail.clear();
+                    }
+                    self.streaming = None;
+                }
+                continue;
+            }
+            let window = &data[..data.len().min(PG_PREFIX - self.prefix.len())];
+            let (end, complete) = match memchr(b'\n', window) {
+                Some(i) => (i + 1, true),
+                None => (window.len(), false),
+            };
+            self.prefix.extend_from_slice(&data[..end]);
+            data = &data[end..];
+            if complete || self.prefix.len() >= PG_PREFIX {
+                let line = std::mem::take(&mut self.prefix);
+                self.decide(&line, complete, out);
+            }
+        }
+    }
+
+    fn decide(&mut self, line: &[u8], complete: bool, out: &mut Vec<u8>) {
+        if self.copy {
+            if complete && trim_eol(line) == b"\\." {
+                self.copy = false;
+            }
+            out.extend_from_slice(line);
+            if !complete {
+                self.streaming = Some(true);
+            }
+            return;
+        }
+        let keep = !complete || !pg_dropped(trim_eol(line));
+        if keep {
+            out.extend_from_slice(line);
+        } else {
+            out.push(b'\n');
+        }
+        if complete {
+            self.copy = line.starts_with(b"COPY ") && starts_copy(line);
+        } else {
+            self.long_copy = line.starts_with(b"COPY ");
+            self.tail = line[line.len().saturating_sub(32)..].to_vec();
+            self.streaming = Some(keep);
+        }
+    }
+}
+
+fn trim_eol(line: &[u8]) -> &[u8] {
+    let mut l = line;
+    while let [rest @ .., b'\n' | b'\r'] = l {
+        l = rest;
+    }
+    l
+}
+
+/// `COPY public.users (id, name) FROM stdin;`: the rows follow, up to `\.`.
+fn starts_copy(line_end: &[u8]) -> bool {
+    trim_eol(line_end).ends_with(b"FROM stdin;")
+}
+
+/// A whole line of pg_dump SQL (outside COPY rows) that must not run.
+fn pg_dropped(line: &[u8]) -> bool {
+    const ALWAYS: &[&[u8]] = &[
+        b"\\connect ",
+        b"\\c ",
+        b"CREATE DATABASE ",
+        b"ALTER DATABASE ",
+        b"DROP DATABASE ",
+        b"COMMENT ON DATABASE ",
+    ];
+    const STATEMENT: &[&[u8]] = &[b"GRANT ", b"REVOKE ", b"ALTER DEFAULT PRIVILEGES "];
+    if ALWAYS.iter().any(|p| line.starts_with(p)) {
+        return true;
+    }
+    // One-line statements only: a line of a function body that happens to
+    // start with GRANT doesn't end the statement with a semicolon.
+    if !line.ends_with(b";") {
+        return false;
+    }
+    STATEMENT.iter().any(|p| line.starts_with(p))
+        || (line.starts_with(b"ALTER ") && memchr::memmem::find(line, b" OWNER TO ").is_some())
+}
+
 /// `-- Current Database: `shop`` → `shop` (doubled backticks are one backtick).
 fn marker_name(line: &[u8]) -> String {
     let text = String::from_utf8_lossy(line);
@@ -395,5 +526,93 @@ CREATE TABLE `posts` (id int);
     fn marker_names_unescape_backticks() {
         assert_eq!(marker_name(b"-- Current Database: `we``ird`\n"), "we`ird");
         assert_eq!(marker_name(b"-- Current Database: `shop_db`\r\n"), "shop_db");
+    }
+
+    const PG_DUMP: &str = "\
+--
+-- PostgreSQL database dump
+--
+
+\\restrict abc123
+SET statement_timeout = 0;
+SELECT pg_catalog.set_config('search_path', '', false);
+CREATE DATABASE shop WITH TEMPLATE = template0 ENCODING = 'UTF8' LOCALE_PROVIDER = libc LOCALE = 'C';
+ALTER DATABASE shop OWNER TO postgres;
+\\connect shop
+COMMENT ON DATABASE shop IS 'old';
+CREATE TABLE public.users (
+    id bigint NOT NULL,
+    note text
+);
+ALTER TABLE public.users OWNER TO forge;
+COPY public.users (id, note) FROM stdin;
+1\tGRANT ALL ON x TO y;
+2\tALTER TABLE a OWNER TO b;
+\\.
+CREATE FUNCTION public.f() RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+GRANT
+  SELECT ON public.users TO forge;
+END $$;
+GRANT ALL ON TABLE public.users TO forge;
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE forge GRANT ALL ON TABLES TO forge;
+\\unrestrict abc123
+";
+
+    fn pg(text: &str, step: usize) -> String {
+        let (mut f, mut out) = (PgFilter::default(), Vec::new());
+        for piece in text.as_bytes().chunks(step) {
+            f.feed(piece, &mut out);
+        }
+        String::from_utf8(out).unwrap()
+    }
+
+    #[test]
+    fn pg_filter_drops_roles_and_database_switches_but_never_copy_rows() {
+        for step in [usize::MAX, 7, 1] {
+            let out = pg(PG_DUMP, step);
+            assert_eq!(out.matches('\n').count(), PG_DUMP.matches('\n').count(), "line numbers survive");
+            for kept in [
+                "\\restrict abc123",
+                "CREATE TABLE public.users (",
+                "1\tGRANT ALL ON x TO y;",
+                "2\tALTER TABLE a OWNER TO b;",
+                "\\.\n",
+                "GRANT\n  SELECT ON public.users TO forge;",
+                "\\unrestrict abc123",
+            ] {
+                assert!(out.contains(kept), "{kept:?} should be kept (step {step}):\n{out}");
+            }
+            for gone in [
+                "CREATE DATABASE",
+                "ALTER DATABASE",
+                "\\connect",
+                "COMMENT ON DATABASE",
+                "OWNER TO forge",
+                "GRANT ALL ON TABLE",
+                "REVOKE",
+                "ALTER DEFAULT",
+            ] {
+                assert!(!out.contains(gone), "{gone:?} should be dropped (step {step}):\n{out}");
+            }
+        }
+    }
+
+    #[test]
+    fn pg_filter_follows_copy_blocks_that_start_on_long_lines() {
+        let cols: Vec<String> = (0..200).map(|i| format!("column_number_{i}")).collect();
+        let text = format!(
+            "COPY public.wide ({}) FROM stdin;\nGRANT ALL ON a TO b;\n\\.\nGRANT ALL ON a TO b;\n",
+            cols.join(", ")
+        );
+        assert!(text.lines().next().unwrap().len() > PG_PREFIX);
+        let out = pg(&text, 100);
+        assert_eq!(out.matches("GRANT").count(), 1, "the row is kept, the statement after \\. is not:\n{out}");
+        let long_insert = format!("INSERT INTO t VALUES ('{}');\nGRANT x TO y;\n", "z".repeat(5000));
+        assert_eq!(pg(&long_insert, 333).matches('z').count(), 5000);
+        assert!(!pg(&long_insert, 333).contains("GRANT"));
     }
 }

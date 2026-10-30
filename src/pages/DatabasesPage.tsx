@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { api } from "@/api";
-import type { DbInfo, DbJob, DbOverview, DumpInfo } from "@/types";
+import type { DbEngine, DbInfo, DbJob, DbOverview, DumpInfo } from "@/types";
 import { cn } from "@/lib/utils";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
@@ -41,10 +41,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { localeOf, useLang, useT, type Lang } from "@/i18n";
 import { common } from "@/i18n/common";
 import { messages } from "./DatabasesPage.i18n";
+
+/** The servers the page manages, in the order of their tabs. */
+export const DB_ENGINES: { id: DbEngine; name: string }[] = [
+  { id: "mariadb", name: "MariaDB" },
+  { id: "mysql", name: "MySQL" },
+  { id: "postgresql", name: "PostgreSQL" },
+];
+/** Shown in the description until the overview arrives. */
+const DEFAULT_PORT: Record<DbEngine, number> = { mariadb: 3306, mysql: 3307, postgresql: 5432 };
+const engineName = (e: DbEngine) => DB_ENGINES.find((x) => x.id === e)?.name ?? e;
 
 const POLL_MS = 500;
 const NAME_RE = /^[A-Za-z0-9_-]{1,64}$/;
@@ -132,7 +143,8 @@ function JobCard({ job, onCancel, onDismiss }: { job: DbJob; onCancel: () => voi
         <div className="min-w-0 flex-1">
           <p className="font-medium">{title}</p>
           <p className="truncate font-mono text-xs text-muted-foreground" title={job.file}>
-            {job.kind === "export" ? "→ " : "← "}
+            <span className="font-sans">{engineName(job.engine)}</span>
+            {job.kind === "export" ? " → " : " ← "}
             {job.file}
           </p>
         </div>
@@ -199,11 +211,22 @@ type ImportDraft = {
   from: string | null;
 };
 
-export function DatabasesPage({ backLabel, onBack }: { backLabel: string; onBack: () => void }) {
+export function DatabasesPage({
+  engine: initialEngine = "mariadb",
+  backLabel,
+  onBack,
+}: {
+  engine?: DbEngine;
+  backLabel: string;
+  onBack: () => void;
+}) {
   const t = useT(messages);
   const c = useT(common);
   const { lang } = useLang();
   const size = (n: number | null | undefined) => bytes(n, lang);
+  const [engine, setEngine] = useState<DbEngine>(initialEngine);
+  const server = engineName(engine);
+  const pg = engine === "postgresql";
   const [data, setData] = useState<DbOverview | null>(null);
   const [job, setJob] = useState<DbJob | null>(null);
   const [starting, setStarting] = useState(false);
@@ -213,8 +236,18 @@ export function DatabasesPage({ backLabel, onBack }: { backLabel: string; onBack
   const [dropping, setDropping] = useState<DbInfo | null>(null);
 
   const load = useCallback(() => {
-    api.dbOverview().then(setData).catch((e) => toast.error(String(e)));
-  }, []);
+    api
+      .dbOverview(engine)
+      // A slow answer for the tab the user just left is dropped.
+      .then((d) => setData((cur) => (d.engine === engine ? d : cur)))
+      .catch((e) => toast.error(String(e)));
+  }, [engine]);
+
+  const switchEngine = (e: DbEngine) => {
+    if (e === engine) return;
+    setData(null);
+    setEngine(e);
+  };
 
   useEffect(() => {
     load();
@@ -238,10 +271,10 @@ export function DatabasesPage({ backLabel, onBack }: { backLabel: string; onBack
   }, [job?.state, load, t]);
 
   const running = job?.state === "running";
-  const startMariaDb = async () => {
+  const startServer = async () => {
     setStarting(true);
     try {
-      await api.startService("mariadb");
+      await api.startService(engine);
       load();
     } catch (e) {
       toast.error(String(e));
@@ -253,7 +286,7 @@ export function DatabasesPage({ backLabel, onBack }: { backLabel: string; onBack
   const create = async () => {
     if (!creating) return;
     try {
-      await api.dbCreate(creating);
+      await api.dbCreate(engine, creating);
       toast.success(t.created(creating));
       setCreating(null);
       load();
@@ -280,7 +313,7 @@ export function DatabasesPage({ backLabel, onBack }: { backLabel: string; onBack
       toast.warning(t.lowSpace(size(free)));
     }
     try {
-      setJob(await api.dbExport(db.name, path, gzip));
+      setJob(await api.dbExport(engine, db.name, path, gzip));
     } catch (e) {
       toast.error(String(e));
     }
@@ -291,7 +324,7 @@ export function DatabasesPage({ backLabel, onBack }: { backLabel: string; onBack
       title: into ? t.importInto(into.name) : t.importADatabase,
       multiple: false,
       directory: false,
-      filters: [{ name: t.sqlDump, extensions: ["sql", "gz"] }],
+      filters: [{ name: t.sqlDump, extensions: pg ? ["sql", "gz", "dump", "backup"] : ["sql", "gz"] }],
     });
     if (typeof path !== "string") return;
     const name = into?.name ?? (await api.dbNameFromFile(path).catch(() => "imported"));
@@ -307,7 +340,7 @@ export function DatabasesPage({ backLabel, onBack }: { backLabel: string; onBack
     // Read the dump to see which databases it holds (a dump made with
     // --all-databases has several, and MariaDB's own among them).
     try {
-      const scan = await api.dbScanDump(path);
+      const scan = await api.dbScanDump(engine, path);
       const first = scan.databases[0]?.name ?? null;
       setImporting((d) =>
         d && d.path === path
@@ -327,7 +360,7 @@ export function DatabasesPage({ backLabel, onBack }: { backLabel: string; onBack
     const { path, name, from } = importing;
     setImporting(null);
     try {
-      setJob(await api.dbImport(path, name, !!importExisting, from));
+      setJob(await api.dbImport(engine, path, name, !!importExisting, from));
     } catch (e) {
       toast.error(String(e));
     }
@@ -338,7 +371,7 @@ export function DatabasesPage({ backLabel, onBack }: { backLabel: string; onBack
     const name = dropping.name;
     setDropping(null);
     try {
-      await api.dbDrop(name);
+      await api.dbDrop(engine, name);
       toast(t.dropped(name));
       load();
     } catch (e) {
@@ -361,7 +394,7 @@ export function DatabasesPage({ backLabel, onBack }: { backLabel: string; onBack
       <BackButton label={backLabel} onClick={onBack} />
       <PageHeader
         title={t.title}
-        description={t.description}
+        description={t.description(server, data?.port ?? DEFAULT_PORT[engine])}
         actions={
           data?.running && (
             <>
@@ -379,6 +412,16 @@ export function DatabasesPage({ backLabel, onBack }: { backLabel: string; onBack
       />
 
       <div className="space-y-4">
+        <Tabs value={engine} onValueChange={(v) => switchEngine(v as DbEngine)}>
+          <TabsList aria-label={t.servers}>
+            {DB_ENGINES.map((e) => (
+              <TabsTrigger key={e.id} value={e.id}>
+                {e.name}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+
         {job && (
           <JobCard
             job={job}
@@ -402,13 +445,15 @@ export function DatabasesPage({ backLabel, onBack }: { backLabel: string; onBack
               <EmptyMedia variant="icon">
                 <Icon name="database" />
               </EmptyMedia>
-              <EmptyTitle>{t.notRunningTitle}</EmptyTitle>
-              <EmptyDescription>{t.notRunningDescription}</EmptyDescription>
+              <EmptyTitle>{t.notRunningTitle(server)}</EmptyTitle>
+              <EmptyDescription>
+                {data.installed ? t.notRunningDescription : t.notInstalledDescription(server)}
+              </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
-              <Button onClick={startMariaDb} disabled={starting}>
+              <Button onClick={startServer} disabled={starting}>
                 {starting ? <Spinner /> : <Icon name="play" />}
-                {t.startMariaDb}
+                {t.start(server)}
               </Button>
             </EmptyContent>
           </Empty>
@@ -435,7 +480,7 @@ export function DatabasesPage({ backLabel, onBack }: { backLabel: string; onBack
               </TableHeader>
               <TableBody>
                 {data.databases.map((d) => {
-                  const busy = running && job?.database === d.name;
+                  const busy = running && job?.engine === engine && job?.database === d.name;
                   return (
                     <TableRow key={d.name}>
                       <TableCell className="pl-4 font-mono font-medium">
@@ -521,7 +566,7 @@ export function DatabasesPage({ backLabel, onBack }: { backLabel: string; onBack
         <AlertDialogContent className="sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>{t.newDatabase}</AlertDialogTitle>
-            <AlertDialogDescription>{t.newDescription}</AlertDialogDescription>
+            <AlertDialogDescription>{t.newDescription(pg)}</AlertDialogDescription>
           </AlertDialogHeader>
           <Input
             autoFocus
@@ -553,7 +598,7 @@ export function DatabasesPage({ backLabel, onBack }: { backLabel: string; onBack
               {exporting && exporting.db.size > 0
                 ? t.exportSize(size(exporting.db.size), exporting.db.tables)
                 : t.exportEmpty}
-              {t.exportIncludes}
+              {t.exportIncludes(server, pg)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div role="radiogroup" aria-label={t.format} className="grid gap-2">
@@ -607,7 +652,7 @@ export function DatabasesPage({ backLabel, onBack }: { backLabel: string; onBack
         <AlertDialogContent className="sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>{t.importFile(importing ? fileName(importing.path) : "")}</AlertDialogTitle>
-            <AlertDialogDescription>{t.importAccepts}</AlertDialogDescription>
+            <AlertDialogDescription>{t.importAccepts(pg)}</AlertDialogDescription>
           </AlertDialogHeader>
           {scanning && (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -617,6 +662,7 @@ export function DatabasesPage({ backLabel, onBack }: { backLabel: string; onBack
           )}
           {importing?.scanError && <p className="text-sm text-destructive">{importing.scanError}</p>}
           {scan?.origin && <p className="text-sm text-muted-foreground">{t.madeBy(scan.origin)}</p>}
+          {scan?.custom && <p className="text-sm text-muted-foreground">{t.customFormat}</p>}
           {scan && scan.databases.length > 0 && (
             <label className="space-y-1.5 text-sm">
               <span className="text-muted-foreground">
@@ -638,7 +684,7 @@ export function DatabasesPage({ backLabel, onBack }: { backLabel: string; onBack
           )}
           {scan && scan.system.length > 0 && (
             <p className="text-sm text-muted-foreground">
-              {t.skipsSystem(scan.system.join(", "), scan.system.length)}
+              {t.skipsSystem(scan.system.join(", "), scan.system.length, server)}
             </p>
           )}
           {onlySystem && (

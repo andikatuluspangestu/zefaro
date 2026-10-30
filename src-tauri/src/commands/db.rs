@@ -1,8 +1,10 @@
-//! Databases page (gear on the MariaDB card): list, create, drop, and export or
-//! import databases of any size as a background job with progress and cancel.
+//! Databases page (gear on the MariaDB, MySQL and PostgreSQL cards): list,
+//! create, drop, and export or import databases of any size as a background
+//! job with progress and cancel.
 
 use super::blocking;
-use crate::engine::{dbio, mariadb, paths, supervisor};
+use crate::engine::dbio::{self, Engine};
+use crate::engine::{paths, supervisor};
 use crate::error::{AppError, AppResult};
 use crate::model::DbJob;
 use crate::state::AppState;
@@ -17,8 +19,12 @@ use tauri_plugin_opener::OpenerExt;
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct DbOverview {
-    /// MariaDB answers on its port; nothing else works without it.
+    pub engine: Engine,
+    /// The server answers on its port; nothing else works without it.
     pub running: bool,
+    /// Zefaro has downloaded the server (the first start does that).
+    pub installed: bool,
+    pub port: u16,
     pub databases: Vec<dbio::DbInfo>,
     pub data_dir: String,
     /// Free space on the drive holding the data folder.
@@ -29,13 +35,14 @@ fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
 }
 
-fn require_running() -> AppResult<()> {
-    if supervisor::port_open(mariadb::PORT) {
+fn require_running(engine: Engine) -> AppResult<()> {
+    if supervisor::port_open(engine.port()) {
         Ok(())
     } else {
+        let server = engine.name();
         Err(AppError::msg(crate::tr!(
-            "Start MariaDB first (Services → MariaDB).",
-            "Mulai MariaDB terlebih dahulu (Layanan → MariaDB)."
+            format!("Start {server} first (Services → {server})."),
+            format!("Mulai {server} terlebih dahulu (Layanan → {server}).")
         )))
     }
 }
@@ -44,9 +51,10 @@ fn busy_with(state: &AppState) -> Option<DbJob> {
     state.db_job.lock().unwrap().clone().filter(|j| j.state == "running")
 }
 
-fn ensure_idle(state: &AppState, db: Option<&str>) -> AppResult<()> {
+/// No job runs, or (with `db`) none runs on that database of `engine`.
+fn ensure_idle(state: &AppState, target: Option<(Engine, &str)>) -> AppResult<()> {
     match busy_with(state) {
-        Some(j) if db.is_none() || db == Some(j.database.as_str()) => {
+        Some(j) if target.is_none_or(|(e, db)| j.engine == e && db == j.database) => {
             let kind = match j.kind.as_str() {
                 "export" => "ekspor",
                 "import" => "impor",
@@ -62,13 +70,17 @@ fn ensure_idle(state: &AppState, db: Option<&str>) -> AppResult<()> {
 }
 
 #[tauri::command]
-pub async fn db_overview() -> AppResult<DbOverview> {
-    blocking(|| {
-        let running = supervisor::port_open(mariadb::PORT);
-        let data = mariadb::Layout::standard().data;
+pub async fn db_overview(engine: Engine) -> AppResult<DbOverview> {
+    blocking(move || {
+        let running = supervisor::port_open(engine.port());
+        let data = engine.data_dir();
+        let client = dbio::Client::of(engine);
         Ok(DbOverview {
-            databases: if running { dbio::list(&dbio::Client::standard())? } else { Vec::new() },
+            engine,
+            databases: if running { dbio::list(&client)? } else { Vec::new() },
             running,
+            installed: client.installed(),
+            port: engine.port(),
             data_free: dbio::disk_free(&data),
             data_dir: data.display().to_string(),
         })
@@ -77,10 +89,10 @@ pub async fn db_overview() -> AppResult<DbOverview> {
 }
 
 #[tauri::command]
-pub async fn db_create(name: String) -> AppResult<()> {
+pub async fn db_create(engine: Engine, name: String) -> AppResult<()> {
     blocking(move || {
-        require_running()?;
-        let c = dbio::Client::standard();
+        require_running(engine)?;
+        let c = dbio::Client::of(engine);
         if dbio::exists(&c, &name)? {
             return Err(AppError::msg(crate::tr!(
                 format!("A database named {name} already exists."),
@@ -93,11 +105,11 @@ pub async fn db_create(name: String) -> AppResult<()> {
 }
 
 #[tauri::command]
-pub async fn db_drop(state: State<'_, AppState>, name: String) -> AppResult<()> {
-    ensure_idle(&state, Some(&name))?;
+pub async fn db_drop(state: State<'_, AppState>, engine: Engine, name: String) -> AppResult<()> {
+    ensure_idle(&state, Some((engine, &name)))?;
     blocking(move || {
-        require_running()?;
-        dbio::drop_db(&dbio::Client::standard(), &name)
+        require_running(engine)?;
+        dbio::drop_db(&dbio::Client::of(engine), &name)
     })
     .await
 }
@@ -108,10 +120,11 @@ pub fn db_name_from_file(path: String) -> String {
     dbio::name_from_file(Path::new(&path))
 }
 
-/// Where a dump came from and which databases it holds. Reads the whole file.
+/// Where a dump came from and which databases it holds. A MariaDB or MySQL
+/// dump is read whole; a PostgreSQL one only at its start.
 #[tauri::command]
-pub async fn db_scan_dump(path: String) -> AppResult<dbio::DumpInfo> {
-    blocking(move || dbio::scan(Path::new(&path))).await
+pub async fn db_scan_dump(engine: Engine, path: String) -> AppResult<dbio::DumpInfo> {
+    blocking(move || dbio::scan(engine, Path::new(&path))).await
 }
 
 /// Free space on the drive that holds `path`.
@@ -181,11 +194,17 @@ fn spawn_job(
 
 /// Export `name` to `path` (`.sql`, or `.sql.gz` when `gzip`).
 #[tauri::command]
-pub async fn db_export(state: State<'_, AppState>, name: String, path: String, gzip: bool) -> AppResult<DbJob> {
+pub async fn db_export(
+    state: State<'_, AppState>,
+    engine: Engine,
+    name: String,
+    path: String,
+    gzip: bool,
+) -> AppResult<DbJob> {
     ensure_idle(&state, None)?;
-    let (n, c) = (name.clone(), dbio::Client::standard());
+    let (n, c) = (name.clone(), dbio::Client::of(engine));
     let total = blocking(move || {
-        require_running()?;
+        require_running(engine)?;
         if !dbio::exists(&c, &n)? {
             return Err(AppError::msg(crate::tr!(
                 format!("There's no database named {n}."),
@@ -198,6 +217,7 @@ pub async fn db_export(state: State<'_, AppState>, name: String, path: String, g
     let dest = PathBuf::from(&path);
     let job = DbJob {
         kind: "export".into(),
+        engine,
         database: name.clone(),
         file: path,
         state: "running".into(),
@@ -210,16 +230,18 @@ pub async fn db_export(state: State<'_, AppState>, name: String, path: String, g
     };
     let cancel = state.db_cancel.clone();
     Ok(spawn_job(&state, job, move |progress| {
-        dbio::export(&dbio::Client::standard(), &name, &dest, gzip, &cancel, progress).map(Some)
+        dbio::export(&dbio::Client::of(engine), &name, &dest, gzip, &cancel, progress).map(Some)
     }))
 }
 
-/// Import the dump at `path` (`.sql` or gzip) into `name`. With `replace`, an
-/// existing database of that name is dropped first; otherwise it must not exist.
-/// `from` picks one database out of a dump that holds several.
+/// Import the dump at `path` (`.sql`, gzip, or for PostgreSQL a pg_dump
+/// archive) into `name`. With `replace`, an existing database of that name is
+/// dropped first; otherwise it must not exist. `from` picks one database out
+/// of a MariaDB or MySQL dump that holds several.
 #[tauri::command]
 pub async fn db_import(
     state: State<'_, AppState>,
+    engine: Engine,
     path: String,
     name: String,
     replace: bool,
@@ -229,14 +251,16 @@ pub async fn db_import(
     let src = PathBuf::from(&path);
     let (n, s) = (name.clone(), src.clone());
     let total = blocking(move || {
-        require_running()?;
+        require_running(engine)?;
         let size = std::fs::metadata(&s)
             .map_err(|e| {
                 let file = s.display();
                 AppError::msg(crate::tr!(format!("Can't read {file}: {e}"), format!("Tidak dapat membaca {file}: {e}")))
             })?
             .len();
-        let c = dbio::Client::standard();
+        // A dump of the wrong kind fails here, before anything is dropped.
+        dbio::check_flavor(engine, &dbio::sniff(&s)?.0)?;
+        let c = dbio::Client::of(engine);
         if dbio::exists(&c, &n)? {
             if !replace {
                 return Err(AppError::msg(crate::tr!(
@@ -252,6 +276,7 @@ pub async fn db_import(
     .await?;
     let job = DbJob {
         kind: "import".into(),
+        engine,
         database: name.clone(),
         file: path,
         state: "running".into(),
@@ -264,7 +289,7 @@ pub async fn db_import(
     };
     let cancel = state.db_cancel.clone();
     Ok(spawn_job(&state, job, move |progress| {
-        dbio::import(&dbio::Client::standard(), &name, &src, from.as_deref(), &cancel, progress).map(|_| None)
+        dbio::import(&dbio::Client::of(engine), &name, &src, from.as_deref(), &cancel, progress).map(|_| None)
     }))
 }
 

@@ -355,7 +355,7 @@ mod tests {
         let dir = temp("cancel");
         let file = dir.join("backup.zip");
         // A client that can't run: listing the databases fails, after the settings were written.
-        let nowhere = Client { bin: dir.join("no-such-bin"), port: 1 };
+        let nowhere = Client { engine: dbio::Engine::MariaDb, bin: dir.join("no-such-bin"), port: 1 };
         let err = create(&config(), Some(&nowhere), &file, &dir.join("scratch"), &AtomicBool::new(false), |_| {});
         assert!(err.is_err());
         assert!(!file.exists() && !dir.join("backup.zip.part").exists());
@@ -427,7 +427,7 @@ mod tests {
         mariadb::prepare(&l, &tmp, true).expect("init temp data folder");
         let sup = Supervisor::default();
         sup.start(mariadb::spec(&l)).expect("start MariaDB");
-        let c = Client { bin: base.join("bin"), port: 3319 };
+        let c = Client { engine: dbio::Engine::MariaDb, bin: base.join("bin"), port: 3319 };
 
         dbio::create_db(&c, "shop").unwrap();
         dbio::create_db(&c, "blog-2026").unwrap();

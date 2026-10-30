@@ -841,8 +841,8 @@ export const SECTIONS_ID: DocSection[] = [
           <C>DB_CONNECTION=mysql</C> dan <C>DB_PORT=3307</C>. Saat pertama dimulai, Zefaro
           mengunduhnya (328 MB, Zefaro hanya menyimpan server dan alatnya, tanpa file debug) lalu
           membuat folder data. Di terminal, <C>mysql -P 3307</C> terhubung ke MySQL. Wizard{" "}
-          <strong>Situs baru</strong> bisa membuat aplikasi di atasnya. Halaman Database, cadangan,
-          dan phpMyAdmin hanya bekerja dengan MariaDB.
+          <strong>Situs baru</strong> bisa membuat aplikasi di atasnya, dan halaman Database
+          mengelola database-nya. Cadangan dan phpMyAdmin hanya bekerja dengan MariaDB.
         </P>
         <H3>PostgreSQL</H3>
         <P>
@@ -854,7 +854,7 @@ export const SECTIONS_ID: DocSection[] = [
           shutdown, jadi mulai berikutnya tidak perlu pemulihan. Di terminal, <C>psql</C>,{" "}
           <C>pg_dump</C>, <C>pg_restore</C>, <C>createdb</C>, dan <C>dropdb</C> langsung
           tersambung tanpa opsi. Wizard <strong>Situs baru</strong> bisa membuat aplikasi di atasnya,
-          dan tab Data serta Tinker di halaman situs bekerja dengannya seperti dengan MariaDB.
+          dan tab Data, Tinker, serta halaman Database bekerja dengannya seperti dengan MariaDB.
         </P>
         <H3>Redis</H3>
         <P>
@@ -869,11 +869,13 @@ export const SECTIONS_ID: DocSection[] = [
         </P>
         <H3>Ekspor dan impor berukuran berapa pun</H3>
         <P>
-          Roda gigi di kartu MariaDB membuka halaman <strong>Database</strong>. Halaman ini
-          mencantumkan setiap database beserta ukurannya, dengan <em>Database baru</em>,{" "}
-          <em>Ekspor</em>, <em>Impor dump…</em>, dan <em>Hapus</em>. Zefaro mengalirkan data antara
-          MariaDB dan file, jadi dump 5 GB atau lebih tetap bisa diproses tanpa kehabisan memori.
-          Lewat unggahan ke phpMyAdmin, dump sebesar itu tidak bisa.
+          Roda gigi di kartu MariaDB, MySQL, atau PostgreSQL membuka halaman{" "}
+          <strong>Database</strong>, dengan satu tab untuk tiap server. Halaman ini mencantumkan
+          setiap database beserta ukurannya, dengan <em>Database baru</em>, <em>Ekspor</em>,{" "}
+          <em>Impor dump…</em>, dan <em>Hapus</em>. Zefaro mengalirkan data antara server dan file,
+          jadi dump 5 GB atau lebih tetap bisa diproses tanpa kehabisan memori. Lewat unggahan ke
+          phpMyAdmin, dump sebesar itu tidak bisa. Hanya satu ekspor atau impor yang berjalan dalam
+          satu waktu, untuk server mana pun.
         </P>
         <List
           items={[
@@ -884,7 +886,7 @@ export const SECTIONS_ID: DocSection[] = [
               berjalan.
             </>,
             <>
-              <strong>Impor</strong> menerima dump <C>.sql</C> atau dump ber-gzip dari Zefaro,
+              <strong>Impor</strong> ke MariaDB atau MySQL menerima dump <C>.sql</C> atau dump ber-gzip dari Zefaro,
               mariadb-dump, mysqldump, atau phpMyAdmin. Dump dimuat ke database baru, atau
               menggantikan database yang sudah ada setelah Zefaro meminta konfirmasi Anda. Zefaro
               melewati pemeriksaan foreign key dan unique selama pemuatan, sehingga impor besar jauh
@@ -907,10 +909,24 @@ export const SECTIONS_ID: DocSection[] = [
               collation MySQL 8, seperti <C>utf8mb4_0900_ai_ci</C>.
             </>,
             <>
+              <strong>PostgreSQL</strong> diekspor dengan <C>pg_dump</C> sebagai SQL, tanpa
+              kepemilikan dan hak akses, jadi file-nya bisa dimuat di server mana pun. Impor menerima
+              SQL dari pg_dump (<C>.sql</C> atau <C>.sql.gz</C>), yang dimuat dengan <C>psql</C>,
+              dan format custom pg_dump (<C>pg_dump -Fc</C>), yang dimuat dengan{" "}
+              <C>pg_restore</C>. Zefaro melewati baris <C>\connect</C>, <C>CREATE DATABASE</C>,{" "}
+              <C>OWNER TO</C>, <C>GRANT</C>, dan <C>REVOKE</C> dari dump, karena baris itu menyebut
+              database dan role milik server asal dump. Dump <C>pg_dumpall</C> berisi seluruh server
+              tidak diterima: buat dump dengan <C>pg_dump</C> per database.
+            </>,
+            <>
+              Zefaro memeriksa jenis server yang membuat dump, lalu menolak dump MySQL atau MariaDB
+              di tab PostgreSQL, atau dump PostgreSQL di tab lain, sebelum mengubah apa pun.
+            </>,
+            <>
               Bilah progres menunjukkan ukuran, kecepatan, dan sisa waktu. Anda bisa meninggalkan
               halaman lalu kembali, atau klik <em>Batal</em>; ekspor yang dibatalkan tidak
-              meninggalkan file setengah jadi. Jika MariaDB menolak sebuah statement, Zefaro
-              menampilkan pesan MariaDB sendiri beserta nomor barisnya.
+              meninggalkan file setengah jadi. Jika server menolak sebuah statement, Zefaro
+              menampilkan pesan server itu sendiri beserta nomor barisnya.
             </>,
             <>
               Lamanya terutama bergantung pada disk Anda: SSD mengimpor beberapa kali lebih cepat

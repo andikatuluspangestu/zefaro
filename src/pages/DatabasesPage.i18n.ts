@@ -49,12 +49,16 @@ export const messages = defineMessages({
     sqlDump: "SQL dump",
     dropped: (name: string) => `Dropped ${name}`,
     title: "Databases",
-    description: "MariaDB on 127.0.0.1:3306 · user root, no password. Export and import dumps of any size.",
+    description: (server: string, port: number) =>
+      `${server} on 127.0.0.1:${port} · user root, no password. Export and import dumps of any size.`,
+    servers: "Database server",
     importDump: "Import dump…",
     newDatabase: "New database",
-    notRunningTitle: "MariaDB isn't running",
+    notRunningTitle: (server: string) => `${server} isn't running`,
     notRunningDescription: "Start it to list, export and import your databases.",
-    startMariaDb: "Start MariaDB",
+    notInstalledDescription: (server: string) =>
+      `Zefaro downloads ${server} the first time it starts, then lists, exports and imports your databases here.`,
+    start: (server: string) => `Start ${server}`,
     emptyTitle: "No databases yet",
     emptyDescription: "Create one, or import a .sql or .sql.gz dump.",
     colDatabase: "Database",
@@ -70,28 +74,34 @@ export const messages = defineMessages({
     drop: (name: string) => `Drop ${name}`,
     count: (n: number) => `${n} database${n === 1 ? "" : "s"}`,
     freeOnDrive: (free: string) => `${free} free on the data drive`,
-    newDescription: "Use letters, digits, _ and -. Zefaro creates it as utf8mb4.",
+    newDescription: (pg: boolean) =>
+      `Use letters, digits, _ and -. Zefaro creates it as ${pg ? "UTF-8" : "utf8mb4"}.`,
     nameLabel: "Database name",
     createDatabase: "Create database",
     exportDialogBefore: "Export ",
     exportSize: (size: string, tables: number) => `${size} in ${tables} table${tables === 1 ? "" : "s"}. `,
     exportEmpty: "This database is empty. ",
-    exportIncludes:
-      "The export includes views, routines, triggers and events. MariaDB stays available while it runs.",
+    exportIncludes: (server: string, pg: boolean) =>
+      pg
+        ? `The export includes tables, views, functions, sequences and indexes, without ownership or grants. ${server} stays available while it runs.`
+        : `The export includes views, routines, triggers and events. ${server} stays available while it runs.`,
     format: "Format",
     recommended: "Recommended",
     chooseWhere: "Choose where to save…",
     importFile: (file: string) => `Import ${file}`,
-    importAccepts:
-      "Accepts plain .sql or gzip-compressed dumps from Zefaro, mariadb-dump, mysqldump or phpMyAdmin.",
+    importAccepts: (pg: boolean): string =>
+      pg
+        ? "Accepts pg_dump SQL (.sql or .sql.gz) and pg_dump's custom format. Ownership and grants are left out."
+        : "Accepts plain .sql or gzip-compressed dumps from Zefaro, mariadb-dump, mysqldump or phpMyAdmin.",
+    customFormat: "A pg_dump archive in its custom format. Zefaro loads it with pg_restore.",
     scanning: "Reading the dump to see which databases it holds…",
     madeBy: (origin: string) => `Made by ${origin}.`,
     severalInDump: "This dump holds several databases. Import",
     oneInDump: "Database in the dump",
     fromDumpLabel: "Database from the dump",
     sqlSize: (size: string) => `(${size} of SQL)`,
-    skipsSystem: (list: string, n: number) =>
-      `Zefaro skips ${list}: ${n > 1 ? "these are" : "this is"} MariaDB's own system ${n > 1 ? "databases" : "database"}, and the dump's copy comes from another server.`,
+    skipsSystem: (list: string, n: number, server: string) =>
+      `Zefaro skips ${list}: ${n > 1 ? "these are" : "this is"} ${server}'s own system ${n > 1 ? "databases" : "database"}, and the dump's copy comes from another server.`,
     onlySystem: "This dump holds only system databases, so there is nothing to import.",
     intoDatabase: "Into database",
     targetLabel: "Target database",
@@ -148,12 +158,16 @@ export const messages = defineMessages({
     sqlDump: "Dump SQL",
     dropped: (name: string) => `${name} dihapus`,
     title: "Database",
-    description: "MariaDB di 127.0.0.1:3306 · user root, tanpa password. Ekspor dan impor dump berapa pun ukurannya.",
+    description: (server: string, port: number) =>
+      `${server} di 127.0.0.1:${port} · user root, tanpa password. Ekspor dan impor dump berapa pun ukurannya.`,
+    servers: "Server database",
     importDump: "Impor dump…",
     newDatabase: "Database baru",
-    notRunningTitle: "MariaDB tidak berjalan",
-    notRunningDescription: "Mulai MariaDB untuk melihat, mengekspor, dan mengimpor database Anda.",
-    startMariaDb: "Mulai MariaDB",
+    notRunningTitle: (server: string) => `${server} tidak berjalan`,
+    notRunningDescription: "Mulai server ini untuk melihat, mengekspor, dan mengimpor database Anda.",
+    notInstalledDescription: (server: string) =>
+      `Zefaro mengunduh ${server} saat pertama kali dimulai, lalu Anda bisa melihat, mengekspor, dan mengimpor database di sini.`,
+    start: (server: string) => `Mulai ${server}`,
     emptyTitle: "Belum ada database",
     emptyDescription: "Buat satu, atau impor dump .sql atau .sql.gz.",
     colDatabase: "Database",
@@ -169,28 +183,34 @@ export const messages = defineMessages({
     drop: (name: string) => `Hapus ${name}`,
     count: (n: number) => `${n} database`,
     freeOnDrive: (free: string) => `${free} tersisa di drive data`,
-    newDescription: "Gunakan huruf, angka, _ dan -. Zefaro membuatnya dengan utf8mb4.",
+    newDescription: (pg: boolean) =>
+      `Gunakan huruf, angka, _ dan -. Zefaro membuatnya dengan ${pg ? "UTF-8" : "utf8mb4"}.`,
     nameLabel: "Nama database",
     createDatabase: "Buat database",
     exportDialogBefore: "Ekspor ",
     exportSize: (size: string, tables: number) => `${size} dalam ${tables} tabel. `,
     exportEmpty: "Database ini kosong. ",
-    exportIncludes:
-      "Ekspor mencakup view, routine, trigger, dan event. MariaDB tetap bisa dipakai selama ekspor berjalan.",
+    exportIncludes: (server: string, pg: boolean) =>
+      pg
+        ? `Ekspor mencakup tabel, view, function, sequence, dan index, tanpa kepemilikan dan hak akses. ${server} tetap bisa dipakai selama ekspor berjalan.`
+        : `Ekspor mencakup view, routine, trigger, dan event. ${server} tetap bisa dipakai selama ekspor berjalan.`,
     format: "Format",
     recommended: "Disarankan",
     chooseWhere: "Pilih lokasi simpan…",
     importFile: (file: string) => `Impor ${file}`,
-    importAccepts:
-      "Menerima dump .sql biasa atau terkompresi gzip dari Zefaro, mariadb-dump, mysqldump, atau phpMyAdmin.",
+    importAccepts: (pg: boolean) =>
+      pg
+        ? "Menerima SQL dari pg_dump (.sql atau .sql.gz) dan format custom pg_dump. Kepemilikan dan hak akses tidak ikut diimpor."
+        : "Menerima dump .sql biasa atau terkompresi gzip dari Zefaro, mariadb-dump, mysqldump, atau phpMyAdmin.",
+    customFormat: "Arsip pg_dump dalam format custom. Zefaro memuatnya dengan pg_restore.",
     scanning: "Membaca dump untuk melihat database apa saja di dalamnya…",
     madeBy: (origin: string) => `Dibuat oleh ${origin}.`,
     severalInDump: "Dump ini berisi beberapa database. Impor",
     oneInDump: "Database di dalam dump",
     fromDumpLabel: "Database dari dump",
     sqlSize: (size: string) => `(${size} SQL)`,
-    skipsSystem: (list: string) =>
-      `Zefaro melewati ${list}: itu database sistem milik MariaDB sendiri, dan salinan di dump ini berasal dari server lain.`,
+    skipsSystem: (list: string, _n: number, server: string) =>
+      `Zefaro melewati ${list}: itu database sistem milik ${server} sendiri, dan salinan di dump ini berasal dari server lain.`,
     onlySystem: "Dump ini hanya berisi database sistem, jadi tidak ada yang bisa diimpor.",
     intoDatabase: "Ke database",
     targetLabel: "Database tujuan",

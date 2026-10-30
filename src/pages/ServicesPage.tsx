@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 import { api } from "@/api";
-import type { Service } from "@/types";
+import type { DbEngine, Service } from "@/types";
 import { cn } from "@/lib/utils";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
@@ -10,7 +10,7 @@ import { NginxSettingsPage } from "@/pages/NginxSettingsPage";
 import { PhpPage } from "@/pages/PhpPage";
 import { DnsSettingsPage } from "@/pages/DnsSettingsPage";
 import { NodePage } from "@/pages/NodePage";
-import { DatabasesPage } from "@/pages/DatabasesPage";
+import { DB_ENGINES, DatabasesPage } from "@/pages/DatabasesPage";
 import { MailpitSettingsPage } from "@/pages/MailpitSettingsPage";
 import { ServiceLogo } from "@/components/service-logo";
 import { StatusDot } from "@/components/status-dot";
@@ -351,11 +351,15 @@ function ServiceCard({
   );
 }
 
+const isDbEngine = (id: string) => DB_ENGINES.some((e) => e.id === id);
+
 export function ServicesPage() {
   /** The card list, or the page a card's gear opened. */
   const t = useT(messages);
   const cm = useT(common);
   const [view, setView] = useState<"list" | "nginx" | "php" | "dns" | "node" | "db" | "mail">("list");
+  /** The server the Databases page opens on. */
+  const [dbEngine, setDbEngine] = useState<DbEngine>("mariadb");
   const [services, setServices] = useState<Service[] | null>(null);
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [bulk, setBulk] = useState(false);
@@ -465,7 +469,7 @@ export function ServicesPage() {
     return <DnsSettingsPage backLabel={backLabel} onBack={back} />;
   }
   if (view === "node") return <NodePage backLabel={backLabel} onBack={back} />;
-  if (view === "db") return <DatabasesPage backLabel={backLabel} onBack={back} />;
+  if (view === "db") return <DatabasesPage engine={dbEngine} backLabel={backLabel} onBack={back} />;
   if (view === "mail") return <MailpitSettingsPage backLabel={backLabel} onBack={back} />;
 
   return (
@@ -549,8 +553,11 @@ export function ServicesPage() {
                               ? () => setView("dns")
                               : s.id === "node"
                                 ? () => setView("node")
-                                : s.id === "mariadb"
-                                  ? () => setView("db")
+                                : isDbEngine(s.id)
+                                  ? () => {
+                                      setDbEngine(s.id as DbEngine);
+                                      setView("db");
+                                    }
                                   : s.id === "mailpit"
                                     ? () => setView("mail")
                                     : undefined
@@ -562,7 +569,7 @@ export function ServicesPage() {
                             ? t.dnsSettings
                             : s.id === "node"
                               ? t.nodeVersions
-                              : s.id === "mariadb"
+                              : isDbEngine(s.id)
                                 ? t.databases
                                 : s.id === "mailpit"
                                   ? t.mailpitSettings

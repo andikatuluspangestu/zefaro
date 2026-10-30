@@ -870,7 +870,8 @@ export const SECTIONS: DocSection[] = [
           <C>DB_PORT=3307</C>. The first start downloads it (328 MB, of which Zefaro keeps the server
           and its tools, without debug files) and creates the data folder. In a terminal,{" "}
           <C>mysql -P 3307</C> connects to it. The <strong>New site</strong> wizard can create an app
-          on it. The Databases page, backups and phpMyAdmin work with MariaDB only.
+          on it, and the Databases page manages its databases. Backups and phpMyAdmin work with
+          MariaDB only.
         </P>
         <H3>PostgreSQL</H3>
         <P>
@@ -881,7 +882,7 @@ export const SECTIONS: DocSection[] = [
           Zefaro stops it with a fast shutdown, so the next start needs no recovery. In a terminal,{" "}
           <C>psql</C>, <C>pg_dump</C>, <C>pg_restore</C>, <C>createdb</C> and <C>dropdb</C> connect to
           it without options. The <strong>New site</strong> wizard can create an app on it, and the
-          site page's Data tab and Tinker work with it as with MariaDB.
+          site page's Data tab, Tinker and the Databases page work with it as with MariaDB.
         </P>
         <H3>Redis</H3>
         <P>
@@ -896,10 +897,12 @@ export const SECTIONS: DocSection[] = [
         </P>
         <H3>Export and import of any size</H3>
         <P>
-          The gear on the MariaDB card opens the <strong>Databases</strong> page. It lists every
-          database with its size, with <em>New database</em>, <em>Export</em>, <em>Import dump…</em>{" "}
-          and <em>Drop</em>. Zefaro streams data between MariaDB and the file, so dumps of 5 GB or
-          more work without running out of memory. Uploading them to phpMyAdmin doesn't.
+          The gear on the MariaDB, MySQL or PostgreSQL card opens the <strong>Databases</strong>{" "}
+          page, with a tab for each of the three servers. It lists every database with its size,
+          with <em>New database</em>, <em>Export</em>, <em>Import dump…</em> and <em>Drop</em>.
+          Zefaro streams data between the server and the file, so dumps of 5 GB or more work without
+          running out of memory. Uploading them to phpMyAdmin doesn't. One export or import runs at
+          a time, whichever server it is for.
         </P>
         <List
           items={[
@@ -909,10 +912,10 @@ export const SECTIONS: DocSection[] = [
               consistent snapshot, so your app can keep using the database while it runs.
             </>,
             <>
-              <strong>Import</strong> takes <C>.sql</C> or gzipped dumps from Zefaro,
-              mariadb-dump, mysqldump or phpMyAdmin. It loads them into a new database, or
-              replaces an existing one after Zefaro asks you. Zefaro skips foreign-key and unique
-              checks while loading, which makes big imports much faster.
+              <strong>Import</strong> into MariaDB or MySQL takes <C>.sql</C> or gzipped dumps
+              from Zefaro, mariadb-dump, mysqldump or phpMyAdmin. It loads them into a new
+              database, or replaces an existing one after Zefaro asks you. Zefaro skips foreign-key
+              and unique checks while loading, which makes big imports much faster.
             </>,
             <>
               <strong>Dumps of several databases</strong> (made with{" "}
@@ -931,9 +934,23 @@ export const SECTIONS: DocSection[] = [
               collations, such as <C>utf8mb4_0900_ai_ci</C>.
             </>,
             <>
+              <strong>PostgreSQL</strong> exports with <C>pg_dump</C> as SQL, without ownership
+              and grants, so the file loads on any server. Import takes pg_dump SQL{" "}
+              (<C>.sql</C> or <C>.sql.gz</C>), loaded with <C>psql</C>, and pg_dump's custom
+              format (<C>pg_dump -Fc</C>), loaded with <C>pg_restore</C>. Zefaro leaves out a
+              dump's <C>\connect</C>, <C>CREATE DATABASE</C>, <C>OWNER TO</C>, <C>GRANT</C> and{" "}
+              <C>REVOKE</C> lines, which name the database and roles of the server the dump came
+              from. A <C>pg_dumpall</C> dump of a whole server isn't accepted: make one with{" "}
+              <C>pg_dump</C> per database.
+            </>,
+            <>
+              Zefaro checks which kind of server made a dump, and refuses a MySQL or MariaDB dump
+              on the PostgreSQL tab, or a PostgreSQL dump on the others, before it changes anything.
+            </>,
+            <>
               A progress bar shows size, speed and time left. You can leave the page and come
               back, or click <em>Cancel</em>; a cancelled export leaves no half-written file. If
-              MariaDB rejects a statement, Zefaro shows MariaDB's own message with the line number.
+              the server rejects a statement, Zefaro shows its own message with the line number.
             </>,
             <>
               The time depends mostly on your disk: an SSD imports several times faster than a

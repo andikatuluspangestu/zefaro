@@ -4,6 +4,25 @@ All notable changes to Zefaro are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Zefaro uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Databases page for MySQL and PostgreSQL.** The gear on the MySQL and PostgreSQL cards now opens the
+  Databases page too, with a tab for each of MariaDB, MySQL and PostgreSQL: list databases with their size and
+  tables, create, drop, and export or import dumps of any size with progress and cancel. PostgreSQL exports
+  with `pg_dump` (SQL, without ownership or grants) and imports pg_dump SQL through `psql` or the custom format
+  (`pg_dump -Fc`) through `pg_restore`, leaving out `\connect`, `CREATE DATABASE`, `OWNER TO`, `GRANT` and
+  `REVOKE`. A dump made by the other kind of server is refused before anything changes. Backups and
+  phpMyAdmin stay MariaDB-only.
+
+### Fixed
+
+- MySQL couldn't be installed: Oracle's download link answered Zefaro with 403 Forbidden. Zefaro now downloads
+  the same zip from Oracle's CDN, still checked against the pinned SHA-256.
+- MySQL's database sizes on the Databases page are read from its data files, so they are current right after
+  an import instead of lagging behind InnoDB's statistics.
+
 ## [1.3.0] - 2026-10-30
 
 ### Added
@@ -230,6 +249,7 @@ development environment for Windows.
 - Every service listens on `127.0.0.1` only.
 - The installer isn't code-signed yet, so Windows SmartScreen asks you to confirm it.
 
+[Unreleased]: https://github.com/andikatuluspangestu/zefaro/compare/v1.3.0...HEAD
 [1.3.0]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.3.0
 [1.2.0]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.2.0
 [1.1.0]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.1.0

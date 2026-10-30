@@ -20,6 +20,7 @@ import type {
   UpdateProgress,
   CaStatus,
   DbJob,
+  DbEngine,
   DbOverview,
   DumpInfo,
   PhpExtension,
@@ -252,20 +253,20 @@ export const api = {
   mailStart: () => mutate(invoke<MailStatus>("mail_start")),
 
   // databases
-  dbOverview: () => invoke<DbOverview>("db_overview"),
-  dbCreate: (name: string) => invoke<void>("db_create", { name }),
-  dbDrop: (name: string) => invoke<void>("db_drop", { name }),
+  dbOverview: (engine: DbEngine) => invoke<DbOverview>("db_overview", { engine }),
+  dbCreate: (engine: DbEngine, name: string) => invoke<void>("db_create", { engine, name }),
+  dbDrop: (engine: DbEngine, name: string) => invoke<void>("db_drop", { engine, name }),
   dbNameFromFile: (path: string) => invoke<string>("db_name_from_file", { path }),
   diskFree: (path: string) => invoke<number | null>("disk_free", { path }),
   dbJob: () => invoke<DbJob | null>("db_job"),
   dbJobCancel: () => invoke<void>("db_job_cancel"),
   dbJobDismiss: () => invoke<void>("db_job_dismiss"),
-  dbExport: (name: string, path: string, gzip: boolean) =>
-    invoke<DbJob>("db_export", { name, path, gzip }),
+  dbExport: (engine: DbEngine, name: string, path: string, gzip: boolean) =>
+    invoke<DbJob>("db_export", { engine, name, path, gzip }),
+  dbScanDump: (engine: DbEngine, path: string) => invoke<DumpInfo>("db_scan_dump", { engine, path }),
   /** With `replace`, an existing database of that name is dropped first. */
-  dbScanDump: (path: string) => invoke<DumpInfo>("db_scan_dump", { path }),
-  dbImport: (path: string, name: string, replace: boolean, from: string | null) =>
-    invoke<DbJob>("db_import", { path, name, replace, from }),
+  dbImport: (engine: DbEngine, path: string, name: string, replace: boolean, from: string | null) =>
+    invoke<DbJob>("db_import", { engine, path, name, replace, from }),
   dbReveal: (path: string) => invoke<void>("db_reveal", { path }),
   dbDefaultDir: () => invoke<string>("db_default_dir"),
 
