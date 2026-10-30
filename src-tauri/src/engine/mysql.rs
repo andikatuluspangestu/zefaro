@@ -17,12 +17,15 @@ pub const SERVICE_ID: &str = "mysql";
 pub const PORT: u16 = 3307;
 pub const DOWNLOAD_MB: u32 = 328;
 
-/// mysql-9.7.4-winx64.zip from dev.mysql.com. Oracle publishes only an MD5
+/// mysql-9.7.4-winx64.zip from Oracle's CDN. Oracle publishes only an MD5
 /// for it; the download matched the MD5 on the download page
 /// (e05aaa40639d8548e0f68b7a70685a3b) before its SHA-256 was recorded here.
+///
+/// The download page's dev.mysql.com/get/… link only redirects here, and it
+/// answers Zefaro's User-Agent with 403 Forbidden; the CDN serves the file.
 const ARCHIVE: Archive = Archive {
     name: "MySQL 9.7.4",
-    url: "https://dev.mysql.com/get/Downloads/MySQL-9.7/mysql-9.7.4-winx64.zip",
+    url: "https://cdn.mysql.com/Downloads/MySQL-9.7/mysql-9.7.4-winx64.zip",
     sha256: "641bdaf01004927194c561b956f14f915a3166c9b0f9b1b5464ae63152bf4b96",
     inner: "mysql-9.7.4-winx64",
 };
