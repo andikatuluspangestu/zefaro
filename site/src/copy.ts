@@ -31,7 +31,7 @@ const en = {
     lead: "Zefaro is a free, open-source local PHP development environment for Windows. Link a project folder and open it at name.test, with PHP, HTTPS, databases and a mail catcher already set up.",
     cta: "Download for Windows",
     source: "View the source",
-    meta: "Version 1.1.0 · Windows 10 and 11 · 3.2 MB",
+    meta: "Version 1.2.0 · Windows 10 and 11 · 3.3 MB",
   },
   win: {
     title: "Zefaro",
@@ -152,12 +152,12 @@ const en = {
     title: "Install Zefaro",
     brandLine: "Yet Another Local Laravel Tools",
     facts: [
-      ["Version", "1.1.0"],
-      ["Size", "3.2 MB"],
+      ["Version", "1.2.0"],
+      ["Size", "3.3 MB"],
       ["System", "Windows 10 or 11, 64-bit"],
       ["License", "MIT"],
     ],
-    cta: "Download Zefaro 1.1.0",
+    cta: "Download Zefaro 1.2.0",
     verify: "SHA-256 and release notes",
     note: 'The installer is not code-signed yet. Windows SmartScreen may say "Windows protected your PC": choose More info, then Run anyway.',
     steps: [
@@ -218,7 +218,7 @@ const id: Copy = {
     lead: "Zefaro adalah alternatif XAMPP dan Laragon yang gratis dan open source untuk Windows, cocok untuk mahasiswa IT yang belajar PHP dan Laravel. Tautkan folder proyek lalu buka di nama.test, dengan PHP, HTTPS, database, dan penangkap email yang sudah siap.",
     cta: "Unduh untuk Windows",
     source: "Lihat kode sumber",
-    meta: "Versi 1.1.0 · Windows 10 dan 11 · 3,2 MB",
+    meta: "Versi 1.2.0 · Windows 10 dan 11 · 3,3 MB",
   },
   win: {
     title: "Zefaro",
@@ -339,12 +339,12 @@ const id: Copy = {
     title: "Instal Zefaro",
     brandLine: "Yet Another Local Laravel Tools",
     facts: [
-      ["Versi", "1.1.0"],
-      ["Ukuran", "3,2 MB"],
+      ["Versi", "1.2.0"],
+      ["Ukuran", "3,3 MB"],
       ["Sistem", "Windows 10 atau 11, 64-bit"],
       ["Lisensi", "MIT"],
     ],
-    cta: "Unduh Zefaro 1.1.0",
+    cta: "Unduh Zefaro 1.2.0",
     verify: "SHA-256 dan catatan rilis",
     note: 'Installer belum ditandatangani kode. Windows SmartScreen mungkin menampilkan "Windows protected your PC": pilih More info, lalu Run anyway.',
     steps: [
