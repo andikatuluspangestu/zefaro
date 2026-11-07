@@ -72,7 +72,8 @@ trusted certificate authority, and keeps `%USERPROFILE%\.config\zefaro` until yo
 | PHP | Versions 7.4 to 8.5 side by side, from the official Windows builds, each with its own limits. Composer and the Laravel installer live in Zefaro's own `COMPOSER_HOME`. |
 | Node.js | The Current line and every maintained LTS line from nodejs.org. You pick the active version for `node`, `npm`, `npx` and `corepack`. |
 | DNS | Zefaro's built-in DNS server answers `*.test` (or `*.internal`). A Windows name resolution rule sends those lookups to it, so there is no hosts file to edit. |
-| Databases | MariaDB 11.8 LTS, MySQL 9.7 LTS (port 3307, so both can run), PostgreSQL 18, Redis 8.10, phpMyAdmin 5.2 at `phpmyadmin.test` for MariaDB, and Adminer 6.3 at `adminer.test` for all three servers. The Databases page creates, drops, exports and imports databases, streaming dumps to and from disk so they don't have to fit in memory. The live test round-trips 1 GB. Backups include the databases of all three servers. |
+| Databases | MariaDB 11.8 LTS, MySQL 9.7 LTS (port 3307, so both can run; each server's port can be changed), PostgreSQL 18, Redis 8.10, phpMyAdmin 5.2 at `phpmyadmin.test` for MariaDB, and Adminer 6.3 at `adminer.test` for all three servers. The Databases page creates, drops, exports and imports databases, streaming dumps to and from disk so they don't have to fit in memory. The live test round-trips 1 GB. Backups include the databases of all three servers, and a site's Data tab takes and restores snapshots of its database. |
+| Search and storage | Meilisearch 1.56 on `127.0.0.1:7700` for Laravel Scout, and RustFS 1.0, S3-compatible storage for Laravel's `s3` disk, on `127.0.0.1:9000` with a web console on port 9001. |
 | Mail | Mailpit 1.32 catches every email your apps send on `127.0.0.1:1025`, and PHP's `mail()` is pointed at it. The Mail page has search, attachments, links and an unread count. |
 | Logs | A live viewer for the nginx, PHP, MariaDB, MySQL, PostgreSQL, Redis and Mailpit logs, with search and a level filter. |
 | Services | One page starts and stops everything. Zefaro restarts a service that crashes. Closing the window keeps Zefaro and its services running in the system tray; quitting from the tray stops them all in order, with nginx first and the databases last. |
@@ -81,11 +82,12 @@ trusted certificate authority, and keeps `%USERPROFILE%\.config\zefaro` until yo
 | Settings pages | nginx (ports, workers, timeouts, request size, gzip, HTTP/2, logs, extra directives), PHP per version, DNS, Mailpit. |
 
 Every program Zefaro downloads comes from its project's official source and is checked
-before use. The hashes for nginx, MariaDB, MySQL, PostgreSQL, Redis, phpMyAdmin, Adminer and Mailpit are
+before use. The hashes for nginx, MariaDB, MySQL, PostgreSQL, Redis, phpMyAdmin, Adminer, Mailpit, Meilisearch and RustFS are
 built into Zefaro. For PHP, Node.js and Composer, Zefaro checks the hash each project publishes.
 
 Zefaro keeps its settings, programs and data in `%USERPROFILE%\.config\zefaro`. Every
-service listens on `127.0.0.1` only. The built-in documentation is under **Help,
+service listens on `127.0.0.1` only, unless you open a site on a phone: then nginx serves that one site to
+private networks for the time you pick. The built-in documentation is under **Help,
 Documentation**, and Ctrl+K searches it.
 
 ## Develop
@@ -213,6 +215,6 @@ closed without review.
 Zefaro is released under the [MIT License](LICENSE), © 2026 Zefaro contributors.
 
 The software Zefaro downloads (nginx, PHP, Node.js, Composer, MariaDB, MySQL, PostgreSQL,
-Redis, phpMyAdmin, Adminer, Mailpit) comes from each project's official source and keeps its own licence. The About
+Redis, phpMyAdmin, Adminer, Mailpit, Meilisearch, RustFS) comes from each project's official source and keeps its own licence. The About
 page lists them. Service logos come from Dashboard Icons (Apache-2.0), and each logo is
 its project's trademark.
