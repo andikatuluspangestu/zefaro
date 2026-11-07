@@ -34,6 +34,8 @@ const LOGOS: Record<string, { src: string; tile?: "light"; wide?: boolean }> = {
 
 /** php-8.3 → php */
 const key = (id: string) => (id.startsWith("php-") ? "php" : id);
+/** Services without a logo file get an icon that says what they are. */
+const FALLBACK_ICON: Record<string, string> = { adminer: "table-list" };
 
 /** A service's logo on a tile; greyed while the service isn't running. */
 export function ServiceLogo({ id, status, className }: { id: string; status: ServiceStatus; className?: string }) {
@@ -53,7 +55,7 @@ export function ServiceLogo({ id, status, className }: { id: string; status: Ser
       {logo ? (
         <img src={logo.src} alt="" className="size-full object-contain" draggable={false} />
       ) : (
-        <Icon name="server" className="w-auto text-muted-foreground" />
+        <Icon name={FALLBACK_ICON[key(id)] ?? "server"} className="w-auto text-muted-foreground" />
       )}
     </span>
   );

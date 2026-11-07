@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTheme, type Theme } from "@/theme";
 import { defineMessages, useT } from "@/i18n";
+import type { TerminalRequest } from "@/lib/terminal-request";
 
 const messages = defineMessages({
   en: {
@@ -291,7 +292,11 @@ function TerminalView({
 
 /** The Terminal page. `visible` is false while another page is open: the page
  * stays mounted then, so every terminal keeps its screen. */
-export function TerminalPage({ visible }: { visible: boolean }) {
+/** The last site request this page acted on. Kept outside the component, so a
+ * remount (a hot reload in development) doesn't open the same terminal again. */
+let lastHandledRequest = 0;
+
+export function TerminalPage({ visible, request = null }: { visible: boolean; request?: TerminalRequest | null }) {
   const t = useT(messages);
   const { theme } = useTheme();
   const [tabs, setTabs] = useState<TerminalInfo[] | null>(null);
@@ -314,10 +319,26 @@ export function TerminalPage({ visible }: { visible: boolean }) {
       });
       setActive(info.id);
       if (replace !== undefined) api.terminalClose(replace).catch(() => {});
+      return info;
     } catch (e) {
       toast.error(String(e));
+      return null;
     }
   }, []);
+
+  // A request from a site page opens its own terminal, once the list is in
+  // (so the two don't race), and types its command: the shell reads it as soon
+  // as its prompt is up.
+  const [ready, setReady] = useState(false);
+  const pending = useRef(request);
+  pending.current = request;
+  useEffect(() => {
+    if (!ready || !request || request.id <= lastHandledRequest) return;
+    lastHandledRequest = request.id;
+    open({ site: request.site }).then((info) => {
+      if (info && request.command) api.terminalWrite(info.id, `${request.command}\r`).catch(() => {});
+    });
+  }, [ready, request, open]);
 
   // Pick up terminals that are still running (the page was reloaded), or start
   // one. Once, even when React runs effects twice in development.
@@ -331,12 +352,14 @@ export function TerminalPage({ visible }: { visible: boolean }) {
       .then((list) => {
         setTabs(list);
         if (list.length > 0) setActive(list[list.length - 1].id);
-        else open({});
+        // A site's request opens its own terminal; no plain one besides it.
+        else if (!pending.current) open({});
       })
       .catch((e) => {
         setTabs([]);
         toast.error(String(e));
-      });
+      })
+      .finally(() => setReady(true));
   }, [open]);
 
   useEffect(() => {

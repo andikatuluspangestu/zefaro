@@ -4,6 +4,29 @@ All notable changes to Zefaro are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Zefaro uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Zefaro Terminal from a site.** A site's Open in menu starts with Zefaro Terminal, which opens a tab on the
+  Terminal page in the site's folder with the site's PHP version. The Artisan tab has Run in Terminal next to Run:
+  it types the command, with its arguments and options, into a new terminal, where a command that asks questions
+  can ask them.
+- **Adminer for MariaDB, MySQL and PostgreSQL.** A new Adminer card under Databases on the Services page serves
+  Adminer 6.3.0 at `adminer.test`, downloaded on first start and checked against its SHA-256. Its start page lists
+  Zefaro's three servers; each opens Adminer's login form filled in, and Login with the empty password signs in.
+  It runs on the active PHP version when that is 7.4 or later. A site's Open in menu opens the site's database in
+  Adminer, and a database server's settings page has Open in Adminer.
+
+### Changed
+
+- **Backups include MySQL and PostgreSQL.** Include databases now saves every database of each installed server,
+  not just MariaDB's. The servers take turns: one that wasn't running starts for its databases and stops again. A
+  restore puts each database back on the server it came from, still skipping one that exists, and installs a
+  server the file needs that isn't there yet. The restore dialog lists the databases per server. A backup with
+  MariaDB databases only can still be restored by older versions of Zefaro; one with MySQL or PostgreSQL databases
+  is refused by them with a message to update.
+
 ## [1.5.0] - 2026-10-30
 
 ### Added

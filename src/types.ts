@@ -319,6 +319,8 @@ export interface DbServerView {
   configPath: string | null;
   logPath: string;
   slowLogPath: string | null;
+  /** Adminer at this server, when Zefaro serves Adminer. */
+  adminerUrl: string | null;
 }
 
 export interface DbOverview {
@@ -455,6 +457,7 @@ export interface MailMessage {
 
 /** One database inside a backup file. */
 export interface BackupDb {
+  engine: "mariadb" | "mysql" | "postgresql";
   name: string;
   /** Size of its dump, uncompressed. */
   bytes: number;
@@ -475,6 +478,8 @@ export interface BackupJob {
   state: "running" | "done" | "failed" | "cancelled";
   file: string;
   phase: "preparing" | "settings" | "database" | "finishing";
+  /** The server ("MariaDB", "MySQL", "PostgreSQL") of the database below. */
+  server: string | null;
   /** The database being dumped or loaded. */
   current: string | null;
   done: number;
@@ -482,7 +487,7 @@ export interface BackupJob {
   /** Why it failed, or a note about what was left out. */
   message: string | null;
   size: number | null;
-  /** Databases dumped (backup) or loaded (restore). */
+  /** Databases dumped (backup) or loaded (restore), as "shop (MySQL)". */
   loaded: string[];
   /** Restore: databases that already existed and were kept. */
   skipped: string[];

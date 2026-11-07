@@ -23,6 +23,7 @@ import { defineMessages, useT } from "@/i18n";
 import { common } from "@/i18n/common";
 import { JobConsole, JobState } from "./shared";
 import type { ArtisanCommand, SiteJob } from "./types";
+import { openInTerminal } from "@/lib/terminal-request";
 
 const messages = defineMessages({
   en: {
@@ -42,6 +43,8 @@ const messages = defineMessages({
     required: "required",
     noParams: "This command takes no arguments or options.",
     run: "Run",
+    runInTerminal: "Run in Terminal",
+    runInTerminalHint: "Opens a tab in Zefaro's Terminal in this site's folder and runs it there, where it can ask questions.",
     running: "Running…",
     pick: "Pick a command on the left, or one of the common ones above.",
     preview: "Runs as",
@@ -54,7 +57,7 @@ const messages = defineMessages({
       key: "A new app key makes every encrypted value and session made with the old key unreadable.",
     },
     confirmRun: "Run anyway",
-    interactive: "Zefaro runs commands without prompts, so a command that asks questions uses its defaults.",
+    interactive: "Run uses no prompts, so a command that asks questions takes its defaults. Run in Terminal to answer them yourself.",
     loadFailed: "Zefaro couldn't list the commands",
     retry: "Try again",
     ago: (s: number) => (s < 60 ? `${s}s ago` : s < 3600 ? `${Math.floor(s / 60)} min ago` : `${Math.floor(s / 3600)} h ago`),
@@ -82,6 +85,8 @@ const messages = defineMessages({
     running: "Berjalan…",
     pick: "Pilih perintah di kiri, atau salah satu yang umum di atas.",
     preview: "Dijalankan sebagai",
+    runInTerminal: "Jalankan di Terminal",
+    runInTerminalHint: "Membuka tab di Terminal Zefaro di folder situs ini dan menjalankannya di sana, tempat perintah bisa bertanya.",
     noMatch: "Tidak ada perintah yang cocok.",
     recent: "Jalan terakhir",
     confirmTitle: (name: string) => `Jalankan ${name}?`,
@@ -91,7 +96,7 @@ const messages = defineMessages({
       key: "App key baru membuat semua nilai terenkripsi dan sesi dari key lama tidak terbaca.",
     },
     confirmRun: "Tetap jalankan",
-    interactive: "Zefaro menjalankan perintah tanpa pertanyaan, jadi perintah yang bertanya memakai nilai bawaannya.",
+    interactive: "Jalankan tidak memakai pertanyaan, jadi perintah yang bertanya memakai nilai bawaannya. Jalankan di Terminal untuk menjawabnya sendiri.",
     loadFailed: "Zefaro tidak bisa mendaftar perintah",
     retry: "Coba lagi",
     ago: (s: number) => (s < 60 ? `${s} dtk lalu` : s < 3600 ? `${Math.floor(s / 60)} mnt lalu` : `${Math.floor(s / 3600)} jam lalu`),
@@ -155,7 +160,7 @@ export function ArtisanTab({ site, environment }: { site: string; environment: s
   const [values, setValues] = useState<Values>({});
   const [jobId, setJobId] = useState<number | null>(null);
   const [recent, setRecent] = useState<SiteJob[]>([]);
-  const [confirm, setConfirm] = useState<{ title: string; body: string; args: string[] } | null>(null);
+  const [confirm, setConfirm] = useState<{ title: string; body: string; args: string[]; inTerminal: boolean } | null>(null);
   const [starting, setStarting] = useState(false);
 
   const load = useCallback(() => {
@@ -206,14 +211,18 @@ export function ArtisanTab({ site, environment }: { site: string; environment: s
     }
   };
 
-  const run = () => {
+  /** The same command in Zefaro's Terminal, where it can ask questions. */
+  const inTerminal = (args: string[]) => openInTerminal(site, `php artisan ${args.map(shell).join(" ")}`);
+
+  const run = (terminal = false) => {
     if (!command || !built || built.missing) return;
     const name = command.name;
     let body: string | null = null;
     if (DESTRUCTIVE.has(name)) body = t.confirmBody.destructive;
     else if (name === "key:generate") body = t.confirmBody.key;
     else if (environment === "production" && REWRITES_DATA_IN_PRODUCTION(name)) body = t.confirmBody.production;
-    if (body) setConfirm({ title: t.confirmTitle(`php artisan ${name}`), body, args: built.args });
+    if (body) setConfirm({ title: t.confirmTitle(`php artisan ${name}`), body, args: built.args, inTerminal: terminal });
+    else if (terminal) inTerminal(built.args);
     else start(built.args);
   };
 
@@ -331,9 +340,13 @@ export function ArtisanTab({ site, environment }: { site: string; environment: s
               )}
 
               <div className="flex flex-wrap items-center gap-3 border-t pt-3">
-                <Button onClick={run} disabled={!built || built.missing || starting}>
+                <Button onClick={() => run()} disabled={!built || built.missing || starting}>
                   <Icon name="play" className="w-3" />
                   {t.run}
+                </Button>
+                <Button variant="outline" onClick={() => run(true)} disabled={!built || built.missing} title={t.runInTerminalHint}>
+                  <Icon name="terminal" className="w-3" />
+                  {t.runInTerminal}
                 </Button>
                 {built && (
                   <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground" title={`php artisan ${built.args.map(shell).join(" ")}`}>
@@ -377,9 +390,10 @@ export function ArtisanTab({ site, environment }: { site: string; environment: s
             <AlertDialogAction
               variant="destructive"
               onClick={() => {
-                const args = confirm!.args;
+                const { args, inTerminal: terminal } = confirm!;
                 setConfirm(null);
-                start(args);
+                if (terminal) inTerminal(args);
+                else start(args);
               }}
             >
               {t.confirmRun}

@@ -302,6 +302,8 @@ pub struct BackupJob {
     pub file: String,
     /// "preparing" | "settings" | "database" | "finishing"
     pub phase: String,
+    /// The server ("MariaDB", "MySQL", "PostgreSQL") of the database below.
+    pub server: Option<String>,
     /// The database being dumped or loaded.
     pub current: Option<String>,
     /// Databases finished so far, and in all.

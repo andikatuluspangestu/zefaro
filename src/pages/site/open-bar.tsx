@@ -12,11 +12,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { defineMessages, useT } from "@/i18n";
+import { openInTerminal } from "@/lib/terminal-request";
 import type { ExternalApp } from "./types";
 
 const messages = defineMessages({
-  en: { open: "Open in", opened: (app: string) => `Opened in ${app}`, folder: "Folder" },
-  id: { open: "Buka di", opened: (app: string) => `Dibuka di ${app}`, folder: "Folder" },
+  en: { open: "Open in", opened: (app: string) => `Opened in ${app}`, folder: "Folder", zefaroTerminal: "Zefaro Terminal" },
+  id: { open: "Buka di", opened: (app: string) => `Dibuka di ${app}`, folder: "Folder", zefaroTerminal: "Terminal Zefaro" },
 });
 
 const ICON: Record<ExternalApp["kind"], string> = {
@@ -27,7 +28,8 @@ const ICON: Record<ExternalApp["kind"], string> = {
 };
 const ORDER: ExternalApp["kind"][] = ["editor", "terminal", "database", "folder"];
 
-/** A menu that opens the site in the editors, terminals and database tools found on this computer. */
+/** A menu that opens the site in Zefaro's own Terminal, and in the editors,
+ *  terminals and database tools found on this computer. */
 export function OpenBar({ site, className }: { site: string; className?: string }) {
   const t = useT(messages);
   const [apps, setApps] = useState<ExternalApp[]>([]);
@@ -45,8 +47,10 @@ export function OpenBar({ site, className }: { site: string; className?: string 
     }
   };
 
-  if (apps.length === 0) return null;
-  const groups = ORDER.map((kind) => apps.filter((a) => a.kind === kind)).filter((g) => g.length > 0);
+  // Zefaro's Terminal heads the terminals, and is there even when none is installed.
+  const groups = ORDER.map((kind) => ({ kind, list: apps.filter((a) => a.kind === kind) })).filter(
+    (g) => g.list.length > 0 || g.kind === "terminal",
+  );
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -58,10 +62,16 @@ export function OpenBar({ site, className }: { site: string; className?: string 
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         {groups.map((group, i) => (
-          <div key={group[0].kind}>
+          <div key={group.kind}>
             {i > 0 && <DropdownMenuSeparator />}
             <DropdownMenuGroup>
-              {group.map((app) => (
+              {group.kind === "terminal" && (
+                <DropdownMenuItem onSelect={() => openInTerminal(site)}>
+                  <Icon name="terminal" className="w-3.5 text-primary" />
+                  {t.zefaroTerminal}
+                </DropdownMenuItem>
+              )}
+              {group.list.map((app) => (
                 <DropdownMenuItem key={app.id} onSelect={() => open(app)}>
                   <Icon name={ICON[app.kind]} className="w-3.5 text-muted-foreground" />
                   {app.kind === "folder" ? t.folder : app.name}

@@ -9,7 +9,7 @@
 use crate::config::{ZefaroConfig, NginxConfig};
 use crate::engine::archive::{self, Archive};
 use crate::engine::supervisor::{Probe, Spec, Supervisor};
-use crate::engine::{certs, mailpit, paths, php, phpmyadmin, process, tunnel};
+use crate::engine::{adminer, certs, mailpit, paths, php, phpmyadmin, process, tunnel};
 use crate::error::{AppError, AppResult};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -495,6 +495,17 @@ pub fn write_config(cfg: &ZefaroConfig, l: &Layout) -> AppResult<()> {
     if let Some(port) = l.mailpit_port.filter(|_| !cfg.sites.iter().any(|s| s.name == mailpit::HOST)) {
         let conf = render_proxy_site(mailpit::HOST, &cfg.tld, port, l);
         fs::write(l.sites.join(format!("{}.conf", mailpit::HOST)), conf)?;
+    }
+
+    // Adminer, on the active PHP line — unless a linked site already uses its name.
+    let dir = adminer::dir();
+    if cfg.adminer && !cfg.sites.iter().any(|s| s.name == adminer::HOST) && adminer::installed_at(&dir) {
+        let lines: Vec<String> = php::installed().into_keys().collect();
+        if let Some(line) = adminer::pick_php(&cfg.default_php, &lines) {
+            let port = php::port_for(cfg.php.base_port, &line);
+            let conf = render_site(adminer::HOST, &cfg.tld, &dir, port, None, l);
+            fs::write(l.sites.join(format!("{}.conf", adminer::HOST)), conf)?;
+        }
     }
 
     // phpMyAdmin, on the newest PHP line it supports — unless a linked site

@@ -29,6 +29,7 @@ fn components() -> Vec<Component> {
             "github.com/redis-windows/redis-windows",
         ),
         c("phpMyAdmin", phpmyadmin::VERSION.into(), "GPL-2.0", "files.phpmyadmin.net"),
+        c("Adminer", crate::engine::adminer::VERSION.into(), "Apache-2.0 or GPL-2.0", "github.com/vrana/adminer"),
         c("Mailpit", mailpit::VERSION.into(), "MIT", "github.com/axllent/mailpit"),
         c("cloudflared", crate::engine::tunnel::VERSION.into(), "Apache-2.0", "github.com/cloudflare/cloudflared"),
         c("Composer", "latest stable".into(), "MIT", "getcomposer.org"),

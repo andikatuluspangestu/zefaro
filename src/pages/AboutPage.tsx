@@ -32,7 +32,7 @@ const messages = defineMessages({
       description: "The rules the app follows on your machine.",
       free: {
         title: "Free to use",
-        text: "Every feature is free: PHP versions, databases, phpMyAdmin, mail and local DNS. There is no paid tier.",
+        text: "Every feature is free: PHP versions, databases, phpMyAdmin and Adminer, mail and local DNS. There is no paid tier.",
       },
       local: {
         title: "Local only",
@@ -87,7 +87,7 @@ const messages = defineMessages({
       description: "Aturan yang dipatuhi aplikasi ini di komputer Anda.",
       free: {
         title: "Gratis dipakai",
-        text: "Semua fitur gratis: versi PHP, database, phpMyAdmin, email, dan DNS lokal. Tidak ada paket berbayar.",
+        text: "Semua fitur gratis: versi PHP, database, phpMyAdmin dan Adminer, email, dan DNS lokal. Tidak ada paket berbayar.",
       },
       local: {
         title: "Hanya lokal",

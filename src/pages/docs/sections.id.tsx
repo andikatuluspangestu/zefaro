@@ -10,7 +10,7 @@ const FAQ: [string, ReactNode][] = [
   [
     "Apakah Zefaro benar-benar gratis?",
     <>Ya, semua fiturnya: beberapa versi PHP berdampingan, HTTPS, MariaDB, MySQL, PostgreSQL, Redis, phpMyAdmin,
-    Mailpit, Node.js, penampil log, dan DNS lokal. Tidak ada versi berbayar.</>,
+    Adminer, Mailpit, Node.js, penampil log, dan DNS lokal. Tidak ada versi berbayar.</>,
   ],
   [
     "Apakah Zefaro punya fitur AI atau cloud?",
@@ -341,9 +341,10 @@ export const SECTIONS_ID: DocSection[] = [
           Klik nama situs di halaman Situs, atau ikon kunci di sebelahnya, untuk membuka
           halamannya. Di bawah namanya, <em>Buka di</em> mendaftar editor, terminal, dan alat
           database yang ditemukan Zefaro di komputer ini (VS Code, PhpStorm, Cursor, Zed, Sublime
-          Text, Windows Terminal, Git Bash, HeidiSQL, phpMyAdmin, dan lainnya) lalu membuka folder
+          Text, Windows Terminal, Git Bash, HeidiSQL, phpMyAdmin, Adminer, dan lainnya) lalu membuka folder
           atau database situs di sana. Terminal mulai di folder situs dengan versi PHP situs di
-          urutan pertama path. Alat ini butuh proyek Laravel (folder dengan file <C>artisan</C>) yang
+          urutan pertama path; <em>Terminal Zefaro</em>, selalu paling atas di daftar, membuka tab di
+          halaman Terminal alih-alih jendela lain. Alat ini butuh proyek Laravel (folder dengan file <C>artisan</C>) yang
           dependensinya sudah terpasang. Jika <C>vendor</C> tidak ada, halaman menawarkan
           menjalankan <C>composer install</C>. Semuanya berjalan dengan versi PHP situs, atau
           versi aktif jika versi situs belum terpasang.
@@ -476,7 +477,9 @@ export const SECTIONS_ID: DocSection[] = [
             </>,
             <>
               <strong>Artisan berjalan tanpa pertanyaan</strong> (<C>--no-interaction</C>), jadi
-              perintah yang bertanya memakai nilai bawaannya. Perintah yang tidak pernah selesai,
+              perintah yang bertanya memakai nilai bawaannya. <em>Jalankan di Terminal</em> mengetik
+              perintah yang sama di tab baru halaman Terminal, di folder situs dengan PHP-nya, tempat
+              perintah itu boleh bertanya. Perintah yang tidak pernah selesai,
               seperti <C>serve</C> dan <C>queue:work</C>, tidak ada di daftar: pakai Worker untuk
               itu.
             </>,
@@ -645,7 +648,8 @@ export const SECTIONS_ID: DocSection[] = [
             <>
               <strong>+</strong> membuka terminal di folder home Anda dengan shell bawaan (PowerShell 7
               bila terpasang, selain itu Windows PowerShell). Panah di sebelahnya memilih shell lain, atau
-              sebuah situs: terminal lalu terbuka di folder situs itu dengan versi PHP situs tersebut.
+              sebuah situs: terminal lalu terbuka di folder situs itu dengan versi PHP situs tersebut. Menu{" "}
+              <em>Buka di</em> sebuah situs dan <em>Jalankan di Terminal</em> di tab Artisan juga membukanya di sini.
             </>,
             <>
               Terminal tetap berjalan saat Anda pindah halaman atau menutup jendela ke tray, dan setiap tab
@@ -693,7 +697,8 @@ export const SECTIONS_ID: DocSection[] = [
             ["DNS  ·  port 53 (UDP)", <>Menjawab pencarian <C>*.test</C> dengan alamat komputer ini.</>],
             ["MariaDB  ·  port 3306", "Server database yang kompatibel dengan MySQL."],
             ["Redis  ·  port 6379", "Cache, antrean, dan sesi."],
-            ["phpMyAdmin", <>GUI database di <C>http://phpmyadmin.test</C>.</>],
+            ["phpMyAdmin", <>GUI database untuk MariaDB di <C>http://phpmyadmin.test</C>.</>],
+            ["Adminer", <>GUI database untuk MariaDB, MySQL, dan PostgreSQL di <C>http://adminer.test</C>.</>],
             ["Mailpit  ·  1025 dan 8025", "Menangkap email keluar (SMTP di 1025, antarmuka web di 8025)."],
           ]}
         />
@@ -859,7 +864,7 @@ export const SECTIONS_ID: DocSection[] = [
     title: "Database",
     icon: "database",
     group: "Layanan",
-    summary: "MariaDB, MySQL, PostgreSQL, Redis, phpMyAdmin, serta ekspor dan impor dump besar.",
+    summary: "MariaDB, MySQL, PostgreSQL, Redis, phpMyAdmin, Adminer, serta ekspor dan impor dump besar.",
     body: () => (
       <>
         <H3>MariaDB</H3>
@@ -877,7 +882,7 @@ export const SECTIONS_ID: DocSection[] = [
           mengunduhnya (328 MB, Zefaro hanya menyimpan server dan alatnya, tanpa file debug) lalu
           membuat folder data. Di terminal, <C>mysql -P 3307</C> terhubung ke MySQL. Wizard{" "}
           <strong>Situs baru</strong> bisa membuat aplikasi di atasnya, dan halaman Database
-          mengelola database-nya. Cadangan dan phpMyAdmin hanya bekerja dengan MariaDB.
+          mengelola database-nya. Cadangan dan Adminer juga bekerja dengannya; phpMyAdmin hanya dengan MariaDB.
         </P>
         <H3>PostgreSQL</H3>
         <P>
@@ -913,6 +918,17 @@ export const SECTIONS_ID: DocSection[] = [
           Buka <C>http://phpmyadmin.test</C>. phpMyAdmin langsung memasukkan Anda sebagai root.
           Memulai phpMyAdmin juga memulai MariaDB, PHP, dan nginx; menghentikannya hanya membuat
           situs phpMyAdmin offline.
+        </P>
+        <H3>Adminer</H3>
+        <P>
+          Adminer 6.3 adalah satu file PHP untuk menjelajah MariaDB, MySQL, dan PostgreSQL sekaligus. Adminer mati
+          sampai Anda menyalakannya lewat sakelarnya di halaman Layanan; saat pertama dimulai, Zefaro mengunduhnya
+          (571 KB, dicek dengan SHA-256-nya). Buka <C>http://adminer.test</C> lalu pilih server: form login Adminer
+          terbuka dengan server dan pengguna sudah terisi, dan <em>Login</em> dengan kata sandi kosong langsung masuk.
+          Salinan Zefaro menerima kata sandi kosong, yang secara bawaan ditolak Adminer; server hanya mendengarkan di{" "}
+          <C>127.0.0.1</C>. Menu <em>Buka di</em> sebuah situs dan tombol <em>Buka di Adminer</em> di pengaturan
+          server langsung menuju server dan database yang tepat. Adminer berjalan di versi PHP aktif bila 7.4 atau
+          lebih baru, selain itu di versi terbaru yang terpasang.
         </P>
         <H3>Ekspor dan impor berukuran berapa pun</H3>
         <P>
@@ -1153,6 +1169,7 @@ export const SECTIONS_ID: DocSection[] = [
             ["data\\mailpit\\", "Email yang ditangkap Mailpit."],
             ["redis\\", "Konfigurasi Redis dan data yang disimpannya."],
             ["apps\\phpmyadmin\\", "phpMyAdmin."],
+            ["apps\\adminer\\", <>Adminer, dengan <C>index.php</C> buatan Zefaro di depannya.</>],
             ["composer\\", "Folder home Composer milik Zefaro, dengan paket global seperti Laravel installer."],
             ["certs\\", "Otoritas sertifikat Zefaro (kuncinya dienkripsi untuk akun Windows Anda) dan satu sertifikat per situs yang diamankan."],
             ["runtime\\", "Skrip bantu PHP milik Zefaro untuk alat situs."],
@@ -1309,21 +1326,23 @@ export const SECTIONS_ID: DocSection[] = [
         <H3>Cadangan dan pemulihan</H3>
         <P>
           Tab <em>Pembaruan dan cadangan</em> di Pengaturan menyimpan situs dan pengaturan Anda, serta database
-          MariaDB, ke satu berkas zip, dan memuat berkas seperti itu lagi, di komputer ini atau komputer lain.
+          MariaDB, MySQL, dan PostgreSQL, ke satu berkas zip, dan memuat berkas seperti itu lagi, di komputer ini atau komputer lain.
           Pemulihan menampilkan isi berkas lebih dulu, dan Anda memilih apa yang dimuat.
         </P>
         <Rows
           rows={[
-            ["Isi cadangan", <>Situs dan pengaturan Anda (<C>config.json</C> yang sama dengan yang disimpan Zefaro), dan satu dump SQL per database MariaDB.</>],
-            ["Yang tidak ikut", "Otoritas sertifikat HTTPS (kunci pribadinya dienkripsi untuk akun Windows Anda dan tidak bisa dibuka di tempat lain, jadi Zefaro membuat yang baru dan Anda mempercayainya lagi), database MySQL dan PostgreSQL, program unduhan, email, dan folder proyek Anda."],
-            ["Database saat pemulihan", "Dimuat ke database baru. Database yang sudah ada dilewati dan tidak pernah ditimpa; hapus dulu di halaman Database jika Anda ingin salinan dari cadangan."],
+            ["Isi cadangan", <>Situs dan pengaturan Anda (<C>config.json</C> yang sama dengan yang disimpan Zefaro), dan satu dump SQL per database dari tiap server yang terpasang: MariaDB, MySQL, dan PostgreSQL.</>],
+            ["Yang tidak ikut", "Otoritas sertifikat HTTPS (kunci pribadinya dienkripsi untuk akun Windows Anda dan tidak bisa dibuka di tempat lain, jadi Zefaro membuat yang baru dan Anda mempercayainya lagi), program unduhan, email, dan folder proyek Anda."],
+            ["Database saat pemulihan", "Tiap database kembali ke server asalnya, ke database baru. Database yang sudah ada di sana dilewati dan tidak pernah ditimpa; hapus dulu di halaman Database jika Anda ingin salinan dari cadangan."],
             ["Situs dan pengaturan saat pemulihan", <>Menggantikan yang Anda punya sekarang. Salinan <C>config.json</C> saat ini disimpan di sebelahnya sebagai <C>config.before-restore-…json</C>. Buka Pemeriksa sesudahnya: folder situs dan domain lokal bisa berbeda di komputer lain.</>],
           ]}
         />
         <P>
-          Pencadangan menyalakan MariaDB sebentar bila belum berjalan. Pemulihan database memasang MariaDB lebih dulu
-          bila belum ada. Keduanya bisa dibatalkan, dan pencadangan yang dibatalkan atau gagal tidak meninggalkan berkas
-          setengah jadi.
+          Server dipakai bergiliran: server yang belum berjalan dinyalakan untuk database-nya lalu dimatikan lagi, jadi
+          pencadangan tidak pernah meninggalkan lebih banyak server berjalan daripada sebelumnya. Pemulihan memasang
+          server lebih dulu bila berkas berisi database untuknya dan server itu belum ada. Keduanya bisa dibatalkan, dan
+          pencadangan yang dibatalkan atau gagal tidak meninggalkan berkas setengah jadi. Zefaro versi sebelum cadangan
+          MySQL dan PostgreSQL menolak berkas yang berisi database tersebut, dan menyebutkan alasannya.
         </P>
         <H3>Pembaruan</H3>
         <P>

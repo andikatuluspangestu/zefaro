@@ -28,6 +28,7 @@ import { ThemeProvider } from "@/theme";
 import { LANG_SETTINGS, LangProvider, cacheSetting, cachedSetting, resolveLang, useT, type LangSetting } from "@/i18n";
 import { common } from "@/i18n/common";
 import { toast } from "sonner";
+import { onTerminalRequest, type TerminalRequest } from "@/lib/terminal-request";
 
 export type PageId =
   | "home"
@@ -84,6 +85,16 @@ function Shell() {
   useEffect(() => {
     if (page === "terminal") setTerminalOpened(true);
   }, [page]);
+  /** The last "open in Terminal" from a site page or the Artisan tab. */
+  const [terminalRequest, setTerminalRequest] = useState<TerminalRequest | null>(null);
+  useEffect(
+    () =>
+      onTerminalRequest((r) => {
+        setTerminalRequest(r);
+        setPage("terminal");
+      }),
+    [],
+  );
   const [intent, setIntent] = useState<Intent | null>(null);
   const go = useCallback((id: PageId, next?: Intent) => {
     setIntent(next ?? null);
@@ -228,7 +239,7 @@ function Shell() {
               other pages) so each terminal keeps its screen and scrollback. */}
           {terminalOpened && (
             <div className={cn("min-h-0 flex-1", page !== "terminal" && "hidden")}>
-              <TerminalPage visible={page === "terminal"} />
+              <TerminalPage visible={page === "terminal"} request={terminalRequest} />
             </div>
           )}
         </SidebarInset>

@@ -1,12 +1,12 @@
 //! Back up and restore Zefaro (Settings page): the sites and settings, and the
-//! MariaDB databases, in one zip file. Both run as a background job with
+//! databases of MariaDB, MySQL and PostgreSQL, in one zip file. Both run as a background job with
 //! progress and cancel, polled with `backup_job` like the database export.
 
 use super::{blocking, services};
 use crate::config::{self, ZefaroConfig};
-use crate::engine::backup::{self, Contents, Step};
-use crate::engine::dbio::Client;
-use crate::engine::{mariadb, nginx, paths};
+use crate::engine::backup::{self, Contents, Servers, Step};
+use crate::engine::dbio::{Client, Engine};
+use crate::engine::{nginx, paths};
 use crate::error::{AppError, AppResult};
 use crate::model::BackupJob;
 use crate::state::AppState;
@@ -31,6 +31,7 @@ fn update(slot: &Slot, f: impl FnOnce(&mut BackupJob)) {
 fn progress(slot: &Slot, step: Step) {
     update(slot, |j| {
         j.phase = step.phase.to_owned();
+        j.server = step.server.map(|e| e.name().to_owned());
         j.current = step.name.map(str::to_owned);
         j.done = step.done;
         j.total = step.total;
@@ -52,6 +53,7 @@ fn begin(state: &AppState, kind: &str, file: &Path) -> AppResult<(Slot, Arc<std:
         state: "running".into(),
         file: file.to_string_lossy().into_owned(),
         phase: "preparing".into(),
+        server: None,
         current: None,
         done: 0,
         total: 0,
@@ -84,18 +86,47 @@ fn finish(slot: &Slot, result: AppResult<()>) {
     });
 }
 
-/// The MariaDB client, with MariaDB started if it wasn't running. The second
-/// value says whether this started it (so it can be stopped again).
-/// `None` when MariaDB isn't installed and `install` is false.
-fn mariadb_client(cfg: &ZefaroConfig, state: &AppState, install: bool) -> AppResult<Option<(Client, bool)>> {
-    if !install && !mariadb::installed(&mariadb::Layout::standard()) {
-        return Ok(None);
+/// Zefaro's own servers, for a backup or restore. A server that wasn't
+/// running is started for it and stopped again once its databases are done,
+/// so the job never leaves more running than it found.
+struct OwnServers<'a> {
+    cfg: &'a ZefaroConfig,
+    state: &'a AppState,
+    /// A restore installs a server its databases need; a backup skips one
+    /// that isn't installed.
+    install: bool,
+    started: Vec<Engine>,
+}
+
+impl Servers for OwnServers<'_> {
+    fn open(&mut self, engine: Engine) -> AppResult<Option<Client>> {
+        let client = Client::of(engine);
+        if !self.install && !client.installed() {
+            return Ok(None);
+        }
+        if !self.state.supervisor.is_running(engine.service_id()) {
+            services::start(self.cfg, &self.state.supervisor, engine.service_id())?;
+            self.started.push(engine);
+        }
+        crate::engine::dbio::wait_ready(&client, std::time::Duration::from_secs(30))?;
+        Ok(Some(client))
     }
-    let started_here = !state.supervisor.is_running(mariadb::SERVICE_ID);
-    if started_here {
-        services::start(cfg, &state.supervisor, mariadb::SERVICE_ID)?;
+
+    fn close(&mut self, engine: Engine) {
+        if let Some(i) = self.started.iter().position(|&e| e == engine) {
+            self.started.remove(i);
+            let _ = self.state.supervisor.stop(engine.service_id());
+        }
     }
-    Ok(Some((Client::standard(), started_here)))
+}
+
+impl Drop for OwnServers<'_> {
+    /// One that failed to start half-way is stopped too.
+    fn drop(&mut self) {
+        for e in std::mem::take(&mut self.started) {
+            let _ = self.state.supervisor.stop(e.service_id());
+        }
+    }
 }
 
 /// The zip's sibling folder for the dumps that are being added or loaded.
@@ -109,7 +140,8 @@ pub async fn backup_inspect(path: String) -> AppResult<Contents> {
     blocking(move || backup::inspect(Path::new(&path))).await
 }
 
-/// Make a backup at `path`; with `databases`, every MariaDB database goes in.
+/// Make a backup at `path`; with `databases`, every database of each
+/// installed server (MariaDB, MySQL, PostgreSQL) goes in.
 #[tauri::command]
 pub fn backup_start(app: AppHandle, state: State<AppState>, path: String, databases: bool) -> AppResult<()> {
     let dest = PathBuf::from(path);
@@ -117,44 +149,32 @@ pub fn backup_start(app: AppHandle, state: State<AppState>, path: String, databa
     std::thread::spawn(move || {
         let state = app.state::<AppState>();
         let cfg = state.config.lock().unwrap().clone();
-        let mut started_here = false;
         let result = (|| -> AppResult<()> {
-            let client = if databases {
-                match mariadb_client(&cfg, &state, false)? {
-                    Some((client, started)) => {
-                        started_here = started;
-                        Some(client)
-                    }
-                    None => {
-                        update(&slot, |j| {
-                            j.message = Some(crate::tr!(
-                                "MariaDB isn't installed, so no databases were included.".to_owned(),
-                                "MariaDB belum terpasang, jadi tidak ada database yang disertakan.".to_owned()
-                            ));
-                        });
-                        None
-                    }
-                }
-            } else {
-                None
-            };
-            let manifest = backup::create(&cfg, client.as_ref(), &dest, &scratch(), &cancel, |s| progress(&slot, s))?;
+            let mut servers = OwnServers { cfg: &cfg, state: &state, install: false, started: Vec::new() };
+            let none_installed = backup::ENGINES.iter().all(|&e| !Client::of(e).installed());
+            if databases && none_installed {
+                update(&slot, |j| {
+                    j.message = Some(crate::tr!(
+                        "No database server is installed, so no databases were included.".to_owned(),
+                        "Belum ada server database yang terpasang, jadi tidak ada database yang disertakan.".to_owned()
+                    ));
+                });
+            }
+            let with: Option<&mut dyn Servers> = if databases && !none_installed { Some(&mut servers) } else { None };
+            let manifest = backup::create(&cfg, with, &dest, &scratch(), &cancel, |s| progress(&slot, s))?;
             update(&slot, |j| {
                 j.size = std::fs::metadata(&dest).ok().map(|m| m.len());
-                j.loaded = manifest.databases.clone();
+                j.loaded = manifest.labels();
             });
             Ok(())
         })();
-        if started_here {
-            let _ = state.supervisor.stop(mariadb::SERVICE_ID);
-        }
         finish(&slot, result);
     });
     Ok(())
 }
 
-/// Restore from the backup at `path`: the databases (never over one that
-/// exists) and/or the sites and settings.
+/// Restore from the backup at `path`: the databases, each into its own
+/// server (never over one that exists), and/or the sites and settings.
 #[tauri::command]
 pub fn restore_start(app: AppHandle, state: State<AppState>, path: String, settings: bool, databases: bool) -> AppResult<()> {
     let src = PathBuf::from(path);
@@ -164,13 +184,11 @@ pub fn restore_start(app: AppHandle, state: State<AppState>, path: String, setti
     std::thread::spawn(move || {
         let state = app.state::<AppState>();
         let cfg = state.config.lock().unwrap().clone();
-        let mut started_here = false;
         let result = (|| -> AppResult<()> {
             // Databases first: if one fails or is cancelled, the settings stay as they were.
             if databases && !contents.databases.is_empty() {
-                let (client, started) = mariadb_client(&cfg, &state, true)?.expect("installs when missing");
-                started_here = started;
-                let restored = backup::restore_databases(&src, &client, &scratch(), &cancel, |s| progress(&slot, s))?;
+                let mut servers = OwnServers { cfg: &cfg, state: &state, install: true, started: Vec::new() };
+                let restored = backup::restore_databases(&src, &mut servers, &scratch(), &cancel, |s| progress(&slot, s))?;
                 update(&slot, |j| {
                     j.loaded = restored.loaded;
                     j.skipped = restored.skipped;
@@ -180,7 +198,7 @@ pub fn restore_start(app: AppHandle, state: State<AppState>, path: String, setti
                 if cancel.load(Ordering::Relaxed) {
                     return Err(crate::engine::dbio::cancelled());
                 }
-                progress(&slot, Step { phase: "settings", name: None, done: 0, total: 0 });
+                progress(&slot, Step { phase: "settings", server: None, name: None, done: 0, total: 0 });
                 let restored = backup::read_settings(&src)?;
                 apply_settings(&state, restored)?;
                 let secured = state.config.lock().unwrap().sites.iter().any(|s| s.secured);
@@ -191,9 +209,6 @@ pub fn restore_start(app: AppHandle, state: State<AppState>, path: String, setti
             }
             Ok(())
         })();
-        if started_here {
-            let _ = state.supervisor.stop(mariadb::SERVICE_ID);
-        }
         finish(&slot, result);
     });
     Ok(())

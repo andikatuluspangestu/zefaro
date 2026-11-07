@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 import { api } from "@/api";
 import type { DbEngine, DbServerView, DbTuning } from "@/types";
@@ -50,6 +51,7 @@ const messages = defineMessages({
     title: (server: string) => `${server} settings`,
     description: "Memory, connections, write speed and the slow query log for this server.",
     manage: "Manage databases",
+    adminer: "Open in Adminer",
     notInstalled: "Not installed",
     connection: "Connection",
     connectionHint: "Fixed, so every site and tool finds the server where Zefaro said it is.",
@@ -106,6 +108,7 @@ const messages = defineMessages({
     title: (server: string) => `Pengaturan ${server}`,
     description: "Memori, koneksi, kecepatan tulis, dan log query lambat untuk server ini.",
     manage: "Kelola database",
+    adminer: "Buka di Adminer",
     notInstalled: "Belum terpasang",
     connection: "Koneksi",
     connectionHint: "Tetap, supaya setiap situs dan alat menemukan server di tempat yang disebut Zefaro.",
@@ -253,6 +256,12 @@ export function DbServerSettingsPage({
               <Badge variant="outline" className={cn(view.running && "border-success/40 text-success")}>
                 {view.running ? c.running : view.installed ? c.stopped : t.notInstalled}
               </Badge>
+              {view.adminerUrl && (
+                <Button size="sm" variant="outline" onClick={() => openUrl(view.adminerUrl!).catch((e) => toast.error(String(e)))}>
+                  <Icon name="table-list" />
+                  {t.adminer}
+                </Button>
+              )}
               <Button size="sm" variant="outline" onClick={onManage}>
                 <Icon name="database" />
                 {t.manage}

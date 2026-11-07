@@ -6,7 +6,7 @@
 use super::{blocking, services};
 use crate::config::{self, DbTuning, ZefaroConfig};
 use crate::engine::dbio::Engine;
-use crate::engine::{mariadb, mysql, postgres};
+use crate::engine::{adminer, mariadb, mysql, postgres};
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use serde::Serialize;
@@ -50,6 +50,8 @@ pub struct DbServerView {
     pub log_path: String,
     /// Where slow queries go (MariaDB, MySQL); PostgreSQL writes them to its log.
     pub slow_log_path: Option<String>,
+    /// Adminer at this server, when Zefaro serves Adminer.
+    pub adminer_url: Option<String>,
 }
 
 fn tuning(cfg: &ZefaroConfig, engine: Engine) -> &DbTuning {
@@ -73,7 +75,14 @@ fn defaults(engine: Engine) -> DbTuning {
 }
 
 fn view(state: &AppState, engine: Engine) -> DbServerView {
-    let settings = tuning(&state.config.lock().unwrap(), engine).clone();
+    let (settings, adminer_url) = {
+        let cfg = state.config.lock().unwrap();
+        let url = (cfg.adminer && adminer::installed_at(&adminer::dir()))
+            .then(|| adminer::server_for(engine == Engine::PostgreSql, engine.port()))
+            .flatten()
+            .map(|s| adminer::database_url(&cfg.url_for(&format!("{}.{}", adminer::HOST, cfg.tld), false), s, ""));
+        (tuning(&cfg, engine).clone(), url)
+    };
     let running = state.supervisor.is_running(engine.service_id());
     let s = |p: PathBuf| p.display().to_string();
     let (version, installed, config_path, log_path, slow_log_path) = match engine {
@@ -102,6 +111,7 @@ fn view(state: &AppState, engine: Engine) -> DbServerView {
         config_path,
         log_path,
         slow_log_path,
+        adminer_url,
     }
 }
 

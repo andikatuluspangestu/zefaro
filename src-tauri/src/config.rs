@@ -229,6 +229,8 @@ pub struct ZefaroConfig {
     pub php: PhpConfig,
     /// Serve phpMyAdmin at phpmyadmin.<tld>.
     pub phpmyadmin: bool,
+    /// Serve Adminer at adminer.<tld>.
+    pub adminer: bool,
     pub nginx: NginxConfig,
     /// Active Node.js major line (e.g. "24"); empty until one is installed.
     pub node_default: String,
@@ -282,6 +284,7 @@ impl Default for ZefaroConfig {
             default_php: "8.3".into(),
             php: PhpConfig::default(),
             phpmyadmin: false,
+            adminer: false,
             nginx: NginxConfig::default(),
             node_default: String::new(),
             mailpit: MailpitConfig::default(),

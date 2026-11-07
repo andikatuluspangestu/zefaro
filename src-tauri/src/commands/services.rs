@@ -3,7 +3,7 @@
 use super::blocking;
 use crate::config::{self, ZefaroConfig};
 use crate::engine::supervisor::{self, Health, Supervisor};
-use crate::engine::{dns, mailpit, mariadb, mysql, nginx, node, paths, php, phpmyadmin, postgres, redis, shims};
+use crate::engine::{adminer, dns, mailpit, mariadb, mysql, nginx, node, paths, php, phpmyadmin, postgres, redis, shims};
 use crate::error::{AppError, AppResult};
 use crate::model::Service;
 use crate::state::AppState;
@@ -119,6 +119,49 @@ fn phpmyadmin_service(cfg: &ZefaroConfig, sup: &Supervisor) -> Service {
             .filter(|(id, _)| sup.status(id).health != Health::Running)
             .map(|(_, name)| name)
             .collect(),
+        };
+        if missing.is_empty() {
+            s.status = "running".into();
+        } else {
+            s.status = "error".into();
+            s.error = Some(crate::tr!(
+                format!("Needs {} running.", missing.join(", ")),
+                format!("{} harus berjalan.", missing.join(", "))
+            ));
+        }
+    }
+    s
+}
+
+/// Adminer, like phpMyAdmin, is "running" when enabled and nginx and its PHP
+/// line are running. It doesn't need a database server of its own: it lists
+/// all three and opens whichever is up.
+fn adminer_service(cfg: &ZefaroConfig, sup: &Supervisor) -> Service {
+    let line = adminer::pick_php(&cfg.default_php, &installed_php_lines());
+    let detail = match &line {
+        Some(l) => crate::tr!(
+            format!("Adminer {} · PHP {l} · MariaDB, MySQL and PostgreSQL", adminer::VERSION),
+            format!("Adminer {} · PHP {l} · MariaDB, MySQL, dan PostgreSQL", adminer::VERSION)
+        ),
+        None => crate::tr!(format!("Adminer {} · needs PHP 7.4 or later", adminer::VERSION), format!("Adminer {} · perlu PHP 7.4 atau lebih baru", adminer::VERSION)),
+    };
+    let mut s = base(adminer::SERVICE_ID, "Adminer".into(), "database", None, detail);
+    s.needs_install = !adminer::installed_at(&adminer::dir());
+    if s.needs_install {
+        s.detail = Some(crate::tr!(
+            format!("Adminer {} · {} KB download · MariaDB, MySQL and PostgreSQL", adminer::VERSION, adminer::DOWNLOAD_KB),
+            format!("Adminer {} · unduhan {} KB · MariaDB, MySQL, dan PostgreSQL", adminer::VERSION, adminer::DOWNLOAD_KB)
+        ));
+    }
+    s.url = Some(cfg.url_for(&format!("{}.{}", adminer::HOST, cfg.tld), false));
+    if cfg.adminer {
+        let missing: Vec<String> = match &line {
+            None => vec![crate::tr!("PHP 7.4 or later (Services → Install PHP)", "PHP 7.4 atau lebih baru (Layanan → Instal PHP)").to_string()],
+            Some(l) => [(nginx::SERVICE_ID.to_string(), "nginx".to_string()), (php::service_id(l), format!("PHP {l}"))]
+                .into_iter()
+                .filter(|(id, _)| sup.status(id).health != Health::Running)
+                .map(|(_, name)| name)
+                .collect(),
         };
         if missing.is_empty() {
             s.status = "running".into();
@@ -289,6 +332,7 @@ pub fn list(cfg: &ZefaroConfig, sup: &Supervisor, dns_rule: Option<bool>) -> Vec
     ));
 
     out.push(phpmyadmin_service(cfg, sup));
+    out.push(adminer_service(cfg, sup));
 
     let mp = mailpit::Layout::standard(&cfg.mailpit);
     let mp_installed = mailpit::installed(&mp);
@@ -451,6 +495,19 @@ fn start_inner(cfg: &ZefaroConfig, sup: &Supervisor, id: &str) -> AppResult<()> 
             start(cfg, sup, nginx::SERVICE_ID)?;
             nginx::sync(cfg, sup)?;
         }
+        adminer::SERVICE_ID => {
+            let line = adminer::pick_php(&cfg.default_php, &installed_php_lines()).ok_or_else(|| {
+                AppError::msg(crate::tr!(
+                    format!("Adminer {} needs PHP 7.4 or later. Install one from Services → Install PHP.", adminer::VERSION),
+                    format!("Adminer {} perlu PHP 7.4 atau lebih baru. Instal dari Layanan → Instal PHP.", adminer::VERSION)
+                ))
+            })?;
+            adminer::prepare(&adminer::dir())?;
+            start(cfg, sup, &php::service_id(&line))?;
+            // Starts nginx with the Adminer site, or reloads it if running.
+            start(cfg, sup, nginx::SERVICE_ID)?;
+            nginx::sync(cfg, sup)?;
+        }
         _ => {
             if let Some(minor) = id.strip_prefix("php-") {
                 if !php::is_installed(minor) {
@@ -484,15 +541,20 @@ pub fn refresh_php(cfg: &ZefaroConfig, sup: &Supervisor) -> AppResult<()> {
     nginx::sync(cfg, sup)
 }
 
-/// Turn phpMyAdmin's site on or off in the saved config; returns the snapshot.
-fn set_phpmyadmin(state: &AppState, enabled: bool) -> AppResult<ZefaroConfig> {
+/// Turn phpMyAdmin's or Adminer's site on or off in the saved config;
+/// returns the snapshot. None for every other service.
+fn set_web_tool(state: &AppState, id: &str, enabled: bool) -> AppResult<Option<ZefaroConfig>> {
     let snapshot = {
         let mut cfg = state.config.lock().unwrap();
-        cfg.phpmyadmin = enabled;
+        match id {
+            phpmyadmin::SERVICE_ID => cfg.phpmyadmin = enabled,
+            adminer::SERVICE_ID => cfg.adminer = enabled,
+            _ => return Ok(None),
+        }
         cfg.clone()
     };
     config::save(&snapshot)?;
-    Ok(snapshot)
+    Ok(Some(snapshot))
 }
 
 #[tauri::command]
@@ -504,17 +566,15 @@ pub fn list_services(state: State<AppState>) -> AppResult<Vec<Service>> {
 
 #[tauri::command]
 pub async fn start_service(state: State<'_, AppState>, id: String) -> AppResult<()> {
-    let enabling = id == phpmyadmin::SERVICE_ID;
-    let cfg = if enabling {
-        set_phpmyadmin(&state, true)?
-    } else {
-        state.config.lock().unwrap().clone()
-    };
+    let enabled = set_web_tool(&state, &id, true)?;
+    let enabling = enabled.is_some();
+    let cfg = enabled.unwrap_or_else(|| state.config.lock().unwrap().clone());
     let sup = state.supervisor.clone();
+    let tool = id.clone();
     let result = blocking(move || start(&cfg, &sup, &id)).await;
     if enabling && result.is_err() {
         // Don't leave a half-enabled site behind (e.g. no supported PHP).
-        set_phpmyadmin(&state, false)?;
+        set_web_tool(&state, &tool, false)?;
     }
     result
 }
@@ -522,9 +582,8 @@ pub async fn start_service(state: State<'_, AppState>, id: String) -> AppResult<
 #[tauri::command]
 pub async fn stop_service(state: State<'_, AppState>, id: String) -> AppResult<()> {
     let sup = state.supervisor.clone();
-    if id == phpmyadmin::SERVICE_ID {
-        // Just drop its site; nginx, PHP and MariaDB keep serving everything else.
-        let cfg = set_phpmyadmin(&state, false)?;
+    if let Some(cfg) = set_web_tool(&state, &id, false)? {
+        // Just drop its site; nginx, PHP and the databases keep serving everything else.
         return blocking(move || nginx::sync(&cfg, &sup)).await;
     }
     if id == nginx::SERVICE_ID {

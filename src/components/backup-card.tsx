@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { api } from "@/api";
-import type { BackupContents, BackupJob } from "@/types";
+import type { BackupContents, BackupDb, BackupJob } from "@/types";
 import { Icon } from "@/components/icon";
 import { SettingGroup, SettingRow } from "@/components/settings-layout";
 import {
@@ -24,13 +24,21 @@ import { common } from "@/i18n/common";
 
 const POLL_MS = 500;
 
+/** The servers a backup can hold databases of, in the order it lists them. */
+const SERVERS: [BackupDb["engine"], string][] = [
+  ["mariadb", "MariaDB"],
+  ["mysql", "MySQL"],
+  ["postgresql", "PostgreSQL"],
+];
+
 const messages = defineMessages({
   en: {
     title: "Backup",
     backupTitle: "Back up",
     backupHint: "Sites and settings in one zip. HTTPS certificates stay out.",
-    withDatabases: "Include MariaDB databases",
-    withDatabasesHint: "Starts MariaDB briefly if needed. MySQL and PostgreSQL aren't included.",
+    withDatabases: "Include databases",
+    withDatabasesHint:
+      "Every database of MariaDB, MySQL and PostgreSQL, whichever are installed. A server that isn't running starts for its turn and stops again.",
     backUp: "Back up…",
     restoreTitle: "Restore",
     restoreHint: "From a Zefaro backup, made here or on another computer.",
@@ -44,7 +52,7 @@ const messages = defineMessages({
     settingsHint: "Replaces your current sites and settings. A copy of today's config.json is kept next to it.",
     databasesItem: (n: number) => `Databases (${n})`,
     databasesHint:
-      "A database that already exists here is skipped, never overwritten. If MariaDB isn't installed, Zefaro downloads it first.",
+      "Each goes back to its own server. A database that already exists there is skipped, never overwritten. A server that isn't installed is downloaded first.",
     noDatabases: "This backup has no databases.",
     cancel: "Cancel",
     doRestore: "Restore",
@@ -72,8 +80,9 @@ const messages = defineMessages({
     title: "Cadangan",
     backupTitle: "Cadangkan",
     backupHint: "Situs dan pengaturan dalam satu zip. Sertifikat HTTPS tidak ikut.",
-    withDatabases: "Sertakan database MariaDB",
-    withDatabasesHint: "MariaDB dinyalakan sebentar bila perlu. MySQL dan PostgreSQL tidak ikut.",
+    withDatabases: "Sertakan database",
+    withDatabasesHint:
+      "Semua database MariaDB, MySQL, dan PostgreSQL yang terpasang. Server yang belum berjalan dinyalakan saat gilirannya, lalu dimatikan lagi.",
     backUp: "Cadangkan…",
     restoreTitle: "Pulihkan",
     restoreHint: "Dari cadangan Zefaro, dibuat di sini atau di komputer lain.",
@@ -87,7 +96,7 @@ const messages = defineMessages({
     settingsHint: "Menggantikan situs dan pengaturan Anda sekarang. Salinan config.json hari ini disimpan di sebelahnya.",
     databasesItem: (n: number) => `Database (${n})`,
     databasesHint:
-      "Database yang sudah ada di sini dilewati, tidak pernah ditimpa. Jika MariaDB belum terpasang, Zefaro mengunduhnya dulu.",
+      "Tiap database kembali ke servernya sendiri. Database yang sudah ada di sana dilewati, tidak pernah ditimpa. Server yang belum terpasang diunduh dulu.",
     noDatabases: "Cadangan ini tidak berisi database.",
     cancel: "Batal",
     doRestore: "Pulihkan",
@@ -216,7 +225,8 @@ export function BackupGroup() {
     if (j.phase === "settings") return t.savingSettings;
     if (j.phase === "finishing") return t.finishing;
     if (j.phase === "database" && j.current) {
-      return `${j.kind === "backup" ? t.dumping : t.loading}: ${t.onDatabase(j.current, j.done + 1, j.total)}`;
+      const db = j.server ? `${j.server} · ${j.current}` : j.current;
+      return `${j.kind === "backup" ? t.dumping : t.loading}: ${t.onDatabase(db, j.done + 1, j.total)}`;
     }
     return t.preparing;
   };
@@ -339,11 +349,19 @@ export function BackupGroup() {
                     <label className="flex items-start justify-between gap-3">
                       <span>
                         <span className="text-foreground">{t.databasesItem(contents.databases.length)}</span>
-                        <span className="block text-xs">
-                          {contents.databases.length === 0
-                            ? t.noDatabases
-                            : contents.databases.map((d) => `${d.name} (${size(d.bytes, lang)})`).join(", ")}
-                        </span>
+                        {contents.databases.length === 0 ? (
+                          <span className="block text-xs">{t.noDatabases}</span>
+                        ) : (
+                          SERVERS.filter(([engine]) => contents.databases.some((d) => d.engine === engine)).map(([engine, name]) => (
+                            <span key={engine} className="block text-xs">
+                              <span className="text-foreground">{name}:</span>{" "}
+                              {contents.databases
+                                .filter((d) => d.engine === engine)
+                                .map((d) => `${d.name} (${size(d.bytes, lang)})`)
+                                .join(", ")}
+                            </span>
+                          ))
+                        )}
                         {contents.databases.length > 0 && <span className="block text-xs">{t.databasesHint}</span>}
                       </span>
                       <Switch

@@ -221,18 +221,29 @@ fn env_pairs(project: &Path) -> Vec<(String, String)> {
         .unwrap_or_default()
 }
 
+/// The Zefaro server (and database name) a site's .env points at, when it's
+/// one of the three on this computer.
+fn adminer_server(db: &Option<apps::Database>) -> Option<(&'static crate::engine::adminer::Server, String)> {
+    let local = |h: &str| matches!(h, "127.0.0.1" | "localhost");
+    match db {
+        Some(apps::Database::Mysql { host, port, name, .. }) if local(host) => crate::engine::adminer::server_for(false, *port).map(|s| (s, name.clone())),
+        Some(apps::Database::Postgres { host, port, name, .. }) if local(host) => crate::engine::adminer::server_for(true, *port).map(|s| (s, name.clone())),
+        _ => None,
+    }
+}
+
 /// Where the site can be opened: editors and terminals found on this
 /// computer, database tools that fit its .env, and phpMyAdmin when Zefaro
 /// serves it.
 fn open_targets(state: &AppState, name: &str) -> AppResult<(PathBuf, Option<apps::Database>, Vec<apps::ExternalApp>)> {
-    let (project, phpmyadmin) = {
+    let (project, phpmyadmin, adminer) = {
         let cfg = state.config.lock().unwrap();
         let site = cfg
             .sites
             .iter()
             .find(|s| s.name == name)
             .ok_or_else(|| AppError::msg(crate::tr!("That site no longer exists.", "Situs itu sudah tidak ada.")))?;
-        (PathBuf::from(&site.path), cfg.phpmyadmin)
+        (PathBuf::from(&site.path), cfg.phpmyadmin, cfg.adminer && crate::engine::adminer::installed_at(&crate::engine::adminer::dir()))
     };
     let db = apps::database(&project, &env_pairs(&project));
     let mut list: Vec<apps::ExternalApp> = apps::detect()
@@ -246,6 +257,10 @@ fn open_targets(state: &AppState, name: &str) -> AppResult<(PathBuf, Option<apps
     // phpMyAdmin signs in to MariaDB only.
     if phpmyadmin && matches!(db, Some(apps::Database::Mysql { port, .. }) if port == mariadb::PORT) {
         list.push(apps::ExternalApp { id: "phpmyadmin".into(), name: "phpMyAdmin".into(), kind: "database".into(), exe: PathBuf::new() });
+    }
+    // Adminer opens any of Zefaro's three servers.
+    if adminer && adminer_server(&db).is_some() {
+        list.push(apps::ExternalApp { id: "adminer".into(), name: "Adminer".into(), kind: "database".into(), exe: PathBuf::new() });
     }
     list.push(apps::ExternalApp { id: "explorer".into(), name: "File Explorer".into(), kind: "folder".into(), exe: PathBuf::new() });
     Ok((project, db, list))
@@ -269,6 +284,16 @@ pub fn site_open(name: String, target: String, app: tauri::AppHandle, state: Sta
     };
     match chosen.id.as_str() {
         "explorer" => app.opener().open_path(project.display().to_string(), None::<&str>).map_err(opener_error),
+        "adminer" => {
+            let base = {
+                let cfg = state.config.lock().unwrap();
+                cfg.url_for(&format!("{}.{}", crate::engine::adminer::HOST, cfg.tld), false)
+            };
+            let (server, db_name) = adminer_server(&db).ok_or_else(|| {
+                AppError::msg(crate::tr!("This site's database isn't on one of Zefaro's servers.", "Database situs ini tidak ada di salah satu server Zefaro."))
+            })?;
+            app.opener().open_url(crate::engine::adminer::database_url(&base, server, &db_name), None::<&str>).map_err(opener_error)
+        }
         "phpmyadmin" => {
             let url = {
                 let cfg = state.config.lock().unwrap();

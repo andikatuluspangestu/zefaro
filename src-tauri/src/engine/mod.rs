@@ -6,6 +6,7 @@
 //! DNS rule through a UAC prompt, trusting the CA through Windows' own
 //! certificate confirmation dialog.
 
+pub mod adminer;
 pub mod applog;
 pub mod apps;
 pub mod archive;

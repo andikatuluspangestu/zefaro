@@ -64,7 +64,7 @@ const FAQ: [string, ReactNode][] = [
   [
     "Is Zefaro really free?",
     <>Yes, every feature: several PHP versions side by side, HTTPS, MariaDB, MySQL, PostgreSQL, Redis, phpMyAdmin,
-    Mailpit, Node.js, a log viewer and local DNS. There is no paid tier.</>,
+    Adminer, Mailpit, Node.js, a log viewer and local DNS. There is no paid tier.</>,
   ],
   [
     "Does Zefaro include AI or cloud features?",
@@ -390,8 +390,9 @@ export const SECTIONS: DocSection[] = [
           Click a site's name on the Sites page, or the wrench next to it, to open its page. Under
           its name, <em>Open in</em> lists the editors, terminals and database tools Zefaro found on
           this computer (VS Code, PhpStorm, Cursor, Zed, Sublime Text, Windows Terminal, Git
-          Bash, HeidiSQL, phpMyAdmin and others) and opens the site's folder or database in them.
-          Terminals start in the site's folder with its PHP version first on the path. The
+          Bash, HeidiSQL, phpMyAdmin, Adminer and others) and opens the site's folder or database in them.
+          Terminals start in the site's folder with its PHP version first on the path; <em>Zefaro Terminal</em>,
+          always first in the list, opens a tab on the Terminal page instead of another window. The
           tools need a Laravel project (a folder with an <C>artisan</C> file) whose dependencies
           are installed. If <C>vendor</C> is missing, the page offers to run{" "}
           <C>composer install</C>. Everything runs with the site's PHP version, or the active one
@@ -517,7 +518,9 @@ export const SECTIONS: DocSection[] = [
             </>,
             <>
               <strong>Artisan runs without prompts</strong> (<C>--no-interaction</C>), so a
-              command that asks questions uses its defaults. Commands that never end, such as{" "}
+              command that asks questions uses its defaults. <em>Run in Terminal</em> types the same
+              command into a new tab on the Terminal page, in the site's folder with its PHP, where it
+              can ask. Commands that never end, such as{" "}
               <C>serve</C> and <C>queue:work</C>, are left out of the list: use Workers for them.
             </>,
             <>
@@ -682,7 +685,8 @@ export const SECTIONS: DocSection[] = [
             <>
               <strong>+</strong> opens a terminal in your home folder with the default shell (PowerShell 7
               when it is installed, otherwise Windows PowerShell). The arrow beside it picks another shell,
-              or a site: the terminal then opens in the site's folder with the site's PHP version.
+              or a site: the terminal then opens in the site's folder with the site's PHP version. A site's{" "}
+              <em>Open in</em> menu and the Artisan tab's <em>Run in Terminal</em> open one here too.
             </>,
             <>
               Terminals keep running when you switch pages or close the window to the tray, and each tab
@@ -729,7 +733,8 @@ export const SECTIONS: DocSection[] = [
             ["DNS  ·  port 53 (UDP)", <>Answers <C>*.test</C> lookups with this computer.</>],
             ["MariaDB  ·  port 3306", "MySQL-compatible database server."],
             ["Redis  ·  port 6379", "Cache, queues and sessions."],
-            ["phpMyAdmin", <>Database GUI at <C>http://phpmyadmin.test</C>.</>],
+            ["phpMyAdmin", <>Database GUI for MariaDB at <C>http://phpmyadmin.test</C>.</>],
+            ["Adminer", <>Database GUI for MariaDB, MySQL and PostgreSQL at <C>http://adminer.test</C>.</>],
             ["Mailpit  ·  1025 and 8025", "Catches outgoing mail (SMTP on 1025, web UI on 8025)."],
           ]}
         />
@@ -886,7 +891,7 @@ export const SECTIONS: DocSection[] = [
     title: "Databases",
     icon: "database",
     group: "Services",
-    summary: "MariaDB, MySQL, PostgreSQL, Redis, phpMyAdmin, and export and import of large dumps.",
+    summary: "MariaDB, MySQL, PostgreSQL, Redis, phpMyAdmin, Adminer, and export and import of large dumps.",
     body: () => (
       <>
         <H3>MariaDB</H3>
@@ -902,8 +907,7 @@ export const SECTIONS: DocSection[] = [
           <C>DB_PORT=3307</C>. The first start downloads it (328 MB, of which Zefaro keeps the server
           and its tools, without debug files) and creates the data folder. In a terminal,{" "}
           <C>mysql -P 3307</C> connects to it. The <strong>New site</strong> wizard can create an app
-          on it, and the Databases page manages its databases. Backups and phpMyAdmin work with
-          MariaDB only.
+          on it, and the Databases page, backups and Adminer work with it. phpMyAdmin works with MariaDB only.
         </P>
         <H3>PostgreSQL</H3>
         <P>
@@ -938,6 +942,16 @@ export const SECTIONS: DocSection[] = [
           Open <C>http://phpmyadmin.test</C>. phpMyAdmin signs you in as root. Starting
           phpMyAdmin also starts MariaDB, PHP and nginx; stopping it only takes the phpMyAdmin
           site offline.
+        </P>
+        <H3>Adminer</H3>
+        <P>
+          Adminer 6.3 is one PHP file that browses MariaDB, MySQL and PostgreSQL alike. It is off until you turn it
+          on with its switch on the Services page; the first start downloads it (571 KB, checked against its SHA-256).
+          Open <C>http://adminer.test</C> and pick a server: Adminer's login form opens with the server and user filled
+          in, and <em>Login</em> with an empty password signs you in. Zefaro's copy accepts the empty password, which
+          Adminer refuses by default; the servers only listen on <C>127.0.0.1</C>. A site's <em>Open in</em> menu and
+          the <em>Open in Adminer</em> button on a server's settings go straight to the right server and database. It
+          runs on the active PHP version if it is 7.4 or later, otherwise on the newest installed one.
         </P>
         <H3>Export and import of any size</H3>
         <P>
@@ -1169,6 +1183,7 @@ export const SECTIONS: DocSection[] = [
             ["data\\mailpit\\", "Mail that Mailpit caught."],
             ["redis\\", "Redis configuration and its saved data."],
             ["apps\\phpmyadmin\\", "phpMyAdmin."],
+            ["apps\\adminer\\", <>Adminer, with Zefaro's <C>index.php</C> in front of it.</>],
             ["composer\\", "Zefaro's Composer home, with global packages such as the Laravel installer."],
             ["certs\\", "Zefaro's certificate authority (its key encrypted for your Windows account) and one certificate per secured site."],
             ["runtime\\", "Zefaro's PHP helper for the site tools."],
@@ -1323,21 +1338,23 @@ export const SECTIONS: DocSection[] = [
         />
         <H3>Back up and restore</H3>
         <P>
-          The <em>Updates and backup</em> tab of Settings saves your sites and settings, and your MariaDB databases, into
+          The <em>Updates and backup</em> tab of Settings saves your sites and settings, and your MariaDB, MySQL and PostgreSQL databases, into
           one zip file, and loads such a file again, on this computer or another one. A restore shows what is in the
           file first, and you choose what to load.
         </P>
         <Rows
           rows={[
-            ["In the backup", <>Your sites and settings (the same <C>config.json</C> Zefaro keeps), and one SQL dump per MariaDB database.</>],
-            ["Left out", "The HTTPS certificate authority (its private key is encrypted for your Windows account and can't be opened elsewhere, so Zefaro makes a new one and you trust it again), MySQL and PostgreSQL databases, downloaded programs, mail and your project folders."],
-            ["Databases on restore", "Loaded into new databases. One that already exists is skipped and never overwritten; drop it on the Databases page first if you want the backup's copy."],
+            ["In the backup", <>Your sites and settings (the same <C>config.json</C> Zefaro keeps), and one SQL dump per database of each installed server: MariaDB, MySQL and PostgreSQL.</>],
+            ["Left out", "The HTTPS certificate authority (its private key is encrypted for your Windows account and can't be opened elsewhere, so Zefaro makes a new one and you trust it again), downloaded programs, mail and your project folders."],
+            ["Databases on restore", "Each goes back to the server it came from, into a new database. One that already exists there is skipped and never overwritten; drop it on the Databases page first if you want the backup's copy."],
             ["Sites and settings on restore", <>Replace what you have now. A copy of the current <C>config.json</C> is kept next to it as <C>config.before-restore-…json</C>. Open Diagnostics afterwards: site folders and the local domain may differ on another computer.</>],
           ]}
         />
         <P>
-          Backing up starts MariaDB for a moment if it isn't running. Restoring databases installs MariaDB first if it
-          isn't there yet. Both can be cancelled, and a cancelled or failed backup leaves no half-written file.
+          The servers take turns: one that isn't running starts for its databases and stops again, so a backup never
+          leaves more running than it found. Restoring installs a server first if the file has databases for it and it
+          isn't there yet. Both can be cancelled, and a cancelled or failed backup leaves no half-written file. Zefaro
+          versions from before MySQL and PostgreSQL backups refuse a file that has them, and say why.
         </P>
         <H3>Updates</H3>
         <P>

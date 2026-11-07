@@ -356,6 +356,20 @@ pub fn size_of(c: &Client, name: &str) -> AppResult<u64> {
     Ok(list(c)?.into_iter().find(|d| d.name == name).map(|d| d.size).unwrap_or(0))
 }
 
+/// Wait until the server answers queries, for at most `timeout`. Its port
+/// opens a moment before that (PostgreSQL answers "the database system is
+/// starting up"), so a job that has just started a server waits here first.
+pub fn wait_ready(c: &Client, timeout: std::time::Duration) -> AppResult<()> {
+    let start = std::time::Instant::now();
+    loop {
+        match c.query("SELECT 1") {
+            Ok(_) => return Ok(()),
+            Err(_) if start.elapsed() < timeout => std::thread::sleep(std::time::Duration::from_millis(250)),
+            Err(e) => return Err(e),
+        }
+    }
+}
+
 pub fn cancelled() -> AppError {
     AppError::msg(crate::tr!("Cancelled.", "Dibatalkan."))
 }
