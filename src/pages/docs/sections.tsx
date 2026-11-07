@@ -364,8 +364,11 @@ export const SECTIONS: DocSection[] = [
               <C>about:config</C>.
             </>,
             <>
-              <strong>curl</strong> built into Windows needs <C>--ssl-no-revoke</C> for{" "}
-              <C>.test</C> sites, because a local CA publishes no revocation list.
+              <strong>curl</strong> built into Windows, and PowerShell, check whether a
+              certificate was revoked. Each site certificate names Zefaro's revocation list (signed,
+              and empty), which nginx serves on <C>127.0.0.1</C>, so they work without{" "}
+              <C>--ssl-no-revoke</C>. Certificates made by older versions are issued again the next
+              time nginx starts.
             </>,
             <>
               <strong>PHP calling another secured site</strong> (with Guzzle or Laravel's HTTP
@@ -494,7 +497,15 @@ export const SECTIONS: DocSection[] = [
           your router. Zefaro asks first and explains what it means; the first time, it downloads{" "}
           <C>cloudflared</C> (53 MB) from Cloudflare's GitHub releases and checks it against its
           SHA-256. A banner shows the address with <em>Stop sharing</em>, and the top bar shows how
-          many sites are public. Sharing ends when you stop it, stop nginx, or quit Zefaro.
+          many sites are public.
+        </P>
+        <P>
+          Before sharing you choose how long: 30 minutes, an hour (the default), four hours, or until
+          you stop it. <em>Ask for a password</em> is on by default: visitors sign in as{" "}
+          <C>zefaro</C> with a password Zefaro makes up, which you can change and which the banner
+          shows. Turn it off for webhooks, since the services that call your site can't sign in. If
+          the site's <C>.env</C> has <C>APP_DEBUG=true</C>, the dialog says so and turns it off with
+          one click. Sharing also ends when you stop nginx or quit Zefaro.
         </P>
         <P>
           Zefaro serves the shared site on a port of its own and tells the app the public address
@@ -733,6 +744,8 @@ export const SECTIONS: DocSection[] = [
             ["DNS  ·  port 53 (UDP)", <>Answers <C>*.test</C> lookups with this computer.</>],
             ["MariaDB  ·  port 3306", "MySQL-compatible database server."],
             ["Redis  ·  port 6379", "Cache, queues and sessions."],
+            ["Meilisearch  ·  port 7700", "Search engine for Laravel Scout."],
+            ["RustFS  ·  ports 9000, 9001", "S3-compatible storage for the s3 disk, with a web console."],
             ["phpMyAdmin", <>Database GUI for MariaDB at <C>http://phpmyadmin.test</C>.</>],
             ["Adminer", <>Database GUI for MariaDB, MySQL and PostgreSQL at <C>http://adminer.test</C>.</>],
             ["Mailpit  ·  1025 and 8025", "Catches outgoing mail (SMTP on 1025, web UI on 8025)."],
@@ -919,6 +932,8 @@ export const SECTIONS: DocSection[] = [
           <C>psql</C>, <C>pg_dump</C>, <C>pg_restore</C>, <C>createdb</C> and <C>dropdb</C> connect to
           it without options. The <strong>New site</strong> wizard can create an app on it, and the
           site page's Data tab, Tinker and the Databases page work with it as with MariaDB.
+          PostgreSQL refuses to run with administrator rights, so when Zefaro itself runs as
+          administrator it starts PostgreSQL without them.
         </P>
         <H3>Server settings</H3>
         <P>
@@ -926,8 +941,11 @@ export const SECTIONS: DocSection[] = [
           caches data in (InnoDB's buffer pool, or <C>shared_buffers</C> and <C>work_mem</C>), the most
           connections, the largest packet, <em>Fast writes</em> (flush the log about once a second instead of
           at every commit; on by default for MariaDB and MySQL), the slow query log with its threshold, and
-          extra <C>name = value</C> lines. The address stays <C>127.0.0.1</C> on the server's own port; extra
-          lines that would change the port, the folders or the bind address are refused. Saving restarts a
+          extra <C>name = value</C> lines. The address stays <C>127.0.0.1</C>; the port (3306, 3307 and 5432 by
+          default) can be changed there when another database already uses it. Zefaro's command line
+          clients, phpMyAdmin, Adminer, backups and new sites follow it; existing sites need{" "}
+          <C>DB_PORT</C> changed in their <C>.env</C>. Extra lines that would change the port, the folders or
+          the bind address are refused. Saving restarts a
           running server, and if it won't start with the new settings Zefaro puts the old ones back and shows
           the server's reason. The page also shows the data folder and the generated <C>my.ini</C>, and{" "}
           <em>Manage databases</em> opens the Databases page.
@@ -942,6 +960,29 @@ export const SECTIONS: DocSection[] = [
           Open <C>http://phpmyadmin.test</C>. phpMyAdmin signs you in as root. Starting
           phpMyAdmin also starts MariaDB, PHP and nginx; stopping it only takes the phpMyAdmin
           site offline.
+        </P>
+        <H3>Meilisearch</H3>
+        <P>
+          Meilisearch {"1.56"} is the search engine Laravel Scout talks to. It listens on{" "}
+          <C>127.0.0.1:7700</C> in development mode, without a key and without usage analytics, and keeps
+          its index in Zefaro's data folder. The first start downloads it (337 MB) and checks it against
+          its SHA-256. Set <C>SCOUT_DRIVER=meilisearch</C>, <C>MEILISEARCH_HOST=http://127.0.0.1:7700</C>{" "}
+          and an empty <C>MEILISEARCH_KEY</C>.
+        </P>
+        <H3>RustFS (S3 storage)</H3>
+        <P>
+          RustFS {"1.0"} gives Laravel's <C>s3</C> disk somewhere to put files without a cloud account. The
+          S3 API listens on <C>127.0.0.1:9000</C> and its web console, for buckets and files, is at{" "}
+          <C>http://127.0.0.1:9001/rustfs/console/</C> (the Open button on its card); both take access key <C>zefaro</C> and secret <C>zefaro-secret</C>. Create a
+          bucket in the console, then point the app at it:
+        </P>
+        <CodeBlock
+          label=".env"
+          code={"FILESYSTEM_DISK=s3\nAWS_ACCESS_KEY_ID=zefaro\nAWS_SECRET_ACCESS_KEY=zefaro-secret\nAWS_DEFAULT_REGION=us-east-1\nAWS_BUCKET=local\nAWS_ENDPOINT=http://127.0.0.1:9000\nAWS_URL=http://127.0.0.1:9000/local\nAWS_USE_PATH_STYLE_ENDPOINT=true"}
+        />
+        <P>
+          Laravel needs the <C>league/flysystem-aws-s3-v3</C> package for the <C>s3</C> disk. RustFS takes
+          MinIO's place: MinIO stopped publishing its free builds in 2025.
         </P>
         <H3>Adminer</H3>
         <P>
@@ -998,8 +1039,9 @@ export const SECTIONS: DocSection[] = [
               format (<C>pg_dump -Fc</C>), loaded with <C>pg_restore</C>. Zefaro leaves out a
               dump's <C>\connect</C>, <C>CREATE DATABASE</C>, <C>OWNER TO</C>, <C>GRANT</C> and{" "}
               <C>REVOKE</C> lines, which name the database and roles of the server the dump came
-              from. A <C>pg_dumpall</C> dump of a whole server isn't accepted: make one with{" "}
-              <C>pg_dump</C> per database.
+              from. From a <C>pg_dumpall</C> dump of a whole server you pick one database, as
+              with a MySQL dump of several; its roles, tablespaces and the other databases are
+              left out.
             </>,
             <>
               Zefaro checks which kind of server made a dump, and refuses a MySQL or MariaDB dump

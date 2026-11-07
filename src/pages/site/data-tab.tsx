@@ -25,6 +25,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { defineMessages, useT } from "@/i18n";
 import { common } from "@/i18n/common";
 import { Masked, copyText, isSecretKey } from "./shared";
+import { Snapshots } from "./snapshots";
 import type { Cell, Overview, RowFilter, RowsRequest, RowsResponse, TableInfo } from "./types";
 
 const messages = defineMessages({
@@ -258,8 +259,19 @@ export function DataTab({
   );
 
   if (tables === null) return <Skeleton className="h-72 w-full" />;
+  const snapshots = (
+    <Snapshots
+      site={site}
+      onRestored={() => {
+        loadTables();
+        load();
+      }}
+    />
+  );
   if (error)
     return (
+      <>
+      {snapshots}
       <IconAlert
         icon="database"
         className="border-warning/40 text-warning *:data-[slot=alert-description]:text-muted-foreground"
@@ -272,10 +284,19 @@ export function DataTab({
       >
         <span className="font-mono text-xs break-words whitespace-pre-wrap">{error}</span>
       </IconAlert>
+      </>
     );
-  if (tables.length === 0) return <p className="text-sm text-muted-foreground">{t.noTables}</p>;
+  if (tables.length === 0)
+    return (
+      <>
+        {snapshots}
+        <p className="text-sm text-muted-foreground">{t.noTables}</p>
+      </>
+    );
 
   return (
+    <>
+    {snapshots}
     <div className="grid gap-4 lg:grid-cols-[13rem_minmax(0,1fr)]">
       <Card className="h-fit gap-0 py-0">
         <div className="border-b p-2">
@@ -522,6 +543,7 @@ export function DataTab({
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </>
   );
 }
 

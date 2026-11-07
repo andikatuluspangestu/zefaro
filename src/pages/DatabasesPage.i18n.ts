@@ -91,7 +91,7 @@ export const messages = defineMessages({
     importFile: (file: string) => `Import ${file}`,
     importAccepts: (pg: boolean): string =>
       pg
-        ? "Accepts pg_dump SQL (.sql or .sql.gz) and pg_dump's custom format. Ownership and grants are left out."
+        ? "Accepts pg_dump SQL (.sql or .sql.gz), pg_dump's custom format, and pg_dumpall dumps, one database at a time. Ownership, grants and roles are left out."
         : "Accepts plain .sql or gzip-compressed dumps from Zefaro, mariadb-dump, mysqldump or phpMyAdmin.",
     customFormat: "A pg_dump archive in its custom format. Zefaro loads it with pg_restore.",
     scanning: "Reading the dump to see which databases it holds…",
@@ -200,7 +200,7 @@ export const messages = defineMessages({
     importFile: (file: string) => `Impor ${file}`,
     importAccepts: (pg: boolean) =>
       pg
-        ? "Menerima SQL dari pg_dump (.sql atau .sql.gz) dan format custom pg_dump. Kepemilikan dan hak akses tidak ikut diimpor."
+        ? "Menerima SQL dari pg_dump (.sql atau .sql.gz), format custom pg_dump, dan dump pg_dumpall, satu database sekali jalan. Kepemilikan, hak akses, dan role tidak ikut diimpor."
         : "Menerima dump .sql biasa atau terkompresi gzip dari Zefaro, mariadb-dump, mysqldump, atau phpMyAdmin.",
     customFormat: "Arsip pg_dump dalam format custom. Zefaro memuatnya dengan pg_restore.",
     scanning: "Membaca dump untuk melihat database apa saja di dalamnya…",

@@ -4,6 +4,46 @@ All notable changes to Zefaro are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Zefaro uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Database ports can be changed.** The settings page of MariaDB, MySQL and PostgreSQL has a Port field (3306,
+  3307 and 5432 by default), for when another database already uses one. Zefaro refuses a port another of its
+  services uses or another program is listening on. Its command line clients, phpMyAdmin, Adminer, backups and
+  new sites follow the new port; after saving, Zefaro reminds you to change `DB_PORT` in the sites that use it.
+- **Safer sharing.** Before sharing a site you pick how long it stays public (30 minutes, an hour, four hours,
+  or until stopped), and a password is asked of visitors by default (user `zefaro`, a password Zefaro makes up
+  and the banner shows). The dialog warns when the site's `.env` has `APP_DEBUG=true` and turns it off with one
+  click.
+- **pg_dumpall dumps.** The Databases page imports one database out of a whole-server `pg_dumpall` dump, picked
+  from a list like a MySQL dump of several; its roles, tablespaces and other databases are left out.
+- **Database snapshots.** The Data tab of a site takes a snapshot of its database (MariaDB, MySQL, PostgreSQL or
+  SQLite) in one click, with an optional note, and restores it later. Snapshots are kept in Zefaro's own folder.
+- **Tests tab.** A site's page runs its Pest or PHPUnit tests with the site's PHP, with live output and Stop,
+  then lists every test from the runner's report: failures with their message and Open in editor (VS Code or
+  PhpStorm at the failing line), a filter, and Run failed.
+- **Requests panel while sharing.** Every request that reaches a shared site is listed with its headers, body
+  and answer, and can be sent again: handy for payment webhooks. The share password is never shown.
+- **Open on a phone.** A site can be opened from a phone or tablet on the same Wi-Fi for 15 minutes to two hours:
+  nginx serves it on this computer's network address, to private networks only, and the app hears that address.
+- **Meilisearch.** A Meilisearch service for Laravel Scout, on `127.0.0.1:7700` without a key or analytics,
+  downloaded on first start and checked against its SHA-256.
+- **RustFS (S3 storage).** An S3-compatible storage service for Laravel's `s3` disk without a cloud account: the
+  API on `127.0.0.1:9000` and a web console for buckets and files on `127.0.0.1:9001`, with local keys
+  (`zefaro` / `zefaro-secret`). Downloaded on first start and checked against its SHA-256. It takes MinIO's
+  place, which stopped publishing free builds in 2025.
+- **PHP limits per site.** The Configuration tab gives a site its own upload size, memory limit and input vars,
+  written to its `.user.ini` (kept out of Git commits); other sites keep their PHP version's.
+
+### Fixed
+
+- **PostgreSQL starts when Zefaro runs as administrator.** PostgreSQL refuses administrator rights, so Zefaro
+  now starts it without them, the way `pg_ctl` does.
+- **Windows' curl and PowerShell trust secured sites without `--ssl-no-revoke`.** Site certificates name a
+  revocation list (signed by Zefaro's CA, and empty) that nginx serves on `127.0.0.1`. Certificates made by
+  older versions are issued again the next time nginx starts.
+
 ## [1.6.0] - 2026-11-07
 
 ### Added

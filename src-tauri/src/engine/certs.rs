@@ -15,9 +15,9 @@
 
 use crate::error::{AppError, AppResult};
 use rcgen::{
-    BasicConstraints, CertificateParams, CidrSubnet, DistinguishedName, DnType,
-    ExtendedKeyUsagePurpose, GeneralSubtree, IsCa, Issuer, KeyPair, KeyUsagePurpose,
-    NameConstraints, SerialNumber,
+    BasicConstraints, CertificateParams, CertificateRevocationListParams, CidrSubnet, CrlDistributionPoint,
+    DistinguishedName, DnType, ExtendedKeyUsagePurpose, GeneralSubtree, IsCa, Issuer, KeyIdMethod, KeyPair,
+    KeyUsagePurpose, NameConstraints, SerialNumber,
 };
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -61,10 +61,30 @@ impl Layout {
     fn ca_meta(&self) -> PathBuf {
         self.ca_dir().join("ca.json")
     }
+    /// The CA's revocation list (DER): empty and signed, served by nginx.
+    pub fn crl(&self) -> PathBuf {
+        self.ca_dir().join("zefaro-ca.crl")
+    }
     fn sites_dir(&self) -> PathBuf {
         self.root.join("sites")
     }
+    /// The revocation list address a site's certificate was issued with.
+    fn site_crl_url(&self, host: &str) -> PathBuf {
+        self.sites_dir().join(format!("{host}.crl-url"))
+    }
 }
+
+/// Where a site certificate says its revocation list is: nginx's default
+/// server on 127.0.0.1, so no name has to resolve. Windows' own TLS (curl,
+/// PowerShell, .NET) fetches it to finish its revocation check, which fails
+/// for a certificate that names no list at all.
+pub fn crl_url(http_port: u16) -> String {
+    format!("http://127.0.0.1:{http_port}/zefaro-ca.crl")
+}
+
+/// How long a revocation list is valid; it is rewritten well before that.
+const CRL_DAYS: i64 = 90;
+const CRL_RENEW_AFTER: Duration = Duration::from_secs(30 * 24 * 3600);
 
 /// Facts about the CA kept next to it, so status checks needn't parse X.509.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -196,7 +216,33 @@ fn ca_key(l: &Layout) -> AppResult<KeyPair> {
     KeyPair::from_pem(&pem).map_err(rc)
 }
 
-fn issue_site(l: &Layout, meta: &CaMeta, host: &str) -> AppResult<SiteFiles> {
+/// Write the CA's revocation list (it revokes nothing) when it's missing,
+/// older than the CA, or a month old.
+pub fn ensure_crl(l: &Layout, meta: &CaMeta) -> AppResult<()> {
+    let fresh = match (modified(&l.crl()), modified(&l.ca_cert())) {
+        (Some(crl), Some(ca)) => crl >= ca && crl.elapsed().map(|age| age < CRL_RENEW_AFTER).unwrap_or(false),
+        _ => false,
+    };
+    if fresh {
+        return Ok(());
+    }
+    let key = ca_key(l)?;
+    let issuer = Issuer::new(ca_params(&meta.tld), &key);
+    let now = OffsetDateTime::now_utc();
+    let params = CertificateRevocationListParams {
+        this_update: now - time::Duration::days(1),
+        next_update: now + time::Duration::days(CRL_DAYS),
+        crl_number: random_serial()?,
+        issuing_distribution_point: None,
+        revoked_certs: Vec::new(),
+        key_identifier_method: KeyIdMethod::Sha256,
+    };
+    let crl = params.signed_by(&issuer).map_err(rc)?;
+    fs::write(l.crl(), crl.der().as_ref())?;
+    Ok(())
+}
+
+fn issue_site(l: &Layout, meta: &CaMeta, host: &str, crl_url: &str) -> AppResult<SiteFiles> {
     if !(host == meta.tld || host.ends_with(&format!(".{}", meta.tld))) {
         return Err(AppError::msg(crate::tr!(
             format!("{host} isn't under .{}.", meta.tld),
@@ -219,12 +265,14 @@ fn issue_site(l: &Layout, meta: &CaMeta, host: &str) -> AppResult<SiteFiles> {
     params.not_before = now - time::Duration::days(1);
     params.not_after = now + time::Duration::days(SITE_DAYS);
     params.serial_number = Some(random_serial()?);
+    params.crl_distribution_points = vec![CrlDistributionPoint { uris: vec![crl_url.to_owned()] }];
     let cert = params.signed_by(&key, &issuer).map_err(rc)?;
 
     let files = site_files(l, host);
     fs::create_dir_all(l.sites_dir())?;
     fs::write(&files.key, key.serialize_pem())?;
     fs::write(&files.cert, cert.pem())?;
+    fs::write(l.site_crl_url(host), crl_url)?;
     Ok(files)
 }
 
@@ -233,9 +281,12 @@ fn modified(p: &Path) -> Option<SystemTime> {
 }
 
 /// The certificate for `host` (e.g. `blog.test`), issued when missing, older
-/// than the CA, or due for renewal.
-pub fn ensure_site(l: &Layout, tld: &str, host: &str) -> AppResult<SiteFiles> {
+/// than the CA, due for renewal, or naming another revocation list address
+/// (nginx moved to another port, or it predates revocation lists). The CA's
+/// revocation list is kept current with it.
+pub fn ensure_site(l: &Layout, tld: &str, host: &str, crl_url: &str) -> AppResult<SiteFiles> {
     let meta = ensure_ca(l, tld)?;
+    ensure_crl(l, &meta)?;
     let files = site_files(l, host);
     let fresh = match (modified(&files.cert), modified(&files.key), modified(&l.ca_cert())) {
         (Some(cert), Some(_), Some(ca)) => {
@@ -243,10 +294,11 @@ pub fn ensure_site(l: &Layout, tld: &str, host: &str) -> AppResult<SiteFiles> {
         }
         _ => false,
     };
-    if fresh {
+    let same_list = fs::read_to_string(l.site_crl_url(host)).is_ok_and(|u| u == crl_url);
+    if fresh && same_list {
         Ok(files)
     } else {
-        issue_site(l, &meta, host)
+        issue_site(l, &meta, host, crl_url)
     }
 }
 
@@ -255,6 +307,7 @@ pub fn remove_site(l: &Layout, host: &str) {
     let files = site_files(l, host);
     let _ = fs::remove_file(files.cert);
     let _ = fs::remove_file(files.key);
+    let _ = fs::remove_file(l.site_crl_url(host));
 }
 
 fn ca_der(l: &Layout) -> AppResult<Vec<u8>> {
@@ -507,16 +560,28 @@ mod tests {
         assert_eq!(ensure_ca(&l, "test").unwrap(), ca);
         assert_eq!(thumbprint(&ca_der(&l).unwrap()), ca.thumbprint);
 
-        let files = ensure_site(&l, "test", "blog.test").unwrap();
+        let url = crl_url(80);
+        assert_eq!(url, "http://127.0.0.1:80/zefaro-ca.crl");
+        let files = ensure_site(&l, "test", "blog.test", &url).unwrap();
         let pem = fs::read_to_string(&files.cert).unwrap();
         assert!(pem.starts_with("-----BEGIN CERTIFICATE-----"));
         assert!(fs::read_to_string(&files.key).unwrap().contains("PRIVATE KEY"));
+        let der = |pem: &str| base64_decode(&pem.lines().filter(|l| !l.starts_with("-----")).collect::<String>()).unwrap();
+        let has = |hay: &[u8], needle: &str| hay.windows(needle.len()).any(|w| w == needle.as_bytes());
+        assert!(has(&der(&pem), &url), "the certificate names its revocation list");
+        // The list itself: DER, signed by the CA.
+        let crl = fs::read(l.crl()).unwrap();
+        assert_eq!(crl.first(), Some(&0x30), "a DER SEQUENCE");
         // Fresh certificates are kept, not re-issued.
         let before = modified(&files.cert);
-        ensure_site(&l, "test", "blog.test").unwrap();
+        ensure_site(&l, "test", "blog.test", &url).unwrap();
         assert_eq!(modified(&files.cert), before);
+        // nginx on another port: the certificate is issued again for the new address.
+        std::thread::sleep(Duration::from_millis(20));
+        ensure_site(&l, "test", "blog.test", &crl_url(8080)).unwrap();
+        assert!(has(&der(&fs::read_to_string(&files.cert).unwrap()), "http://127.0.0.1:8080/zefaro-ca.crl"));
 
-        assert!(issue_site(&l, &ca, "example.com").is_err());
+        assert!(issue_site(&l, &ca, "example.com", &url).is_err());
         remove_site(&l, "blog.test");
         assert!(!files.cert.exists());
 
@@ -533,7 +598,7 @@ mod tests {
     fn dump_for_openssl() {
         let l = Layout::at(PathBuf::from(std::env::var("ZEFARO_CERT_DUMP").unwrap()));
         let meta = ensure_ca(&l, "test").unwrap();
-        ensure_site(&l, "test", "blog.test").unwrap();
+        ensure_site(&l, "test", "blog.test", &crl_url(80)).unwrap();
         // Bypass issue_site's own check to prove the constraint holds anyway.
         let key = KeyPair::generate().unwrap();
         let mut p = CertificateParams::new(vec!["www.google.com".to_owned()]).unwrap();

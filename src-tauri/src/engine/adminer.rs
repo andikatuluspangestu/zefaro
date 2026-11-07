@@ -43,6 +43,7 @@ pub fn pick_php(active: &str, installed: &[String]) -> Option<String> {
 }
 
 /// One of Zefaro's servers, as Adminer's URL names it.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Server {
     pub name: &'static str,
     /// Adminer's driver key in the URL: `server` (MySQL and MariaDB) or `pgsql`.
@@ -50,11 +51,14 @@ pub struct Server {
     pub port: u16,
 }
 
-pub const SERVERS: [Server; 3] = [
-    Server { name: "MariaDB", driver: "server", port: mariadb::PORT },
-    Server { name: "MySQL", driver: "server", port: mysql::PORT },
-    Server { name: "PostgreSQL", driver: "pgsql", port: postgres::PORT },
-];
+/// Zefaro's servers on the ports their settings name.
+pub fn servers() -> [Server; 3] {
+    [
+        Server { name: "MariaDB", driver: "server", port: mariadb::port() },
+        Server { name: "MySQL", driver: "server", port: mysql::port() },
+        Server { name: "PostgreSQL", driver: "pgsql", port: postgres::port() },
+    ]
+}
 
 /// The query that opens Adminer's login form filled in for a server.
 pub fn query(server: &Server) -> String {
@@ -63,8 +67,8 @@ pub fn query(server: &Server) -> String {
 }
 
 /// The Zefaro server a site's database is on, by its port.
-pub fn server_for(postgres: bool, port: u16) -> Option<&'static Server> {
-    SERVERS.iter().find(|s| (s.driver == "pgsql") == postgres && s.port == port)
+pub fn server_for(postgres: bool, port: u16) -> Option<Server> {
+    servers().into_iter().find(|s| (s.driver == "pgsql") == postgres && s.port == port)
 }
 
 /// Adminer at one database: `base` is `http://adminer.test`.
@@ -79,7 +83,7 @@ pub fn database_url(base: &str, server: &Server, db: &str) -> String {
 
 /// Zefaro's index.php: the server list when opened bare, Adminer otherwise.
 pub fn render_index() -> String {
-    let rows: String = SERVERS
+    let rows: String = servers()
         .iter()
         .map(|s| {
             format!(
@@ -204,9 +208,9 @@ mod tests {
     #[test]
     fn site_links_open_the_right_server_and_database() {
         let mysql = server_for(false, 3307).unwrap();
-        assert_eq!(database_url("http://adminer.test", mysql, "shop"), "http://adminer.test/?server=127.0.0.1:3307&username=root&db=shop");
+        assert_eq!(database_url("http://adminer.test", &mysql, "shop"), "http://adminer.test/?server=127.0.0.1:3307&username=root&db=shop");
         let pg = server_for(true, 5432).unwrap();
-        assert!(database_url("http://adminer.test", pg, "blog").starts_with("http://adminer.test/?pgsql=127.0.0.1:5432&username="));
+        assert!(database_url("http://adminer.test", &pg, "blog").starts_with("http://adminer.test/?pgsql=127.0.0.1:5432&username="));
         assert!(server_for(false, 5432).is_none() && server_for(true, 3306).is_none() && server_for(false, 3310).is_none());
     }
 

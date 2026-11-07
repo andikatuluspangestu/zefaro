@@ -315,8 +315,11 @@ export const SECTIONS_ID: DocSection[] = [
               <C>true</C> di <C>about:config</C>.
             </>,
             <>
-              <strong>curl</strong> bawaan Windows butuh <C>--ssl-no-revoke</C> untuk situs{" "}
-              <C>.test</C>, karena CA lokal tidak menerbitkan daftar pencabutan.
+              <strong>curl</strong> bawaan Windows, juga PowerShell, memeriksa apakah sertifikat
+              sudah dicabut. Setiap sertifikat situs menyebut daftar pencabutan milik Zefaro
+              (ditandatangani, dan kosong) yang disajikan nginx di <C>127.0.0.1</C>, jadi keduanya
+              berjalan tanpa <C>--ssl-no-revoke</C>. Sertifikat dari versi lama diterbitkan ulang saat
+              nginx dimulai berikutnya.
             </>,
             <>
               <strong>PHP yang memanggil situs aman lain</strong> (misalnya dengan Guzzle atau HTTP
@@ -450,8 +453,15 @@ export const SECTIONS_ID: DocSection[] = [
           router. Zefaro bertanya dulu dan menjelaskan artinya; saat pertama kali, Zefaro mengunduh{" "}
           <C>cloudflared</C> (53 MB) dari rilis Cloudflare di GitHub dan memeriksanya dengan
           SHA-256-nya. Banner menampilkan alamatnya beserta <em>Berhenti berbagi</em>, dan bilah atas
-          menunjukkan berapa situs yang sedang publik. Berbagi berakhir saat Anda menghentikannya,
-          menghentikan nginx, atau menutup Zefaro.
+          menunjukkan berapa situs yang sedang publik.
+        </P>
+        <P>
+          Sebelum berbagi, Anda memilih lamanya: 30 menit, 1 jam (bawaan), 4 jam, atau sampai Anda
+          menghentikannya. <em>Minta password</em> aktif secara bawaan: pengunjung masuk sebagai{" "}
+          <C>zefaro</C> dengan password buatan Zefaro, yang bisa Anda ubah dan ditampilkan di banner.
+          Matikan untuk webhook, karena layanan yang memanggil situs Anda tidak bisa login. Bila{" "}
+          <C>.env</C> situs berisi <C>APP_DEBUG=true</C>, dialog memberi tahu dan mematikannya dengan
+          satu klik. Berbagi juga berakhir saat Anda menghentikan nginx atau menutup Zefaro.
         </P>
         <P>
           Zefaro menyajikan situs yang dibagikan di port tersendiri dan memberi tahu aplikasi alamat
@@ -697,6 +707,8 @@ export const SECTIONS_ID: DocSection[] = [
             ["DNS  ·  port 53 (UDP)", <>Menjawab pencarian <C>*.test</C> dengan alamat komputer ini.</>],
             ["MariaDB  ·  port 3306", "Server database yang kompatibel dengan MySQL."],
             ["Redis  ·  port 6379", "Cache, antrean, dan sesi."],
+            ["Meilisearch  ·  port 7700", "Mesin pencari untuk Laravel Scout."],
+            ["RustFS  ·  port 9000, 9001", "Penyimpanan S3-compatible untuk disk s3, dengan konsol web."],
             ["phpMyAdmin", <>GUI database untuk MariaDB di <C>http://phpmyadmin.test</C>.</>],
             ["Adminer", <>GUI database untuk MariaDB, MySQL, dan PostgreSQL di <C>http://adminer.test</C>.</>],
             ["Mailpit  ·  1025 dan 8025", "Menangkap email keluar (SMTP di 1025, antarmuka web di 8025)."],
@@ -895,6 +907,8 @@ export const SECTIONS_ID: DocSection[] = [
           <C>pg_dump</C>, <C>pg_restore</C>, <C>createdb</C>, dan <C>dropdb</C> langsung
           tersambung tanpa opsi. Wizard <strong>Situs baru</strong> bisa membuat aplikasi di atasnya,
           dan tab Data, Tinker, serta halaman Database bekerja dengannya seperti dengan MariaDB.
+          PostgreSQL menolak berjalan dengan hak administrator, jadi saat Zefaro sendiri berjalan
+          sebagai administrator, Zefaro memulai PostgreSQL tanpa hak itu.
         </P>
         <H3>Pengaturan server</H3>
         <P>
@@ -902,8 +916,11 @@ export const SECTIONS_ID: DocSection[] = [
           data (buffer pool InnoDB, atau <C>shared_buffers</C> dan <C>work_mem</C>), batas koneksi, paket
           terbesar, <em>Tulis cepat</em> (menyimpan log ke disk sekitar sekali per detik, bukan di setiap
           commit; aktif secara bawaan untuk MariaDB dan MySQL), log query lambat beserta ambangnya, dan baris
-          tambahan <C>nama = nilai</C>. Alamatnya tetap <C>127.0.0.1</C> di port server itu sendiri; baris
-          tambahan yang mengubah port, folder, atau bind address ditolak. Menyimpan me-restart server yang
+          tambahan <C>nama = nilai</C>. Alamatnya tetap <C>127.0.0.1</C>; port-nya (bawaan 3306, 3307, dan
+          5432) bisa diubah di sana bila sudah dipakai database lain. Klien command line, phpMyAdmin,
+          Adminer, pencadangan, dan situs baru milik Zefaro ikut port itu; situs yang sudah ada perlu
+          diubah <C>DB_PORT</C>-nya di <C>.env</C>. Baris tambahan yang mengubah port, folder, atau bind
+          address ditolak. Menyimpan me-restart server yang
           sedang berjalan, dan bila server tidak mau berjalan dengan pengaturan baru, Zefaro mengembalikan
           pengaturan lama dan menampilkan alasan dari server. Halaman ini juga menampilkan folder data dan{" "}
           <C>my.ini</C> yang dibuat, dan <em>Kelola database</em> membuka halaman Database.
@@ -918,6 +935,29 @@ export const SECTIONS_ID: DocSection[] = [
           Buka <C>http://phpmyadmin.test</C>. phpMyAdmin langsung memasukkan Anda sebagai root.
           Memulai phpMyAdmin juga memulai MariaDB, PHP, dan nginx; menghentikannya hanya membuat
           situs phpMyAdmin offline.
+        </P>
+        <H3>Meilisearch</H3>
+        <P>
+          Meilisearch {"1.56"} adalah mesin pencari yang dipakai Laravel Scout. Mendengarkan di{" "}
+          <C>127.0.0.1:7700</C> dalam mode development, tanpa key dan tanpa analitik pemakaian, dan
+          menyimpan indeksnya di folder data Zefaro. Saat pertama dimulai, Zefaro mengunduhnya (337 MB)
+          dan memeriksanya dengan SHA-256-nya. Isi <C>SCOUT_DRIVER=meilisearch</C>,{" "}
+          <C>MEILISEARCH_HOST=http://127.0.0.1:7700</C>, dan <C>MEILISEARCH_KEY</C> kosong.
+        </P>
+        <H3>RustFS (penyimpanan S3)</H3>
+        <P>
+          RustFS {"1.0"} memberi disk <C>s3</C> Laravel tempat menyimpan file tanpa akun cloud. API S3
+          mendengarkan di <C>127.0.0.1:9000</C> dan konsol webnya, untuk bucket dan file, ada di{" "}
+          <C>http://127.0.0.1:9001/rustfs/console/</C> (tombol Buka di kartunya); keduanya memakai access key <C>zefaro</C> dan secret{" "}
+          <C>zefaro-secret</C>. Buat bucket di konsol, lalu arahkan aplikasi ke sana:
+        </P>
+        <CodeBlock
+          label=".env"
+          code={"FILESYSTEM_DISK=s3\nAWS_ACCESS_KEY_ID=zefaro\nAWS_SECRET_ACCESS_KEY=zefaro-secret\nAWS_DEFAULT_REGION=us-east-1\nAWS_BUCKET=local\nAWS_ENDPOINT=http://127.0.0.1:9000\nAWS_URL=http://127.0.0.1:9000/local\nAWS_USE_PATH_STYLE_ENDPOINT=true"}
+        />
+        <P>
+          Laravel butuh paket <C>league/flysystem-aws-s3-v3</C> untuk disk <C>s3</C>. RustFS menggantikan
+          MinIO, yang berhenti merilis build gratisnya pada 2025.
         </P>
         <H3>Adminer</H3>
         <P>
@@ -978,8 +1018,9 @@ export const SECTIONS_ID: DocSection[] = [
               dan format custom pg_dump (<C>pg_dump -Fc</C>), yang dimuat dengan{" "}
               <C>pg_restore</C>. Zefaro melewati baris <C>\connect</C>, <C>CREATE DATABASE</C>,{" "}
               <C>OWNER TO</C>, <C>GRANT</C>, dan <C>REVOKE</C> dari dump, karena baris itu menyebut
-              database dan role milik server asal dump. Dump <C>pg_dumpall</C> berisi seluruh server
-              tidak diterima: buat dump dengan <C>pg_dump</C> per database.
+              database dan role milik server asal dump. Dari dump <C>pg_dumpall</C> berisi seluruh
+              server, Anda memilih satu database, sama seperti dump MySQL berisi beberapa database;
+              role, tablespace, dan database lainnya tidak ikut diimpor.
             </>,
             <>
               Zefaro memeriksa jenis server yang membuat dump, lalu menolak dump MySQL atau MariaDB

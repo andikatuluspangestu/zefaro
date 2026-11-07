@@ -118,10 +118,10 @@ fn validate(s: &MailpitConfig, cfg: &ZefaroConfig) -> AppResult<()> {
     let taken: Vec<(u16, &str)> = vec![
         (cfg.nginx.http_port, "nginx (HTTP)"),
         (cfg.nginx.https_port, "nginx (HTTPS)"),
-        (mariadb::PORT, "MariaDB"),
-        (crate::engine::mysql::PORT, "MySQL"),
+        (mariadb::port(), "MariaDB"),
+        (crate::engine::mysql::port(), "MySQL"),
         (redis::PORT, "Redis"),
-        (crate::engine::postgres::PORT, "PostgreSQL"),
+        (crate::engine::postgres::port(), "PostgreSQL"),
         (crate::engine::dns::PORT, "DNS"),
     ];
     for port in [s.smtp_port, s.ui_port] {
@@ -217,7 +217,7 @@ mod tests {
     fn settings_avoid_other_services() {
         let cfg = ZefaroConfig::default();
         assert!(validate(&MailpitConfig::default(), &cfg).is_ok());
-        let clash = MailpitConfig { smtp_port: mariadb::PORT, ..MailpitConfig::default() };
+        let clash = MailpitConfig { smtp_port: mariadb::port(), ..MailpitConfig::default() };
         assert!(validate(&clash, &cfg).unwrap_err().to_string().contains("MariaDB"));
         let same = MailpitConfig { smtp_port: 2525, ui_port: 2525, ..MailpitConfig::default() };
         assert!(validate(&same, &cfg).is_err());

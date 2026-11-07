@@ -27,14 +27,17 @@ import { ConfigTab } from "./config-tab";
 import { TinkerTab } from "./tinker-tab";
 import { ArtisanTab } from "./artisan-tab";
 import { WorkersTab } from "./workers-tab";
+import { TestsTab } from "./tests-tab";
 import { LogsTab } from "./logs-tab";
 import { PackagesTab } from "./packages-tab";
 import { ShareBanner, ShareButton, useShare } from "./share";
+import { SharedRequests } from "./shared-requests";
+import { PhoneBanner, PhoneButton, usePhone } from "./phone";
 import { OpenBar } from "./open-bar";
 import { PhpSelect } from "./php-select";
 import type { Overview, SiteInfo } from "./types";
 
-export type SiteTab = "overview" | "data" | "config" | "packages" | "logs" | "tinker" | "artisan" | "workers";
+export type SiteTab = "overview" | "data" | "config" | "packages" | "logs" | "tinker" | "artisan" | "tests" | "workers";
 
 const TAB_ICON: Record<SiteTab, string> = {
   overview: "gauge-high",
@@ -44,6 +47,7 @@ const TAB_ICON: Record<SiteTab, string> = {
   logs: "scroll",
   tinker: "terminal",
   artisan: "wand-magic-sparkles",
+  tests: "vial-circle-check",
   workers: "gears",
 };
 
@@ -64,6 +68,7 @@ const messages = defineMessages({
       logs: "Logs",
       tinker: "Tinker",
       artisan: "Artisan",
+      tests: "Tests",
       workers: "Workers",
     },
     notLaravel: {
@@ -105,6 +110,7 @@ const messages = defineMessages({
       logs: "Log",
       tinker: "Tinker",
       artisan: "Artisan",
+      tests: "Test",
       workers: "Worker",
     },
     notLaravel: {
@@ -146,6 +152,7 @@ export function SitePage({ name, onBack }: { name: string; onBack: () => void })
   const [installJob, setInstallJob] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const share = useShare(name);
+  const phone = usePhone(name);
 
   const loadInfo = useCallback(() => api.siteInfo(name).then(setInfo).catch((e) => toast.error(String(e))), [name]);
 
@@ -283,6 +290,7 @@ export function SitePage({ name, onBack }: { name: string; onBack: () => void })
               {t.openInBrowser}
             </Button>
             <OpenBar site={name} className="flex-1 sm:flex-none" />
+            <PhoneButton site={name} phone={phone} />
             <ShareButton site={name} share={share} />
             <Tooltip>
               <TooltipTrigger asChild>
@@ -332,7 +340,9 @@ export function SitePage({ name, onBack }: { name: string; onBack: () => void })
         </div>
       </Card>
 
+      <PhoneBanner phone={phone} />
       <ShareBanner site={name} share={share} />
+      {share.info?.state === "running" && <SharedRequests site={name} />}
 
       {!info.isLaravel ? (
         <Empty className="border border-dashed">
@@ -435,6 +445,9 @@ export function SitePage({ name, onBack }: { name: string; onBack: () => void })
             </TabsContent>
             <TabsContent value="artisan" forceMount className="data-[state=inactive]:hidden">
               <ArtisanTab site={name} environment={overview?.environment ?? null} />
+            </TabsContent>
+            <TabsContent value="tests" forceMount className="data-[state=inactive]:hidden">
+              <TestsTab site={name} />
             </TabsContent>
             <TabsContent value="workers">
               <WorkersTab site={name} overview={overview} />

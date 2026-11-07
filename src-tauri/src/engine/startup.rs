@@ -27,6 +27,8 @@ pub const STARTABLE: &[&str] = &[
     mysql::SERVICE_ID,
     postgres::SERVICE_ID,
     redis::SERVICE_ID,
+    crate::engine::meilisearch::SERVICE_ID,
+    crate::engine::rustfs::SERVICE_ID,
     mailpit::SERVICE_ID,
     nginx::SERVICE_ID,
 ];
@@ -74,6 +76,8 @@ fn installed(cfg: &ZefaroConfig, id: &str) -> bool {
         mysql::SERVICE_ID => mysql::installed(&mysql::Layout::standard()),
         postgres::SERVICE_ID => postgres::installed(&postgres::Layout::standard()),
         redis::SERVICE_ID => redis::installed(&redis::Layout::standard()),
+        crate::engine::meilisearch::SERVICE_ID => crate::engine::meilisearch::installed(&crate::engine::meilisearch::Layout::standard()),
+        crate::engine::rustfs::SERVICE_ID => crate::engine::rustfs::installed(&crate::engine::rustfs::Layout::standard()),
         mailpit::SERVICE_ID => mailpit::installed(&mailpit::Layout::standard(&cfg.mailpit)),
         // Zefaro's own program: nothing to download. With `.localhost` there is no
         // Windows rule to answer for, so it has nothing to do.

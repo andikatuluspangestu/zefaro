@@ -15,7 +15,18 @@ use std::path::{Path, PathBuf};
 pub const VERSION: &str = "9.7.4";
 pub const SERVICE_ID: &str = "mysql";
 /// 3306 belongs to MariaDB.
-pub const PORT: u16 = 3307;
+/// The port when MySQL's settings don't name another.
+pub const DEFAULT_PORT: u16 = 3307;
+static ACTIVE_PORT: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(DEFAULT_PORT);
+
+/// The port MySQL listens on: its settings' port, set by `config::apply_ports`.
+pub fn port() -> u16 {
+    ACTIVE_PORT.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+pub fn set_port(port: u16) {
+    ACTIVE_PORT.store(port, std::sync::atomic::Ordering::Relaxed);
+}
 pub const DOWNLOAD_MB: u32 = 328;
 
 /// mysql-9.7.4-winx64.zip from Oracle's CDN. Oracle publishes only an MD5
@@ -63,7 +74,7 @@ impl Layout {
             data: paths::data_dir().join("mysql"),
             conf: crate::config::config_dir().join("mysql").join("my.ini"),
             log: paths::logs_dir().join("mysql.log"),
-            port: PORT,
+            port: port(),
         }
     }
 
@@ -251,9 +262,9 @@ mod tests {
             data: PathBuf::from(r"C:\zefaro\data\mysql"),
             conf: PathBuf::from(r"C:\zefaro\mysql\my.ini"),
             log: PathBuf::from(r"C:\zefaro\logs\mysql.log"),
-            port: PORT,
+            port: port(),
         };
-        assert_ne!(PORT, crate::engine::mariadb::PORT);
+        assert_ne!(DEFAULT_PORT, crate::engine::mariadb::DEFAULT_PORT);
         let ini = render_ini(&l);
         assert!(ini.contains("bind-address=127.0.0.1"));
         assert!(ini.contains("port=3307"));

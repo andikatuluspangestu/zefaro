@@ -55,10 +55,10 @@ fn view(cfg: &ZefaroConfig, sup: &Supervisor) -> NginxSettingsView {
 /// Ports other Zefaro services use, which nginx must not take.
 fn reserved(cfg: &ZefaroConfig) -> Vec<(u16, String)> {
     let mut out = vec![
-        (mariadb::PORT, "MariaDB".to_owned()),
-        (crate::engine::mysql::PORT, "MySQL".to_owned()),
+        (mariadb::port(), "MariaDB".to_owned()),
+        (crate::engine::mysql::port(), "MySQL".to_owned()),
         (redis::PORT, "Redis".to_owned()),
-        (crate::engine::postgres::PORT, "PostgreSQL".to_owned()),
+        (crate::engine::postgres::port(), "PostgreSQL".to_owned()),
     ];
     // php-cgi listens on base + 10 × major + minor (7.4 → base + 74 … 8.9 → base + 89).
     for offset in 70..=99u16 {
@@ -240,7 +240,7 @@ mod tests {
 
         let same = NginxConfig { http_port: 8080, https_port: 8080, ..ok.clone() };
         assert!(validate(&same, &cfg).is_err());
-        let mariadb = NginxConfig { http_port: mariadb::PORT, ..ok.clone() };
+        let mariadb = NginxConfig { http_port: mariadb::port(), ..ok.clone() };
         assert!(validate(&mariadb, &cfg).unwrap_err().to_string().contains("MariaDB"));
         let php = NginxConfig { http_port: cfg.php.base_port + 83, ..ok.clone() };
         assert!(validate(&php, &cfg).is_err());

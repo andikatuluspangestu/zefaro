@@ -24,23 +24,26 @@ import { Textarea } from "@/components/ui/textarea";
 import { defineMessages, useT } from "@/i18n";
 import { common } from "@/i18n/common";
 
-type NumKey = "memoryMb" | "workMemMb" | "maxConnections" | "maxPacketMb" | "slowMs";
+type NumKey = "memoryMb" | "workMemMb" | "maxConnections" | "maxPacketMb" | "slowMs" | "port";
 /** Numbers are edited as text so a field can be empty while typing. */
 type Draft = Omit<DbTuning, NumKey> & Record<NumKey, string>;
-const NUM_KEYS: NumKey[] = ["memoryMb", "workMemMb", "maxConnections", "maxPacketMb", "slowMs"];
+const NUM_KEYS: NumKey[] = ["memoryMb", "workMemMb", "maxConnections", "maxPacketMb", "slowMs", "port"];
 
-const toDraft = (s: DbTuning): Draft => {
+/** The port field shows the real port; the settings hold 0 for the default one. */
+const toDraft = (s: DbTuning, defaultPort: number): Draft => {
   const d = { ...s } as unknown as Draft;
   for (const k of NUM_KEYS) d[k] = String(s[k]);
+  d.port = String(s.port || defaultPort);
   return d;
 };
 
-function fromDraft(d: Draft): DbTuning | NumKey {
+function fromDraft(d: Draft, defaultPort: number): DbTuning | NumKey {
   const out = { ...d } as unknown as DbTuning;
   for (const k of NUM_KEYS) {
     if (!isWhole(d[k])) return k;
     out[k] = Number(d[k].trim());
   }
+  if (out.port === defaultPort) out.port = 0;
   return out;
 }
 
@@ -54,7 +57,10 @@ const messages = defineMessages({
     adminer: "Open in Adminer",
     notInstalled: "Not installed",
     connection: "Connection",
-    connectionHint: "Fixed, so every site and tool finds the server where Zefaro said it is.",
+    connectionHint: "Zefaro's own tools follow the port: the command line clients, phpMyAdmin, Adminer, backups and new sites.",
+    portHint: (def: number) => `The default is ${def}. Pick another when a different database already uses it.`,
+    portChanged: (from: number, to: number) =>
+      `Sites read the port from their .env: change DB_PORT=${from} to DB_PORT=${to} in the sites that use this server.`,
     address: "Address",
     user: "User",
     userValue: "root, no password",
@@ -70,6 +76,7 @@ const messages = defineMessages({
       maxConnections: { title: "Max connections", description: "Clients connected at once: sites, workers, Tinker, your database tool." },
       maxPacketMb: { title: "Max packet size", description: "The largest row or statement, for big imports (max_allowed_packet)." },
       slowMs: { title: "Slow query threshold", description: "Queries that take longer than this are logged." },
+      port: { title: "Port", description: "" },
     },
     writes: "Writing",
     fast: {
@@ -87,8 +94,8 @@ const messages = defineMessages({
     extraTitle: "Extra settings",
     extraHint: (pg: boolean): string =>
       pg
-        ? "One name = value per line, passed to PostgreSQL after Zefaro's own. The port and listen address stay Zefaro's."
-        : "One name = value per line, added to my.ini's [mysqld] after Zefaro's own. The port, folders and bind address stay Zefaro's.",
+        ? "One name = value per line, passed to PostgreSQL after Zefaro's own. Set the port above; the listen address stays Zefaro's."
+        : "One name = value per line, added to my.ini's [mysqld] after Zefaro's own. Set the port above; the folders and bind address stay Zefaro's.",
     extraLabel: "Extra settings",
     files: "Files",
     dataFolder: "Data folder",
@@ -111,7 +118,10 @@ const messages = defineMessages({
     adminer: "Buka di Adminer",
     notInstalled: "Belum terpasang",
     connection: "Koneksi",
-    connectionHint: "Tetap, supaya setiap situs dan alat menemukan server di tempat yang disebut Zefaro.",
+    connectionHint: "Alat milik Zefaro ikut port ini: klien command line, phpMyAdmin, Adminer, pencadangan, dan situs baru.",
+    portHint: (def: number) => `Bawaannya ${def}. Pilih port lain bila sudah dipakai database lain.`,
+    portChanged: (from: number, to: number) =>
+      `Situs membaca port dari .env-nya: ubah DB_PORT=${from} menjadi DB_PORT=${to} di situs yang memakai server ini.`,
     address: "Alamat",
     user: "User",
     userValue: "root, tanpa password",
@@ -127,6 +137,7 @@ const messages = defineMessages({
       maxConnections: { title: "Maks. koneksi", description: "Klien yang tersambung bersamaan: situs, worker, Tinker, alat database Anda." },
       maxPacketMb: { title: "Maks. ukuran paket", description: "Baris atau statement terbesar, untuk impor besar (max_allowed_packet)." },
       slowMs: { title: "Ambang query lambat", description: "Query yang lebih lama dari ini dicatat." },
+      port: { title: "Port", description: "" },
     },
     writes: "Penulisan",
     fast: {
@@ -144,8 +155,8 @@ const messages = defineMessages({
     extraTitle: "Pengaturan tambahan",
     extraHint: (pg: boolean) =>
       pg
-        ? "Satu nama = nilai per baris, diteruskan ke PostgreSQL setelah pengaturan Zefaro. Port dan alamat listen tetap milik Zefaro."
-        : "Satu nama = nilai per baris, ditambahkan ke [mysqld] di my.ini setelah pengaturan Zefaro. Port, folder, dan bind address tetap milik Zefaro.",
+        ? "Satu nama = nilai per baris, diteruskan ke PostgreSQL setelah pengaturan Zefaro. Atur port di atas; alamat listen tetap milik Zefaro."
+        : "Satu nama = nilai per baris, ditambahkan ke [mysqld] di my.ini setelah pengaturan Zefaro. Atur port di atas; folder dan bind address tetap milik Zefaro.",
     extraLabel: "Pengaturan tambahan",
     files: "File",
     dataFolder: "Folder data",
@@ -193,14 +204,14 @@ export function DbServerSettingsPage({
       .dbServerSettings(engine)
       .then((v) => {
         setView(v);
-        setDraft(toDraft(v.settings));
+        setDraft(toDraft(v.settings, v.defaultPort));
       })
       .catch((e) => toast.error(String(e)));
   }, [engine]);
 
-  const saved = useMemo(() => (view ? JSON.stringify(toDraft(view.settings)) : ""), [view]);
+  const saved = useMemo(() => (view ? JSON.stringify(toDraft(view.settings, view.defaultPort)) : ""), [view]);
   const dirty = !!draft && JSON.stringify(draft) !== saved;
-  const isDefault = !!draft && !!view && JSON.stringify(draft) === JSON.stringify(toDraft(view.defaults));
+  const isDefault = !!draft && !!view && JSON.stringify(draft) === JSON.stringify(toDraft(view.defaults, view.defaultPort));
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => {
     setDraft((d) => (d ? { ...d, [k]: v } : d));
     setError(null);
@@ -221,20 +232,22 @@ export function DbServerSettingsPage({
   };
 
   const save = async () => {
-    if (!draft) return;
-    const parsed = fromDraft(draft);
+    if (!draft || !view) return;
+    const parsed = fromDraft(draft, view.defaultPort);
     if (typeof parsed === "string") {
       setError(t.mustBeWhole(numTitle(parsed)));
       return;
     }
     setSaving(true);
     try {
+      const before = view.port;
       const v = await api.dbServerSave(engine, parsed);
       setView(v);
-      setDraft(toDraft(v.settings));
+      setDraft(toDraft(v.settings, v.defaultPort));
       setConfText(null);
       setError(null);
       toast.success(t.saved(server), { description: v.running ? t.savedRunning(server) : t.savedStopped(server) });
+      if (v.port !== before) toast.info(t.portChanged(before, v.port), { duration: 15000 });
     } catch (e) {
       setError(String(e));
       // The server may have put the old settings back.
@@ -291,8 +304,9 @@ export function DbServerSettingsPage({
 
           <SettingGroup title={t.connection} hint={t.connectionHint}>
             {[
-              <SettingRow key="address" icon="plug" title={t.address}>
-                <code className="font-mono text-sm">127.0.0.1:{view.port}</code>
+              <SettingRow key="port" icon="plug" title={t.num.port.title} description={t.portHint(view.defaultPort)}>
+                <span className="font-mono text-sm text-muted-foreground">127.0.0.1:</span>
+                <NumberInput value={draft.port} onChange={(v) => set("port", v)} label={t.num.port.title} unit="" disabled={saving} />
               </SettingRow>,
               <SettingRow key="user" icon="user" title={t.user}>
                 <span className="text-sm text-muted-foreground">{t.userValue}</span>
@@ -395,11 +409,11 @@ export function DbServerSettingsPage({
             isDefault={isDefault}
             note={view.running ? t.saveNoteRunning(server) : t.unsaved}
             onReset={() => {
-              setDraft(toDraft(view.defaults));
+              setDraft(toDraft(view.defaults, view.defaultPort));
               setError(null);
             }}
             onDiscard={() => {
-              setDraft(toDraft(view.settings));
+              setDraft(toDraft(view.settings, view.defaultPort));
               setError(null);
             }}
             onSave={save}

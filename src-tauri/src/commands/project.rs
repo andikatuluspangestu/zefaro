@@ -138,7 +138,7 @@ fn ensure_database(driver: &str, name: &str) -> AppResult<String> {
     dbio::validate_name(name)?;
     match driver {
         "mariadb" => {
-            if !supervisor::port_open(mariadb::PORT) {
+            if !supervisor::port_open(mariadb::port()) {
                 return Err(AppError::msg(crate::tr!(
                     format!("MariaDB isn't running, so the database {name} wasn't created. Start MariaDB, then create it on the Databases page."),
                     format!("MariaDB belum berjalan, jadi database {name} tidak dibuat. Mulai MariaDB, lalu buat di halaman Database.")
@@ -151,7 +151,7 @@ fn ensure_database(driver: &str, name: &str) -> AppResult<String> {
             dbio::create_db(&client, name)?;
         }
         "mysql" => {
-            if !supervisor::port_open(mysql::PORT) {
+            if !supervisor::port_open(mysql::port()) {
                 return Err(AppError::msg(crate::tr!(
                     format!("MySQL isn't running, so the database {name} wasn't created."),
                     format!("MySQL belum berjalan, jadi database {name} tidak dibuat.")
@@ -164,7 +164,7 @@ fn ensure_database(driver: &str, name: &str) -> AppResult<String> {
             mysql::create_database(&my, name)?;
         }
         "pgsql" | "postgresql" => {
-            if !supervisor::port_open(postgres::PORT) {
+            if !supervisor::port_open(postgres::port()) {
                 return Err(AppError::msg(crate::tr!(
                     format!("PostgreSQL isn't running, so the database {name} wasn't created."),
                     format!("PostgreSQL belum berjalan, jadi database {name} tidak dibuat.")

@@ -259,9 +259,86 @@ pub struct PgFilter {
     /// The end of a long `COPY` line, to see whether it starts a block.
     tail: Vec<u8>,
     long_copy: bool,
+    /// A pg_dumpall dump: only one database's section runs.
+    cluster: Option<Cluster>,
+}
+
+/// Which section of a pg_dumpall dump the filter is in.
+struct Cluster {
+    want: String,
+    inside: bool,
+    found: bool,
+}
+
+/// A line of pg_dumpall's that starts or ends a database's section.
+#[derive(Debug, PartialEq)]
+pub enum ClusterMark {
+    /// `-- Database "shop" dump`: the name as written (pg_dumpall doesn't quote it).
+    Database(String),
+    /// `-- PostgreSQL database cluster dump complete`
+    End,
+}
+
+pub fn cluster_mark(line: &[u8]) -> Option<ClusterMark> {
+    let line = trim_eol(line);
+    if line.starts_with(b"-- PostgreSQL database cluster dump complete") {
+        return Some(ClusterMark::End);
+    }
+    let name = line.strip_prefix(b"-- Database \"")?.strip_suffix(b"\" dump")?;
+    Some(ClusterMark::Database(String::from_utf8_lossy(name).into_owned()))
+}
+
+/// The databases of a pg_dumpall dump, with the bytes of each section, read
+/// line by line. Lines inside COPY rows are data, never section marks.
+pub fn cluster_sections(mut reader: impl std::io::BufRead) -> std::io::Result<Vec<(String, u64)>> {
+    let (mut out, mut line, mut copy) = (Vec::<(String, u64)>::new(), Vec::new(), false);
+    let mut current: Option<usize> = None;
+    loop {
+        line.clear();
+        let n = reader.read_until(b'\n', &mut line)?;
+        if n == 0 {
+            break;
+        }
+        if copy {
+            copy = trim_eol(&line) != b"\\.";
+        } else {
+            match cluster_mark(&line) {
+                Some(ClusterMark::Database(name)) => {
+                    out.push((name, 0));
+                    current = Some(out.len() - 1);
+                }
+                Some(ClusterMark::End) => current = None,
+                None => copy = line.starts_with(b"COPY ") && starts_copy(&line),
+            }
+        }
+        if let Some(i) = current {
+            out[i].1 += n as u64;
+        }
+    }
+    Ok(out)
 }
 
 impl PgFilter {
+    /// For a pg_dumpall dump: only `want`'s section runs, through the same
+    /// filter as a pg_dump; the roles, tablespaces and other databases don't.
+    pub fn cluster(want: &str) -> Self {
+        Self { cluster: Some(Cluster { want: want.to_owned(), inside: false, found: false }), ..Self::default() }
+    }
+
+    /// After the whole dump: the database asked for was in it.
+    pub fn finish(&self) -> AppResult<()> {
+        match &self.cluster {
+            Some(c) if !c.found => Err(AppError::msg(crate::tr!(
+                format!("This dump has no database named {}.", c.want),
+                format!("Dump ini tidak berisi database bernama {}.", c.want)
+            ))),
+            _ => Ok(()),
+        }
+    }
+
+    fn skipping(&self) -> bool {
+        self.cluster.as_ref().is_some_and(|c| !c.inside)
+    }
     pub fn feed(&mut self, mut data: &[u8], out: &mut Vec<u8>) {
         while !data.is_empty() {
             if let Some(keep) = self.streaming {
@@ -308,13 +385,24 @@ impl PgFilter {
             if complete && trim_eol(line) == b"\\." {
                 self.copy = false;
             }
-            out.extend_from_slice(line);
+            let keep = !self.skipping();
+            if keep {
+                out.extend_from_slice(line);
+            } else if complete {
+                out.push(b'\n');
+            }
             if !complete {
-                self.streaming = Some(true);
+                self.streaming = Some(keep);
             }
             return;
         }
-        let keep = !complete || !pg_dropped(trim_eol(line));
+        if complete {
+            if let (Some(c), Some(mark)) = (self.cluster.as_mut(), cluster_mark(line)) {
+                c.inside = matches!(&mark, ClusterMark::Database(name) if *name == c.want);
+                c.found |= c.inside;
+            }
+        }
+        let keep = !self.skipping() && (!complete || !pg_dropped(trim_eol(line)));
         if keep {
             out.extend_from_slice(line);
         } else {
@@ -568,6 +656,78 @@ ALTER DEFAULT PRIVILEGES FOR ROLE forge GRANT ALL ON TABLES TO forge;
             f.feed(piece, &mut out);
         }
         String::from_utf8(out).unwrap()
+    }
+
+    /// pg_dumpall's layout: globals, then one pg_dump per database. The
+    /// "evil" line is a COPY row that looks like a section mark.
+    const PG_CLUSTER: &str = "--
+-- PostgreSQL database cluster dump
+--
+
+\\restrict K0
+CREATE ROLE forge;
+ALTER ROLE forge WITH SUPERUSER LOGIN;
+\\unrestrict K0
+
+--
+-- Database \"template1\" dump
+--
+
+\\connect template1
+SET client_encoding = 'UTF8';
+
+--
+-- Database \"shop\" dump
+--
+
+\\restrict K2
+CREATE DATABASE shop WITH TEMPLATE = template0 ENCODING = 'UTF8';
+ALTER DATABASE shop OWNER TO forge;
+\\connect shop
+CREATE TABLE public.items (id integer, note text);
+COPY public.items (id, note) FROM stdin;
+1\tplain
+-- Database \"evil\" dump
+\\.
+\\unrestrict K2
+
+--
+-- Database \"blog\" dump
+--
+
+\\connect blog
+CREATE TABLE public.posts (id integer);
+
+--
+-- PostgreSQL database cluster dump complete
+--
+";
+
+    #[test]
+    fn pg_dumpall_runs_only_the_database_picked() {
+        let sections = cluster_sections(PG_CLUSTER.as_bytes()).unwrap();
+        let names: Vec<&str> = sections.iter().map(|(n, _)| n.as_str()).collect();
+        assert_eq!(names, ["template1", "shop", "blog"], "the COPY row isn't a section");
+        assert!(sections.iter().all(|(_, bytes)| *bytes > 0));
+
+        for step in [usize::MAX, 7, 1] {
+            let (mut f, mut out) = (PgFilter::cluster("shop"), Vec::new());
+            for piece in PG_CLUSTER.as_bytes().chunks(step) {
+                f.feed(piece, &mut out);
+            }
+            f.finish().unwrap();
+            let out = String::from_utf8(out).unwrap();
+            assert_eq!(out.matches('\n').count(), PG_CLUSTER.matches('\n').count(), "line numbers survive");
+            for kept in ["CREATE TABLE public.items", "1\tplain", "-- Database \"evil\" dump", "\\restrict K2", "\\unrestrict K2"] {
+                assert!(out.contains(kept), "{kept:?} should run (step {step}):\n{out}");
+            }
+            for gone in ["CREATE ROLE", "ALTER ROLE", "K0", "client_encoding", "CREATE DATABASE", "\\connect", "public.posts", "OWNER TO"] {
+                assert!(!out.contains(gone), "{gone:?} should be left out (step {step}):\n{out}");
+            }
+        }
+        let mut missing = PgFilter::cluster("nope");
+        missing.feed(PG_CLUSTER.as_bytes(), &mut Vec::new());
+        assert!(missing.finish().is_err());
     }
 
     #[test]

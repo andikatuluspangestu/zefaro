@@ -15,7 +15,7 @@
 use crate::engine::supervisor::job::Job;
 use crate::engine::{net, paths, process, progress};
 use crate::error::{AppError, AppResult};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
@@ -67,6 +67,48 @@ pub struct Route {
     pub port: u16,
     /// `abc-def.trycloudflare.com`; None until cloudflared has printed it.
     pub host: Option<String>,
+    /// The password file nginx asks visitors to sign in with, when the share has one.
+    pub auth_file: Option<PathBuf>,
+}
+
+/// How a site is shared.
+#[derive(Deserialize, Clone, Debug, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ShareOptions {
+    /// Visitors sign in as [`SHARE_USER`] with this password; empty: no sign-in.
+    pub password: String,
+    /// Stop sharing after this many minutes; 0 keeps it until stopped.
+    pub minutes: u32,
+}
+
+/// The user name visitors of a password-protected share sign in with.
+pub const SHARE_USER: &str = "zefaro";
+
+impl ShareOptions {
+    pub fn check(&self) -> AppResult<()> {
+        let p = &self.password;
+        if !p.is_empty() && (p.chars().count() < 6 || p.len() > 128 || p.chars().any(|c| c.is_control() || c == ':')) {
+            return Err(AppError::msg(crate::tr!(
+                "Use a password of 6 to 128 characters, without a colon.",
+                "Gunakan password 6 sampai 128 karakter, tanpa titik dua."
+            )));
+        }
+        if self.minutes > 7 * 24 * 60 {
+            return Err(AppError::msg(crate::tr!("Share for at most 7 days.", "Bagikan paling lama 7 hari.")));
+        }
+        Ok(())
+    }
+}
+
+/// nginx's password file for a share. `{PLAIN}`: the password is shown in
+/// Zefaro anyway, and the file lives in Zefaro's own folder only while the
+/// share runs.
+pub fn htpasswd(password: &str) -> String {
+    format!("{SHARE_USER}:{{PLAIN}}{password}\n")
+}
+
+fn auth_path(site: &str) -> PathBuf {
+    crate::config::config_dir().join("runtime").join(format!("share-{site}.htpasswd"))
 }
 
 /// Shared sites' listeners, read by `nginx::write_config` whenever it writes
@@ -120,12 +162,18 @@ pub struct TunnelInfo {
     pub state: String,
     pub error: Option<String>,
     pub started_ms: u64,
+    /// When the share stops by itself; None: when the user stops it.
+    pub expires_ms: Option<u64>,
+    /// Visitors sign in with a password.
+    pub protected: bool,
 }
 
 struct Tunnel {
     info: Arc<Mutex<TunnelInfo>>,
     stopping: Arc<AtomicBool>,
     job: Job,
+    /// Between cloudflared and nginx, keeping the requests for the panel.
+    inspector: Arc<crate::engine::inspector::Inspector>,
 }
 
 /// Applies the routes to nginx (rewrites its config, reloads it).
@@ -173,9 +221,15 @@ impl Tunnels {
         self.map.lock().unwrap().get(site).map(|t| t.info.lock().unwrap().clone())
     }
 
+    /// The request recorder of a site being shared.
+    pub fn inspector(&self, site: &str) -> Option<Arc<crate::engine::inspector::Inspector>> {
+        self.map.lock().unwrap().get(site).map(|t| t.inspector.clone())
+    }
+
     /// Share `site`: give it a listener, then start cloudflared towards it.
     /// Returns at once; the address arrives a few seconds later (see `get`).
-    pub fn start(&self, site: &str, apply: Apply) -> AppResult<TunnelInfo> {
+    pub fn start(self: &Arc<Self>, site: &str, options: &ShareOptions, apply: Apply) -> AppResult<TunnelInfo> {
+        options.check()?;
         if let Some(info) = self.get(site).filter(|i| i.state != "failed") {
             return Ok(info);
         }
@@ -183,19 +237,38 @@ impl Tunnels {
         if !installed() {
             return Err(AppError::msg(crate::tr!("Download cloudflared first.", "Unduh cloudflared terlebih dahulu.")));
         }
+        let auth_file = if options.password.is_empty() {
+            None
+        } else {
+            let path = auth_path(site);
+            std::fs::create_dir_all(path.parent().unwrap())?;
+            std::fs::write(&path, htpasswd(&options.password))?;
+            Some(path)
+        };
         let port = free_port()?;
-        set_route(Route { site: site.to_owned(), port, host: None });
+        set_route(Route { site: site.to_owned(), port, host: None, auth_file: auth_file.clone() });
         if let Err(e) = apply() {
             remove_route(site);
             let _ = apply();
+            let _ = std::fs::remove_file(auth_path(site));
             return Err(e);
         }
 
+        let inspector = match crate::engine::inspector::Inspector::start(port) {
+            Ok(i) => Arc::new(i),
+            Err(e) => {
+                remove_route(site);
+                let _ = apply();
+                let _ = std::fs::remove_file(auth_path(site));
+                return Err(e.into());
+            }
+        };
+        let via = inspector.port;
         let spawned = (|| -> AppResult<(std::process::Child, Job)> {
             let mut child = process::command(exe())
                 .arg("--config")
                 .arg(empty_config()?)
-                .args(["tunnel", "--no-autoupdate", "--url", &format!("http://127.0.0.1:{port}")])
+                .args(["tunnel", "--no-autoupdate", "--url", &format!("http://127.0.0.1:{via}")])
                 .stdin(Stdio::null())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -212,16 +285,20 @@ impl Tunnels {
             Err(e) => {
                 remove_route(site);
                 let _ = apply();
+                let _ = std::fs::remove_file(auth_path(site));
                 return Err(e);
             }
         };
 
+        let started_ms = now_ms();
         let info = Arc::new(Mutex::new(TunnelInfo {
             site: site.to_owned(),
             url: None,
             state: "starting".into(),
             error: None,
-            started_ms: now_ms(),
+            started_ms,
+            expires_ms: (options.minutes > 0).then(|| started_ms + u64::from(options.minutes) * 60_000),
+            protected: auth_file.is_some(),
         }));
         let stopping = Arc::new(AtomicBool::new(false));
         let tail = Arc::new(Mutex::new(Vec::<String>::new()));
@@ -236,7 +313,8 @@ impl Tunnels {
         .flatten()
         .collect();
         for reader in readers {
-            let (info, tail, log, apply, site) = (info.clone(), tail.clone(), log.clone(), apply.clone(), site.to_owned());
+            let (info, tail, log, apply, site, auth_file) =
+                (info.clone(), tail.clone(), log.clone(), apply.clone(), site.to_owned(), auth_file.clone());
             std::thread::spawn(move || {
                 for line in BufReader::new(reader).lines().map_while(Result::ok) {
                     if let Some(f) = log.lock().unwrap().as_mut() {
@@ -255,7 +333,7 @@ impl Tunnels {
                         i.url = Some(url);
                         i.state = "running".into();
                         drop(i);
-                        set_route(Route { site: site.clone(), port, host: Some(host) });
+                        set_route(Route { site: site.clone(), port, host: Some(host), auth_file: auth_file.clone() });
                         if let Err(e) = apply() {
                             info.lock().unwrap().error = Some(e.to_string());
                         }
@@ -288,7 +366,26 @@ impl Tunnels {
         }
 
         let snapshot = info.lock().unwrap().clone();
-        self.map.lock().unwrap().insert(site.to_owned(), Tunnel { info, stopping, job });
+        self.map.lock().unwrap().insert(site.to_owned(), Tunnel { info, stopping, job, inspector });
+
+        // A share with an end time stops by itself then, unless it was
+        // stopped or replaced first.
+        if let Some(expires) = snapshot.expires_ms {
+            let (tunnels, site, apply) = (Arc::downgrade(self), site.to_owned(), apply.clone());
+            std::thread::spawn(move || loop {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+                let Some(tunnels) = tunnels.upgrade() else { return };
+                match tunnels.get(&site) {
+                    Some(i) if i.started_ms == started_ms => {
+                        if now_ms() >= expires {
+                            tunnels.stop(&site, Some(&apply));
+                            return;
+                        }
+                    }
+                    _ => return,
+                }
+            });
+        }
         Ok(snapshot)
     }
 
@@ -299,6 +396,7 @@ impl Tunnels {
         t.stopping.store(true, Ordering::Relaxed);
         t.job.terminate();
         remove_route(site);
+        let _ = std::fs::remove_file(auth_path(site));
         if let Some(apply) = apply {
             let _ = apply();
         }
@@ -319,6 +417,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn share_options_keep_a_usable_password_and_end_time() {
+        let ok = |password: &str, minutes: u32| ShareOptions { password: password.into(), minutes }.check().is_ok();
+        assert!(ok("", 0), "no password, until stopped");
+        assert!(ok("k3v9-pmq7xa", 60));
+        assert!(ok("katasandi rahasia", 240), "spaces are fine");
+        assert!(!ok("short", 60), "under 6 characters");
+        assert!(!ok("user:pass", 60), "a colon would split the htpasswd line");
+        assert!(!ok("two\nlines", 60));
+        assert!(!ok("k3v9-pmq7xa", 8 * 24 * 60), "more than a week");
+    }
+
+    #[test]
     fn finds_the_quick_tunnel_address_in_cloudflareds_log() {
         let banner = "2026-10-30T09:00:01Z INF |  https://calm-river-plant-1234.trycloudflare.com                                  |";
         assert_eq!(public_url(banner).as_deref(), Some("https://calm-river-plant-1234.trycloudflare.com"));
@@ -334,10 +444,10 @@ mod tests {
 
     #[test]
     fn routes_are_one_per_site() {
-        set_route(Route { site: "route-test".into(), port: 1, host: None });
-        set_route(Route { site: "route-test".into(), port: 1, host: Some("a.trycloudflare.com".into()) });
+        set_route(Route { site: "route-test".into(), port: 1, host: None, auth_file: None });
+        set_route(Route { site: "route-test".into(), port: 1, host: Some("a.trycloudflare.com".into()), auth_file: None });
         let mine: Vec<Route> = routes().into_iter().filter(|r| r.site == "route-test").collect();
-        assert_eq!(mine, [Route { site: "route-test".into(), port: 1, host: Some("a.trycloudflare.com".into()) }]);
+        assert_eq!(mine, [Route { site: "route-test".into(), port: 1, host: Some("a.trycloudflare.com".into()), auth_file: None }]);
         remove_route("route-test");
         assert!(!routes().iter().any(|r| r.site == "route-test"));
     }

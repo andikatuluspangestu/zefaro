@@ -32,6 +32,8 @@ pub struct SiteInfo {
     pub mariadb_running: bool,
     pub mysql_running: bool,
     pub postgres_running: bool,
+    /// Zefaro's MySQL port, to tell a site on MySQL from one on MariaDB.
+    pub mysql_port: u16,
     pub mailpit_smtp_port: u16,
     pub mailpit_running: bool,
     pub composer_installed: bool,
@@ -60,9 +62,9 @@ pub async fn site_info(name: String, state: State<'_, AppState>) -> AppResult<Si
     blocking(move || {
         let folder = PathBuf::from(&site.path);
         let (mariadb_running, mysql_running, postgres_running, mailpit_running) = std::thread::scope(|s| {
-            let mariadb = s.spawn(|| supervisor::port_open(mariadb::PORT));
-            let mysql = s.spawn(|| supervisor::port_open(mysql::PORT));
-            let postgres = s.spawn(|| supervisor::port_open(postgres::PORT));
+            let mariadb = s.spawn(|| supervisor::port_open(mariadb::port()));
+            let mysql = s.spawn(|| supervisor::port_open(mysql::port()));
+            let postgres = s.spawn(|| supervisor::port_open(postgres::port()));
             let mailpit = supervisor::port_open(mailpit_smtp_port);
             let up = |h: std::thread::ScopedJoinHandle<'_, bool>| h.join().unwrap_or(false);
             (up(mariadb), up(mysql), up(postgres), mailpit)
@@ -75,6 +77,7 @@ pub async fn site_info(name: String, state: State<'_, AppState>) -> AppResult<Si
             mariadb_running,
             mysql_running,
             postgres_running,
+            mysql_port: mysql::port(),
             mailpit_smtp_port,
             mailpit_running,
             composer_installed: paths::composer_phar().is_file(),
@@ -223,7 +226,7 @@ fn env_pairs(project: &Path) -> Vec<(String, String)> {
 
 /// The Zefaro server (and database name) a site's .env points at, when it's
 /// one of the three on this computer.
-fn adminer_server(db: &Option<apps::Database>) -> Option<(&'static crate::engine::adminer::Server, String)> {
+fn adminer_server(db: &Option<apps::Database>) -> Option<(crate::engine::adminer::Server, String)> {
     let local = |h: &str| matches!(h, "127.0.0.1" | "localhost");
     match db {
         Some(apps::Database::Mysql { host, port, name, .. }) if local(host) => crate::engine::adminer::server_for(false, *port).map(|s| (s, name.clone())),
@@ -255,7 +258,7 @@ fn open_targets(state: &AppState, name: &str) -> AppResult<(PathBuf, Option<apps
         })
         .collect();
     // phpMyAdmin signs in to MariaDB only.
-    if phpmyadmin && matches!(db, Some(apps::Database::Mysql { port, .. }) if port == mariadb::PORT) {
+    if phpmyadmin && matches!(db, Some(apps::Database::Mysql { port, .. }) if port == mariadb::port()) {
         list.push(apps::ExternalApp { id: "phpmyadmin".into(), name: "phpMyAdmin".into(), kind: "database".into(), exe: PathBuf::new() });
     }
     // Adminer opens any of Zefaro's three servers.
@@ -292,7 +295,7 @@ pub fn site_open(name: String, target: String, app: tauri::AppHandle, state: Sta
             let (server, db_name) = adminer_server(&db).ok_or_else(|| {
                 AppError::msg(crate::tr!("This site's database isn't on one of Zefaro's servers.", "Database situs ini tidak ada di salah satu server Zefaro."))
             })?;
-            app.opener().open_url(crate::engine::adminer::database_url(&base, server, &db_name), None::<&str>).map_err(opener_error)
+            app.opener().open_url(crate::engine::adminer::database_url(&base, &server, &db_name), None::<&str>).map_err(opener_error)
         }
         "phpmyadmin" => {
             let url = {
@@ -412,6 +415,72 @@ pub fn site_job_run(name: String, tool: String, args: Vec<String>, state: State<
         .collect::<Vec<_>>()
         .join(" ");
     state.site_jobs.spawn(&name, shown, cmd)
+}
+
+// ------------------------------------------------------------------ Tests --
+
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct TestsView {
+    /// "pest" | "phpunit"; None when vendor/bin has neither.
+    pub runner: Option<&'static str>,
+    /// The last run's results, when it finished.
+    pub report: Option<crate::engine::testrun::TestReport>,
+}
+
+#[tauri::command]
+pub fn site_tests(name: String, state: State<AppState>) -> AppResult<TestsView> {
+    let project = project_of(&state, &name)?;
+    Ok(TestsView {
+        runner: crate::engine::testrun::runner(&project).map(|(r, _)| r),
+        report: crate::engine::testrun::read_report(&name),
+    })
+}
+
+/// Run the site's tests as a job: all of them, the ones matching `filter`, or
+/// (with `failed_only`) the ones that failed last time.
+#[tauri::command]
+pub fn site_tests_run(name: String, filter: String, failed_only: bool, state: State<AppState>) -> AppResult<SiteJob> {
+    let app = app_for(&state, &name)?;
+    let filter = if failed_only {
+        let last = crate::engine::testrun::read_report(&name).map(|r| r.cases).unwrap_or_default();
+        Some(crate::engine::testrun::failed_filter(&last).ok_or_else(|| {
+            AppError::msg(crate::tr!("No test failed in the last run.", "Tidak ada test yang gagal di jalankan terakhir."))
+        })?)
+    } else {
+        Some(filter)
+    };
+    let (cmd, shown) = crate::engine::testrun::command(&app, &name, filter.as_deref())?;
+    state.site_jobs.spawn(&name, shown, cmd)
+}
+
+/// Open a file of the site at a line: VS Code or PhpStorm when installed, else
+/// the program Windows opens .php files with.
+#[tauri::command]
+pub fn site_open_file(name: String, file: String, line: u32, app: tauri::AppHandle, state: State<AppState>) -> AppResult<()> {
+    let project = project_of(&state, &name)?;
+    let path = {
+        let p = PathBuf::from(&file);
+        if p.is_absolute() { p } else { project.join(p) }
+    };
+    if !path.starts_with(&project) || !path.is_file() {
+        return Err(AppError::msg(crate::tr!(
+            format!("{file} isn't a file of this site."),
+            format!("{file} bukan file situs ini.")
+        )));
+    }
+    let editors = apps::detect();
+    let at = format!("{}:{line}", path.display());
+    let path_env = std::env::var_os("PATH").unwrap_or_default();
+    if let Some(code) = editors.iter().find(|a| a.id == "vscode") {
+        return apps::launch(code, &project, vec!["-g".into(), at.into()], &path_env);
+    }
+    if let Some(storm) = editors.iter().find(|a| a.id == "phpstorm") {
+        return apps::launch(storm, &project, vec!["--line".into(), line.to_string().into(), path.into()], &path_env);
+    }
+    app.opener().open_path(path.display().to_string(), None::<&str>).map_err(|e| {
+        AppError::msg(crate::tr!(format!("Windows couldn't open it: {e}"), format!("Windows tidak dapat membukanya: {e}")))
+    })
 }
 
 #[tauri::command]

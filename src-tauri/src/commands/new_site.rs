@@ -95,11 +95,11 @@ pub async fn new_site_defaults(state: State<'_, AppState>) -> AppResult<NewSiteD
             composer: paths::composer_phar().is_file(),
             node: node::is_installed(&cfg.node_default).then(|| cfg.node_default.clone()),
             git,
-            mariadb_running: supervisor::port_open(mariadb::PORT),
-            mysql_running: supervisor::port_open(mysql::PORT),
+            mariadb_running: supervisor::port_open(mariadb::port()),
+            mysql_running: supervisor::port_open(mysql::port()),
             mysql_installed: mysql::installed(&mysql::Layout::standard()),
             mysql_download_mb: mysql::DOWNLOAD_MB,
-            postgres_running: supervisor::port_open(postgres::PORT),
+            postgres_running: supervisor::port_open(postgres::port()),
             postgres_installed: postgres::installed(&postgres::Layout::standard()),
             postgres_download_mb: postgres::DOWNLOAD_MB,
             tld: cfg.tld.clone(),
@@ -253,19 +253,19 @@ pub fn new_site_create(options: NewSite, app: AppHandle, state: State<AppState>)
             "Isi paket Composer starter kit, misalnya vendor/paket."
         )));
     }
-    if o.database == "mariadb" && !supervisor::port_open(mariadb::PORT) {
+    if o.database == "mariadb" && !supervisor::port_open(mariadb::port()) {
         return Err(AppError::msg(crate::tr!(
             "Start MariaDB first (Services → MariaDB).",
             "Mulai MariaDB terlebih dahulu (Layanan → MariaDB)."
         )));
     }
-    if o.database == "mysql" && !supervisor::port_open(mysql::PORT) {
+    if o.database == "mysql" && !supervisor::port_open(mysql::port()) {
         return Err(AppError::msg(crate::tr!(
             "Start MySQL first (Services → MySQL).",
             "Mulai MySQL terlebih dahulu (Layanan → MySQL)."
         )));
     }
-    if o.database == "pgsql" && !supervisor::port_open(postgres::PORT) {
+    if o.database == "pgsql" && !supervisor::port_open(postgres::port()) {
         return Err(AppError::msg(crate::tr!(
             "Start PostgreSQL first (Services → PostgreSQL).",
             "Mulai PostgreSQL terlebih dahulu (Layanan → PostgreSQL)."
@@ -318,7 +318,7 @@ fn create_files_site(o: NewSite, app: AppHandle, state: &AppState) -> AppResult<
         )));
     }
     let wordpress = o.kind == "wordpress";
-    if wordpress && !supervisor::port_open(mariadb::PORT) {
+    if wordpress && !supervisor::port_open(mariadb::port()) {
         return Err(AppError::msg(crate::tr!(
             "WordPress needs MariaDB. Start it first (Services → MariaDB).",
             "WordPress butuh MariaDB. Mulai terlebih dahulu (Layanan → MariaDB)."
@@ -396,7 +396,7 @@ fn create_wordpress(state: &AppState, job: &JobHandle, o: &NewSite, target: &New
     let dest = Path::new(&target.path);
     starter::unpack_wordpress(&zip, dest)?;
     let sample = fs::read_to_string(dest.join("wp-config-sample.php"))?;
-    fs::write(dest.join("wp-config.php"), starter::wp_config(&sample, &target.database, mariadb::PORT, starter::random_secret))?;
+    fs::write(dest.join("wp-config.php"), starter::wp_config(&sample, &target.database, mariadb::port(), starter::random_secret))?;
     job.line(crate::tr!(
         format!("Unpacked WordPress into {} and wrote wp-config.php.", target.path),
         format!("WordPress dibongkar ke {} dan wp-config.php ditulis.", target.path)
@@ -584,9 +584,9 @@ fn create(state: &AppState, job: &JobHandle, o: &NewSite, target: &NewSiteTarget
         ]);
     }
     let db_port = match o.database.as_str() {
-        "mariadb" => Some(mariadb::PORT),
-        "mysql" => Some(mysql::PORT),
-        "pgsql" => Some(postgres::PORT),
+        "mariadb" => Some(mariadb::port()),
+        "mysql" => Some(mysql::port()),
+        "pgsql" => Some(postgres::port()),
         _ => None,
     };
     if let Some(port) = db_port {
@@ -705,7 +705,7 @@ mod tests {
     #[ignore]
     fn live_laravel_app_on_postgresql() {
         use crate::engine::supervisor::{port_open, Supervisor};
-        if port_open(postgres::PORT) {
+        if port_open(postgres::port()) {
             eprintln!("port 5432 is taken; skipped");
             return;
         }
@@ -717,7 +717,7 @@ mod tests {
             base: root.join("pg"),
             data: root.join("data"),
             log: root.join("postgresql.log"),
-            port: postgres::PORT,
+            port: postgres::port(),
         };
         postgres::prepare(&pg, &scratch, true).unwrap();
         let sup = Supervisor::default();

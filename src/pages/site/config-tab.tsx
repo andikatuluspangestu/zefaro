@@ -14,10 +14,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { defineMessages, useT } from "@/i18n";
 import { Masked, copyText, isSecretKey, showValue } from "./shared";
 import type { ConfigResponse, EnvEntry, RoutesResponse } from "./types";
+import { PhpLimitsPart } from "./php-limits";
 
 const messages = defineMessages({
   en: {
-    parts: { env: ".env", config: "Config values", routes: "Routes" },
+    parts: { env: ".env", config: "Config values", routes: "Routes", php: "PHP limits" },
     filter: "Filter",
     envHint: "Changes go to the .env file. Zefaro ends the Tinker session so the next run reads them.",
     noEnv: "The .env file has no variables yet.",
@@ -60,7 +61,7 @@ const messages = defineMessages({
     created: "Created .env from .env.example",
   },
   id: {
-    parts: { env: ".env", config: "Nilai config", routes: "Route" },
+    parts: { env: ".env", config: "Nilai config", routes: "Route", php: "Batas PHP" },
     filter: "Filter",
     envHint: "Perubahan ditulis ke file .env. Zefaro mengakhiri sesi Tinker agar proses berikutnya membaca nilai baru.",
     noEnv: "File .env belum punya variabel.",
@@ -104,7 +105,7 @@ const messages = defineMessages({
   },
 });
 
-type Part = "env" | "config" | "routes";
+type Part = "env" | "config" | "routes" | "php";
 const LIMIT = 300;
 
 export function ConfigTab({ site, onChanged }: { site: string; onChanged: () => void }) {
@@ -124,6 +125,7 @@ export function ConfigTab({ site, onChanged }: { site: string; onChanged: () => 
       {part === "env" && <EnvPart site={site} onChanged={onChanged} />}
       {part === "config" && <ConfigPart site={site} />}
       {part === "routes" && <RoutesPart site={site} />}
+      {part === "php" && <PhpLimitsPart site={site} />}
     </div>
   );
 }

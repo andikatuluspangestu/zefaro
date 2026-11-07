@@ -329,8 +329,8 @@ export function OverviewTab({
 
   if (!overview.database.connected) {
     const f = t.fix.dbDown;
-    // MariaDB and MySQL share the mysql driver; Zefaro runs MySQL on 3307.
-    const onMysql = mysqlLike && d.databasePort === "3307";
+    // MariaDB and MySQL share the mysql driver; they differ by port.
+    const onMysql = mysqlLike && d.databasePort === String(info.mysqlPort);
     const down = !local
       ? null
       : mysqlLike && onMysql && !info.mysqlRunning

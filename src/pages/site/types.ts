@@ -13,6 +13,8 @@ export interface SiteInfo {
   mariadbRunning: boolean;
   mysqlRunning: boolean;
   postgresRunning: boolean;
+  /** Zefaro's MySQL port (3307 unless its settings name another). */
+  mysqlPort: number;
   mailpitSmtpPort: number;
   mailpitRunning: boolean;
   composerInstalled: boolean;
@@ -135,6 +137,43 @@ export interface RouteInfo {
 export interface RoutesResponse {
   cached: boolean;
   routes: RouteInfo[];
+}
+
+/** One test from the runner's JUnit report (Tests tab). */
+export interface TestCase {
+  name: string;
+  class: string;
+  file: string | null;
+  line: number | null;
+  /** Seconds. */
+  time: number;
+  status: "passed" | "failed" | "error" | "skipped";
+  message: string | null;
+}
+
+export interface TestsView {
+  runner: "pest" | "phpunit" | null;
+  report: { cases: TestCase[]; finishedMs: number } | null;
+}
+
+/** A snapshot of a site's database (Data tab). */
+export interface Snapshot {
+  id: string;
+  label: string;
+  createdMs: number;
+  /** The server; null for SQLite. */
+  engine: "mariadb" | "mysql" | "postgresql" | null;
+  /** The database name, or the SQLite file. */
+  database: string;
+  bytes: number;
+}
+
+export interface SnapshotsView {
+  /** What a new snapshot would take, e.g. "shop on MariaDB". */
+  target: string | null;
+  /** Why there's nothing to snapshot. */
+  problem: string | null;
+  snapshots: Snapshot[];
 }
 
 export interface EnvEntry {

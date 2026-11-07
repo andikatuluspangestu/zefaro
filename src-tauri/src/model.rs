@@ -24,6 +24,9 @@ pub struct Site {
     /// of serving the folder with PHP.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proxy: Option<u16>,
+    /// This site's own php.ini limits, instead of its PHP version's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub php_limits: Option<PhpLimits>,
 }
 
 /// One PHP release line (e.g. "8.5") as shown in the PHP versions list.

@@ -22,6 +22,12 @@ pub fn run_dns(args: &[String]) -> i32 {
     engine::dns::cli(args)
 }
 
+/// `zefaro --restricted <program> <args…>`: run a program without
+/// administrator rights (PostgreSQL, when Zefaro runs as administrator).
+pub fn run_restricted(args: &[std::ffi::OsString]) -> i32 {
+    engine::restricted::cli(args)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Zefaro is already running (perhaps hidden in the tray): show that one.
@@ -229,6 +235,22 @@ pub fn run() {
             commands::tunnel::tunnel_start,
             commands::tunnel::tunnel_status,
             commands::tunnel::tunnel_stop,
+            commands::tunnel::tunnel_requests,
+            commands::tunnel::tunnel_request,
+            commands::tunnel::tunnel_replay,
+            commands::tunnel::tunnel_requests_clear,
+            commands::tunnel::lan_start,
+            commands::tunnel::lan_status,
+            commands::tunnel::lan_stop,
+            commands::snapshots::site_snapshots,
+            commands::snapshots::site_snapshot_take,
+            commands::snapshots::site_snapshot_restore,
+            commands::snapshots::site_snapshot_delete,
+            commands::sites::site_php_limits,
+            commands::sites::site_php_limits_save,
+            commands::laravel::site_tests,
+            commands::laravel::site_tests_run,
+            commands::laravel::site_open_file,
             commands::laravel::site_env_set,
             commands::laravel::tinker_eval,
             commands::laravel::tinker_reset,

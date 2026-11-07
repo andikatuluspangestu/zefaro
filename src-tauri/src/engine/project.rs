@@ -107,7 +107,7 @@ pub fn infer_from_env(env: &[EnvEntry], mailpit_port: u16) -> (Vec<String>, Opti
     match get("DB_CONNECTION").as_str() {
         // Both speak the MySQL protocol; the port tells Zefaro's two servers apart.
         "mysql" | "mariadb" if local(&db_host) => {
-            let id = if get("DB_PORT") == mysql::PORT.to_string() { mysql::SERVICE_ID } else { mariadb::SERVICE_ID };
+            let id = if get("DB_PORT") == mysql::port().to_string() { mysql::SERVICE_ID } else { mariadb::SERVICE_ID };
             services.push(id.to_owned());
             let name = get("DB_DATABASE");
             if !name.is_empty() {

@@ -442,6 +442,7 @@ mod tests {
             kind: "linked".into(),
             framework: Some("laravel".into()),
             proxy: None,
+            php_limits: None,
         }
     }
 

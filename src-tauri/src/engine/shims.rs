@@ -112,7 +112,7 @@ pub fn write_into(bin: &Path, src: &Sources) -> AppResult<()> {
     let plugins = src.mariadb_bin.parent().map(|base| base.join("lib").join("plugin")).unwrap_or_default();
     let client = format!(
         "--host=127.0.0.1 --port={} --user=root --skip-ssl \"--plugin-dir={}\"",
-        mariadb::PORT,
+        mariadb::port(),
         plugins.display()
     );
     for (name, exe) in MARIADB_TOOLS {
@@ -124,7 +124,7 @@ pub fn write_into(bin: &Path, src: &Sources) -> AppResult<()> {
     let redis_defaults = format!("-h 127.0.0.1 -p {}", redis::PORT);
     put(bin, "redis-cli", cli.is_file().then(|| render_client(&cli, &redis_defaults)))?;
 
-    let pg_env = postgres::client_env(postgres::PORT);
+    let pg_env = postgres::client_env(postgres::port());
     for name in POSTGRES_TOOLS {
         let path = src.postgres_bin.join(format!("{name}.exe"));
         put(bin, name, path.is_file().then(|| render_pg_client(&path, &pg_env)))?;
@@ -210,19 +210,19 @@ mod tests {
                 let (ok, out) = run_bat(&bin.join(format!("{name}.bat")), &["--version"]);
                 assert!(ok && out.contains("PostgreSQL"), "{name}: {out}");
             }
-            if crate::engine::supervisor::port_open(postgres::PORT) {
+            if crate::engine::supervisor::port_open(postgres::port()) {
                 let (ok, out) = run_bat(&bin.join("psql.bat"), &["-tAc", "SELECT 40+2"]);
                 assert!(ok && out.trim().ends_with("42"), "psql -c: {out}");
             }
         }
 
         // With MariaDB running, the client reaches it as root without options.
-        if crate::engine::supervisor::port_open(mariadb::PORT) {
+        if crate::engine::supervisor::port_open(mariadb::port()) {
             let (ok, out) = run_bat(&bin.join("mariadb.bat"), &["-N", "-e", "SELECT 40+2"]);
             assert!(ok && out.trim().ends_with("42"), "mariadb -e: {out}");
         }
         // And MySQL with its port; the later --port wins.
-        if crate::engine::supervisor::port_open(crate::engine::mysql::PORT) {
+        if crate::engine::supervisor::port_open(crate::engine::mysql::port()) {
             let (ok, out) = run_bat(&bin.join("mysql.bat"), &["-P", "3307", "-N", "-e", "SELECT VERSION()"]);
             assert!(ok && out.trim().ends_with(crate::engine::mysql::VERSION), "mysql -P 3307: {out}");
         }

@@ -171,6 +171,7 @@ mod tests {
             kind: "linked".into(),
             framework: None,
             proxy: None,
+            php_limits: None,
         }
     }
 

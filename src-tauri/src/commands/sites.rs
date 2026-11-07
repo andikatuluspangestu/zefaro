@@ -85,6 +85,7 @@ pub(crate) fn link(state: &AppState, path: String, opts: Link) -> AppResult<Site
         kind: "linked".into(),
         framework: None,
         proxy: opts.proxy,
+        php_limits: None,
     };
     // A project still pointing at localhost gets its new address.
     laravel::sync_app_url(Path::new(&site.path), &site.url, &cfg.tld);
@@ -119,6 +120,7 @@ pub fn secure_site(name: String, state: State<AppState>) -> AppResult<Site> {
 pub(crate) fn toggle_secure(state: &AppState, name: &str) -> AppResult<Site> {
     let mut cfg = state.config.lock().unwrap();
     let tld = cfg.tld.clone();
+    let crl_url = certs::crl_url(cfg.nginx.http_port);
     let site = cfg
         .sites
         .iter_mut()
@@ -130,7 +132,7 @@ pub(crate) fn toggle_secure(state: &AppState, name: &str) -> AppResult<Site> {
         certs::remove_site(&layout, &host);
     } else {
         // Before flipping the flag, so a failure leaves the site as it was.
-        certs::ensure_site(&layout, &tld, &host)?;
+        certs::ensure_site(&layout, &tld, &host, &crl_url)?;
     }
     site.secured = !site.secured;
     let secured = site.secured;
@@ -204,6 +206,51 @@ pub fn set_site_php(name: String, version: String, state: State<AppState>) -> Ap
     Ok(out)
 }
 
+#[derive(serde::Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct SitePhpLimits {
+    /// The site's own limits; None when it uses its PHP version's.
+    pub own: Option<crate::model::PhpLimits>,
+    /// Its PHP version's limits.
+    pub version: crate::model::PhpLimits,
+    pub php: String,
+    /// The .user.ini the site's limits go in.
+    pub file: String,
+}
+
+fn site_limits_view(cfg: &crate::config::ZefaroConfig, site: &Site) -> SitePhpLimits {
+    SitePhpLimits {
+        own: site.php_limits.clone(),
+        version: cfg.php.limits_for(&site.php_version),
+        php: site.php_version.clone(),
+        file: crate::engine::siteini::file(&nginx::site_root(Path::new(&site.path))).display().to_string(),
+    }
+}
+
+#[tauri::command]
+pub fn site_php_limits(name: String, state: State<AppState>) -> AppResult<SitePhpLimits> {
+    let cfg = state.config.lock().unwrap();
+    let site = cfg.sites.iter().find(|s| s.name == name).ok_or_else(no_site)?;
+    Ok(site_limits_view(&cfg, site))
+}
+
+/// Give the site its own limits (`Some`) or put it back on its PHP version's.
+#[tauri::command]
+pub fn site_php_limits_save(name: String, limits: Option<crate::model::PhpLimits>, state: State<AppState>) -> AppResult<SitePhpLimits> {
+    let mut cfg = state.config.lock().unwrap();
+    let site = cfg.sites.iter_mut().find(|s| s.name == name).ok_or_else(no_site)?;
+    let project = Path::new(&site.path).to_path_buf();
+    // The file first: if Zefaro may not write it, nothing changes.
+    crate::engine::siteini::apply(&project, &nginx::site_root(&project), limits.as_ref())?;
+    site.php_limits = limits;
+    let site = site.clone();
+    let view = site_limits_view(&cfg, &site);
+    let snapshot = cfg.clone();
+    drop(cfg);
+    crate::config::save(&snapshot)?;
+    Ok(view)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{php_choice_error, slug};
@@ -219,6 +266,7 @@ mod tests {
             kind: "linked".into(),
             framework: None,
             proxy,
+            php_limits: None,
         }
     }
 

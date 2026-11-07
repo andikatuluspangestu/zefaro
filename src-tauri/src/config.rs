@@ -135,6 +135,8 @@ pub struct DbTuning {
     /// Extra settings: `name = value` lines for my.ini's `[mysqld]`, or for
     /// PostgreSQL's command line.
     pub extra: String,
+    /// The port to listen on; 0 keeps the server's default (3306, 3307, 5432).
+    pub port: u16,
 }
 
 impl DbTuning {
@@ -148,7 +150,13 @@ impl DbTuning {
             slow_log: false,
             slow_ms: 1000,
             extra: String::new(),
+            port: 0,
         }
+    }
+
+    /// The port these settings name, or `default` when they keep it.
+    pub fn port_or(&self, default: u16) -> u16 {
+        if self.port == 0 { default } else { self.port }
     }
 
     pub fn postgres_default() -> Self {
@@ -183,6 +191,9 @@ impl DbTuning {
         range(if postgres { "shared_buffers" } else { "innodb_buffer_pool_size" }, self.memory_mb, 16, 32768)?;
         range("max_connections", self.max_connections, 10, 10000)?;
         range("slow query threshold", self.slow_ms, 0, 600_000)?;
+        if self.port != 0 {
+            range("port", self.port.into(), 1024, 65535)?;
+        }
         if postgres {
             range("work_mem", self.work_mem_mb, 1, 4096)?;
         } else {
@@ -330,7 +341,18 @@ static PENDING: Mutex<Option<ZefaroConfig>> = Mutex::new(None);
 static RETRYING: AtomicBool = AtomicBool::new(false);
 
 pub fn load() -> ZefaroConfig {
-    load_from(&config_path())
+    let cfg = load_from(&config_path());
+    apply_ports(&cfg);
+    cfg
+}
+
+/// The port each database server listens on, from its settings (0: its
+/// default). Every place that connects reads it through `<engine>::port()`.
+pub fn apply_ports(cfg: &ZefaroConfig) {
+    use crate::engine::{mariadb, mysql, postgres};
+    mariadb::set_port(cfg.mariadb.port_or(mariadb::DEFAULT_PORT));
+    mysql::set_port(cfg.mysql.port_or(mysql::DEFAULT_PORT));
+    postgres::set_port(cfg.postgres.port_or(postgres::DEFAULT_PORT));
 }
 
 fn load_from(path: &Path) -> ZefaroConfig {
@@ -374,6 +396,7 @@ pub fn save(cfg: &ZefaroConfig) -> std::io::Result<()> {
             "Zefaro tidak bisa membaca config.json saat mulai, jadi tidak akan menimpanya. Tutup program yang memakainya, lalu mulai ulang Zefaro."
         )));
     }
+    apply_ports(cfg);
     let json = serde_json::to_vec_pretty(cfg).unwrap_or_default();
     let _held = WRITE.lock().unwrap_or_else(|p| p.into_inner());
     match write_file(&config_path(), &json) {
@@ -456,6 +479,7 @@ fn seed_sites() -> Vec<Site> {
             kind: "linked".into(),
             framework: None,
             proxy: None,
+            php_limits: None,
         },
         Site {
             name: "shop".into(),
@@ -466,6 +490,7 @@ fn seed_sites() -> Vec<Site> {
             kind: "linked".into(),
             framework: None,
             proxy: None,
+            php_limits: None,
         },
     ]
 }
@@ -473,6 +498,18 @@ fn seed_sites() -> Vec<Site> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_database_port_of_zero_keeps_the_default() {
+        let s = DbTuning::mysql_default();
+        assert_eq!(s.port_or(3307), 3307);
+        assert_eq!(DbTuning { port: 3316, ..s.clone() }.port_or(3307), 3316);
+        // Settings from before ports were configurable have no port: the default.
+        let old: DbTuning = serde_json::from_str(r#"{"memoryMb":256}"#).unwrap();
+        assert_eq!((old.memory_mb, old.port), (256, 0));
+        assert!(DbTuning { port: 80, ..s.clone() }.validate(false).is_err());
+        assert!(DbTuning { port: 13306, ..s }.validate(false).is_ok());
+    }
 
     fn temp(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("zefaro-config-test-{name}"));

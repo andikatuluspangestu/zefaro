@@ -17,6 +17,7 @@ pub mod php;
 pub mod project;
 pub mod services;
 pub mod sites;
+pub mod snapshots;
 pub mod system;
 pub mod terminal;
 pub mod tools;

@@ -6,7 +6,7 @@
 use super::{blocking, services};
 use crate::config::{self, DbTuning, ZefaroConfig};
 use crate::engine::dbio::Engine;
-use crate::engine::{adminer, mariadb, mysql, postgres};
+use crate::engine::{adminer, dumps, mariadb, mysql, phpmyadmin, postgres, redis, supervisor};
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use serde::Serialize;
@@ -40,6 +40,8 @@ pub struct DbServerView {
     pub engine: Engine,
     pub version: &'static str,
     pub port: u16,
+    /// The port when the settings keep the default (they hold 0 then).
+    pub default_port: u16,
     pub installed: bool,
     pub running: bool,
     pub settings: DbTuning,
@@ -80,7 +82,7 @@ fn view(state: &AppState, engine: Engine) -> DbServerView {
         let url = (cfg.adminer && adminer::installed_at(&adminer::dir()))
             .then(|| adminer::server_for(engine == Engine::PostgreSql, engine.port()))
             .flatten()
-            .map(|s| adminer::database_url(&cfg.url_for(&format!("{}.{}", adminer::HOST, cfg.tld), false), s, ""));
+            .map(|s| adminer::database_url(&cfg.url_for(&format!("{}.{}", adminer::HOST, cfg.tld), false), &s, ""));
         (tuning(&cfg, engine).clone(), url)
     };
     let running = state.supervisor.is_running(engine.service_id());
@@ -103,6 +105,7 @@ fn view(state: &AppState, engine: Engine) -> DbServerView {
         engine,
         version,
         port: engine.port(),
+        default_port: defaults_port(engine),
         installed,
         running,
         settings,
@@ -131,6 +134,60 @@ pub fn check(engine: Engine, s: &DbTuning) -> AppResult<()> {
     Ok(())
 }
 
+/// A new port for `engine` that nothing else of Zefaro's uses, and that no
+/// other program is listening on.
+fn check_port(cfg: &ZefaroConfig, engine: Engine, port: u16) -> AppResult<()> {
+    if port == engine.port() {
+        return Ok(());
+    }
+    let mut taken: Vec<(u16, String)> = vec![
+        (cfg.nginx.http_port, "nginx (HTTP)".into()),
+        (cfg.nginx.https_port, "nginx (HTTPS)".into()),
+        (cfg.mailpit.smtp_port, "Mailpit (SMTP)".into()),
+        (cfg.mailpit.ui_port, "Mailpit".into()),
+        (redis::PORT, "Redis".into()),
+        (dumps::PORT, "Dumps".into()),
+    ];
+    for other in [Engine::MariaDb, Engine::MySql, Engine::PostgreSql] {
+        if other != engine {
+            taken.push((other.port(), other.name().to_owned()));
+        }
+    }
+    if let Some((_, who)) = taken.iter().find(|(p, _)| *p == port) {
+        return Err(AppError::msg(crate::tr!(
+            format!("Port {port} is used by Zefaro's {who}."),
+            format!("Port {port} dipakai oleh {who} milik Zefaro.")
+        )));
+    }
+    if (cfg.php.base_port.saturating_add(70)..=cfg.php.base_port.saturating_add(99)).contains(&port) {
+        return Err(AppError::msg(crate::tr!(
+            format!("Port {port} is in PHP's port range."),
+            format!("Port {port} berada dalam rentang port PHP.")
+        )));
+    }
+    if supervisor::port_open(port) {
+        return Err(AppError::msg(crate::tr!(
+            format!("Another program is already listening on port {port}. Pick a free one."),
+            format!("Program lain sudah memakai port {port}. Pilih port yang masih kosong.")
+        )));
+    }
+    Ok(())
+}
+
+/// What has the port written into it: the command line clients, phpMyAdmin's
+/// config (MariaDB) and Adminer's server list.
+fn refresh_port_users(cfg: &ZefaroConfig) {
+    crate::engine::shims::refresh(cfg);
+    let pma = phpmyadmin::dir();
+    if phpmyadmin::installed_at(&pma) {
+        let _ = phpmyadmin::write_config(&pma, mariadb::port());
+    }
+    let adm = adminer::dir();
+    if adminer::installed_at(&adm) {
+        let _ = std::fs::write(adm.join("index.php"), adminer::render_index());
+    }
+}
+
 #[tauri::command]
 pub fn db_server_settings(state: State<AppState>, engine: Engine) -> DbServerView {
     view(&state, engine)
@@ -141,6 +198,31 @@ pub fn db_server_settings(state: State<AppState>, engine: Engine) -> DbServerVie
 #[tauri::command]
 pub async fn db_server_save(state: State<'_, AppState>, engine: Engine, settings: DbTuning) -> AppResult<DbServerView> {
     check(engine, &settings)?;
+    {
+        let cfg = state.config.lock().unwrap().clone();
+        let default = defaults_port(engine);
+        let port = settings.port_or(default);
+        blocking(move || check_port(&cfg, engine, port)).await?;
+    }
+    let port_before = engine.port();
+    let result = save_and_restart(&state, engine, settings).await;
+    if engine.port() != port_before {
+        let cfg = state.config.lock().unwrap().clone();
+        refresh_port_users(&cfg);
+    }
+    result?;
+    Ok(view(&state, engine))
+}
+
+fn defaults_port(engine: Engine) -> u16 {
+    match engine {
+        Engine::MariaDb => mariadb::DEFAULT_PORT,
+        Engine::MySql => mysql::DEFAULT_PORT,
+        Engine::PostgreSql => postgres::DEFAULT_PORT,
+    }
+}
+
+async fn save_and_restart(state: &State<'_, AppState>, engine: Engine, settings: DbTuning) -> AppResult<()> {
     let (old, snapshot) = {
         let mut cfg = state.config.lock().unwrap();
         let old = tuning(&cfg, engine).clone();
@@ -187,7 +269,7 @@ pub async fn db_server_save(state: State<'_, AppState>, engine: Engine, settings
         // Written now, so the file shown matches; the next start writes it again.
         let _ = write_config(&snapshot, engine);
     }
-    Ok(view(&state, engine))
+    Ok(())
 }
 
 fn write_config(cfg: &ZefaroConfig, engine: Engine) -> AppResult<()> {

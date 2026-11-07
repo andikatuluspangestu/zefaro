@@ -3,7 +3,7 @@
 use super::blocking;
 use crate::config::{self, ZefaroConfig};
 use crate::engine::supervisor::{self, Health, Supervisor};
-use crate::engine::{adminer, dns, mailpit, mariadb, mysql, nginx, node, paths, php, phpmyadmin, postgres, redis, shims};
+use crate::engine::{adminer, dns, mailpit, mariadb, meilisearch, mysql, nginx, node, paths, php, phpmyadmin, postgres, redis, shims};
 use crate::error::{AppError, AppResult};
 use crate::model::Service;
 use crate::state::AppState;
@@ -253,7 +253,7 @@ pub fn list(cfg: &ZefaroConfig, sup: &Supervisor, dns_rule: Option<bool>) -> Vec
         mariadb::SERVICE_ID,
         "MariaDB".into(),
         "database",
-        mariadb::PORT,
+        mariadb::port(),
         if mdb_installed {
             crate::tr!(
                 format!("MariaDB {} LTS · user root, no password", mariadb::VERSION),
@@ -275,7 +275,7 @@ pub fn list(cfg: &ZefaroConfig, sup: &Supervisor, dns_rule: Option<bool>) -> Vec
         mysql::SERVICE_ID,
         "MySQL".into(),
         "database",
-        mysql::PORT,
+        mysql::port(),
         if my_installed {
             crate::tr!(
                 format!("MySQL {} LTS · user root, no password", mysql::VERSION),
@@ -316,7 +316,7 @@ pub fn list(cfg: &ZefaroConfig, sup: &Supervisor, dns_rule: Option<bool>) -> Vec
         postgres::SERVICE_ID,
         "PostgreSQL".into(),
         "database",
-        postgres::PORT,
+        postgres::port(),
         if pg_installed {
             crate::tr!(
                 format!("PostgreSQL {} · user {}, no password", postgres::VERSION, postgres::USER),
@@ -330,6 +330,53 @@ pub fn list(cfg: &ZefaroConfig, sup: &Supervisor, dns_rule: Option<bool>) -> Vec
         },
         !pg_installed,
     ));
+
+    let ms = meilisearch::Layout::standard();
+    let ms_installed = meilisearch::installed(&ms);
+    out.push(supervised(
+        sup,
+        meilisearch::SERVICE_ID,
+        "Meilisearch".into(),
+        "database",
+        meilisearch::PORT,
+        if ms_installed {
+            crate::tr!(
+                format!("Meilisearch {} · for Laravel Scout, no key", meilisearch::VERSION),
+                format!("Meilisearch {} · untuk Laravel Scout, tanpa key", meilisearch::VERSION)
+            )
+        } else {
+            crate::tr!(
+                format!("Meilisearch {} · {} MB download", meilisearch::VERSION, meilisearch::DOWNLOAD_MB),
+                format!("Meilisearch {} · unduhan {} MB", meilisearch::VERSION, meilisearch::DOWNLOAD_MB)
+            )
+        },
+        !ms_installed,
+    ));
+
+    let rfs = crate::engine::rustfs::Layout::standard();
+    let rfs_installed = crate::engine::rustfs::installed(&rfs);
+    let mut storage = supervised(
+        sup,
+        crate::engine::rustfs::SERVICE_ID,
+        "RustFS".into(),
+        "database",
+        crate::engine::rustfs::PORT,
+        if rfs_installed {
+            crate::tr!(
+                format!("RustFS {} · S3 storage, key {}", crate::engine::rustfs::VERSION, crate::engine::rustfs::ACCESS_KEY),
+                format!("RustFS {} · penyimpanan S3, key {}", crate::engine::rustfs::VERSION, crate::engine::rustfs::ACCESS_KEY)
+            )
+        } else {
+            crate::tr!(
+                format!("RustFS {} · S3 storage · {} MB download", crate::engine::rustfs::VERSION, crate::engine::rustfs::DOWNLOAD_MB),
+                format!("RustFS {} · penyimpanan S3 · unduhan {} MB", crate::engine::rustfs::VERSION, crate::engine::rustfs::DOWNLOAD_MB)
+            )
+        },
+        !rfs_installed,
+    );
+    // Its web console, for buckets and files.
+    storage.url = Some(crate::engine::rustfs::console_url(&rfs));
+    out.push(storage);
 
     out.push(phpmyadmin_service(cfg, sup));
     out.push(adminer_service(cfg, sup));
@@ -453,6 +500,16 @@ fn start_inner(cfg: &ZefaroConfig, sup: &Supervisor, id: &str) -> AppResult<()> 
             redis::prepare(&l, &downloads, false)?;
             sup.start(redis::spec(&l))?;
         }
+        meilisearch::SERVICE_ID => {
+            let l = meilisearch::Layout::standard();
+            meilisearch::prepare(&l)?;
+            sup.start(meilisearch::spec(&l))?;
+        }
+        crate::engine::rustfs::SERVICE_ID => {
+            let l = crate::engine::rustfs::Layout::standard();
+            crate::engine::rustfs::prepare(&l, &downloads, false)?;
+            sup.start(crate::engine::rustfs::spec(&l))?;
+        }
         postgres::SERVICE_ID => {
             let l = postgres::Layout::standard();
             postgres::prepare(&l, &downloads, false)?;
@@ -488,7 +545,7 @@ fn start_inner(cfg: &ZefaroConfig, sup: &Supervisor, id: &str) -> AppResult<()> 
                     )
                 ))
             })?;
-            phpmyadmin::prepare(&phpmyadmin::dir(), mariadb::PORT, &downloads, false)?;
+            phpmyadmin::prepare(&phpmyadmin::dir(), mariadb::port(), &downloads, false)?;
             start(cfg, sup, mariadb::SERVICE_ID)?;
             start(cfg, sup, &php::service_id(&line))?;
             // Starts nginx with the phpMyAdmin site, or reloads it if running.
@@ -589,6 +646,7 @@ pub async fn stop_service(state: State<'_, AppState>, id: String) -> AppResult<(
     if id == nginx::SERVICE_ID {
         // Shared sites go dark with nginx; don't leave tunnels pointing at nothing.
         state.tunnels.stop_all();
+        crate::engine::lan::stop_all();
     }
     blocking(move || sup.stop(&id)).await
 }

@@ -12,7 +12,18 @@ use std::path::{Path, PathBuf};
 
 pub const VERSION: &str = "11.8.9";
 pub const SERVICE_ID: &str = "mariadb";
-pub const PORT: u16 = 3306;
+/// The port when MariaDB's settings don't name another.
+pub const DEFAULT_PORT: u16 = 3306;
+static ACTIVE_PORT: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(DEFAULT_PORT);
+
+/// The port MariaDB listens on: its settings' port, set by `config::apply_ports`.
+pub fn port() -> u16 {
+    ACTIVE_PORT.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+pub fn set_port(port: u16) {
+    ACTIVE_PORT.store(port, std::sync::atomic::Ordering::Relaxed);
+}
 pub const DOWNLOAD_MB: u32 = 93;
 
 /// mariadb-11.8.9-winx64.zip; SHA-256 pinned after verifying its PGP signature
@@ -44,7 +55,7 @@ impl Layout {
             data: paths::data_dir().join("mariadb"),
             conf: crate::config::config_dir().join("mariadb").join("my.ini"),
             log: paths::logs_dir().join("mariadb.log"),
-            port: PORT,
+            port: port(),
         }
     }
 

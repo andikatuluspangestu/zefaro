@@ -15,7 +15,18 @@ use std::path::{Path, PathBuf};
 
 pub const VERSION: &str = "18.6";
 pub const SERVICE_ID: &str = "postgresql";
-pub const PORT: u16 = 5432;
+/// The port when PostgreSQL's settings don't name another.
+pub const DEFAULT_PORT: u16 = 5432;
+static ACTIVE_PORT: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(DEFAULT_PORT);
+
+/// The port PostgreSQL listens on: its settings' port, set by `config::apply_ports`.
+pub fn port() -> u16 {
+    ACTIVE_PORT.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+pub fn set_port(port: u16) {
+    ACTIVE_PORT.store(port, std::sync::atomic::Ordering::Relaxed);
+}
 pub const DOWNLOAD_MB: u32 = 328;
 /// The superuser initdb creates, and the user every Zefaro tool connects as.
 pub const USER: &str = "root";
@@ -48,7 +59,7 @@ impl Layout {
             base: paths::bin_dir().join("postgresql"),
             data: paths::data_dir().join("postgresql"),
             log: paths::logs_dir().join("postgresql.log"),
-            port: PORT,
+            port: port(),
         }
     }
 
@@ -163,7 +174,7 @@ pub fn spec_with(l: &Layout, s: &DbTuning) -> Spec {
     for setting in tuning_settings(s) {
         args.extend(c(&setting));
     }
-    Spec {
+    let spec = Spec {
         id: SERVICE_ID.into(),
         program: l.bin("postgres.exe"),
         args,
@@ -178,7 +189,10 @@ pub fn spec_with(l: &Layout, s: &DbTuning) -> Spec {
             l.bin("pg_ctl.exe"),
             vec!["stop".into(), "-D".into(), l.data.clone().into(), "-m".into(), "fast".into(), "-s".into()],
         )),
-    }
+    };
+    // PostgreSQL refuses administrator rights: when Zefaro has them, it starts
+    // through `zefaro --restricted` (tests run the test binary, not Zefaro).
+    if cfg!(test) { spec } else { crate::engine::restricted::wrap(spec) }
 }
 
 /// psql's connection settings as environment variables, which arguments the

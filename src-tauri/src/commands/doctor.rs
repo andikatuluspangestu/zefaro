@@ -105,13 +105,16 @@ fn run_checks(cfg: &crate::config::ZefaroConfig, sup: &supervisor::Supervisor, d
 
     // Ports: a port Zefaro needs, held by another program while Zefaro's own
     // service is stopped.
-    let ports: [(&str, &str, u16, bool, &str); 9] = [
+    let ports: [(&str, &str, u16, bool, &str); 12] = [
         (nginx::SERVICE_ID, "nginx (HTTP)", cfg.nginx.http_port, false, "nginx"),
         (nginx::SERVICE_ID, "nginx (HTTPS)", cfg.nginx.https_port, false, "nginx"),
-        (mariadb::SERVICE_ID, "MariaDB", mariadb::PORT, false, "services"),
-        (mysql::SERVICE_ID, "MySQL", mysql::PORT, false, "services"),
-        (postgres::SERVICE_ID, "PostgreSQL", postgres::PORT, false, "services"),
+        (mariadb::SERVICE_ID, "MariaDB", mariadb::port(), false, "services"),
+        (mysql::SERVICE_ID, "MySQL", mysql::port(), false, "services"),
+        (postgres::SERVICE_ID, "PostgreSQL", postgres::port(), false, "services"),
         (redis::SERVICE_ID, "Redis", redis::PORT, false, "services"),
+        (crate::engine::meilisearch::SERVICE_ID, "Meilisearch", crate::engine::meilisearch::PORT, false, "services"),
+        (crate::engine::rustfs::SERVICE_ID, "RustFS", crate::engine::rustfs::PORT, false, "services"),
+        (crate::engine::rustfs::SERVICE_ID, "RustFS (console)", crate::engine::rustfs::CONSOLE_PORT, false, "services"),
         (mailpit::SERVICE_ID, "Mailpit (SMTP)", cfg.mailpit.smtp_port, false, "services"),
         (mailpit::SERVICE_ID, "Mailpit", cfg.mailpit.ui_port, false, "services"),
         (dns::SERVICE_ID, "DNS", dns::PORT, true, "services"),
@@ -150,8 +153,14 @@ fn run_checks(cfg: &crate::config::ZefaroConfig, sup: &supervisor::Supervisor, d
             "ok",
             crate::tr!("No other program holds Zefaro's ports", "Tidak ada program lain yang memakai port Zefaro").into(),
             crate::tr!(
-                format!("Checked {}, {}, 3306, 5432, 6379, {}, {} and 53.", cfg.nginx.http_port, cfg.nginx.https_port, cfg.mailpit.smtp_port, cfg.mailpit.ui_port),
-                format!("Diperiksa: {}, {}, 3306, 5432, 6379, {}, {}, dan 53.", cfg.nginx.http_port, cfg.nginx.https_port, cfg.mailpit.smtp_port, cfg.mailpit.ui_port)
+                format!(
+                    "Checked {}, {}, {}, {}, {}, {}, {}, {} and 53.",
+                    cfg.nginx.http_port, cfg.nginx.https_port, mariadb::port(), mysql::port(), postgres::port(), redis::PORT, cfg.mailpit.smtp_port, cfg.mailpit.ui_port
+                ),
+                format!(
+                    "Diperiksa: {}, {}, {}, {}, {}, {}, {}, {}, dan 53.",
+                    cfg.nginx.http_port, cfg.nginx.https_port, mariadb::port(), mysql::port(), postgres::port(), redis::PORT, cfg.mailpit.smtp_port, cfg.mailpit.ui_port
+                )
             ),
             None,
         ));
@@ -403,7 +412,7 @@ pub async fn import_db_status(state: State<'_, AppState>) -> AppResult<OldServer
     let zefaro_running = state.supervisor.is_running(mariadb::SERVICE_ID);
     blocking(move || {
         let waiting = waiting_dumps().into_iter().map(|(n, _)| n).collect();
-        let running = !zefaro_running && supervisor::port_open(mariadb::PORT);
+        let running = !zefaro_running && supervisor::port_open(mariadb::port());
         if !running {
             return Ok(OldServer { running, zefaro_running, databases: Vec::new(), waiting, error: None });
         }

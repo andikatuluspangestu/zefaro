@@ -304,12 +304,16 @@ export interface DbTuning {
   slowMs: number;
   /** name = value lines. */
   extra: string;
+  /** The port to listen on; 0 keeps the server's default. */
+  port: number;
 }
 
 export interface DbServerView {
   engine: DbEngine;
   version: string;
   port: number;
+  /** The port when the settings keep the default (they hold 0 then). */
+  defaultPort: number;
   installed: boolean;
   running: boolean;
   settings: DbTuning;
@@ -612,6 +616,54 @@ export interface TunnelInfo {
   state: "starting" | "running" | "failed";
   error: string | null;
   startedMs: number;
+  /** When the share stops by itself; null: when the user stops it. */
+  expiresMs: number | null;
+  /** Visitors sign in with a password. */
+  protected: boolean;
+}
+
+/** A site's PHP limits: its own (in its .user.ini) or its PHP version's. */
+export interface SitePhpLimits {
+  own: PhpLimits | null;
+  version: PhpLimits;
+  php: string;
+  file: string;
+}
+
+/** A site served on the computer's network address, for a phone. */
+export interface LanRoute {
+  site: string;
+  ip: string;
+  port: number;
+  url: string;
+  startedMs: number;
+  expiresMs: number;
+}
+
+/** A request that reached a shared site (the Requests panel). */
+export interface TunnelRequest {
+  id: number;
+  atMs: number;
+  method: string;
+  path: string;
+  /** Empty in the list; filled for one request. */
+  headers: [string, string][];
+  body: string;
+  binary: boolean;
+  bodyBytes: number;
+  truncated: boolean;
+  status: number | null;
+  durationMs: number | null;
+  websocket: boolean;
+  replay: boolean;
+}
+
+/** How a site is shared. */
+export interface ShareOptions {
+  /** Visitors sign in as "zefaro" with this password; empty: no sign-in. */
+  password: string;
+  /** Stop after this many minutes; 0 keeps it until stopped. */
+  minutes: number;
 }
 
 /** What sharing needs: cloudflared, downloaded once. */

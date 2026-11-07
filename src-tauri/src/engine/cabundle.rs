@@ -98,7 +98,7 @@ mod tests {
         let root = std::env::temp_dir().join("zefaro-cabundle-test");
         let _ = fs::remove_dir_all(&root);
         let layout = certs::Layout::at(root.join("certs"));
-        let site = certs::ensure_site(&layout, "test", "bundle.test").unwrap();
+        let site = certs::ensure_site(&layout, "test", "bundle.test", &certs::crl_url(80)).unwrap();
         let mozilla = fs::read_to_string(paths::cacert()).expect("cacert.pem from a PHP install");
         let bundle = root.join("ca-bundle.pem");
         fs::write(&bundle, render(&mozilla, Some(&fs::read_to_string(layout.ca_cert()).unwrap()))).unwrap();

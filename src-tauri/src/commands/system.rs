@@ -1,6 +1,6 @@
 //! App/environment info and privileged-helper status.
 
-use crate::engine::{mailpit, mariadb, nginx, phpmyadmin, redis};
+use crate::engine::{mailpit, mariadb, meilisearch, nginx, phpmyadmin, redis};
 use crate::error::{AppError, AppResult};
 use crate::model::{AppInfo, Component};
 use crate::state::AppState;
@@ -28,6 +28,8 @@ fn components() -> Vec<Component> {
             "RSALv2 / SSPLv1 / AGPLv3 (Windows build: Apache-2.0)",
             "github.com/redis-windows/redis-windows",
         ),
+        c("Meilisearch", meilisearch::VERSION.into(), "MIT", "github.com/meilisearch/meilisearch"),
+        c("RustFS", crate::engine::rustfs::VERSION.into(), "Apache-2.0", "github.com/rustfs/rustfs"),
         c("phpMyAdmin", phpmyadmin::VERSION.into(), "GPL-2.0", "files.phpmyadmin.net"),
         c("Adminer", crate::engine::adminer::VERSION.into(), "Apache-2.0 or GPL-2.0", "github.com/vrana/adminer"),
         c("Mailpit", mailpit::VERSION.into(), "MIT", "github.com/axllent/mailpit"),
@@ -96,11 +98,12 @@ pub fn stop_everything(state: &AppState) {
     state.terminals.close_all();
     // Nothing stays public once Zefaro stops serving.
     state.tunnels.stop_all();
+    crate::engine::lan::stop_all();
     state.tinker.end_all();
     state.supervisor.stop_all(|id| match id {
         nginx::SERVICE_ID => 0,
         id if id.starts_with(laravel::WORKER_PREFIX) => 0,
-        mariadb::SERVICE_ID | mysql::SERVICE_ID | redis::SERVICE_ID | postgres::SERVICE_ID => 2,
+        mariadb::SERVICE_ID | mysql::SERVICE_ID | redis::SERVICE_ID | postgres::SERVICE_ID | meilisearch::SERVICE_ID | crate::engine::rustfs::SERVICE_ID => 2,
         _ => 1,
     });
 }

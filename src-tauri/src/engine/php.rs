@@ -649,6 +649,9 @@ pub fn managed_block(
     b += &format!("post_max_size = {}\n", mb(s.max_upload_mb.max(8)));
     b += &format!("memory_limit = {}\n", mb(s.memory_limit_mb));
     b += &format!("max_input_vars = {}\n", s.max_input_vars);
+    // A site's own limits live in its .user.ini (see siteini); re-read it
+    // within seconds of a change instead of PHP's five minutes.
+    b += "user_ini.cache_ttl = 5\n";
     if let Some(ca) = cacert {
         b += &format!("curl.cainfo = \"{0}\"\nopenssl.cafile = \"{0}\"\n", ca.display());
     }

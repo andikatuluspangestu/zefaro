@@ -116,15 +116,32 @@ pub fn prepare(dir: &Path, db_port: u16, scratch: &Path, keep_zip: bool) -> AppR
         if !installed_at(dir) {
             ARCHIVE.install(dir, scratch, keep_zip)?;
         }
-        let tmp = dir.join("tmp");
-        fs::create_dir_all(&tmp)?;
-        let config = dir.join("config.inc.php");
-        if !config.is_file() {
-            fs::write(config, render_config(&new_secret(), db_port, &tmp))?;
-        }
+        write_config(dir, db_port)?;
         fs::write(dir.join(".user.ini"), USER_INI)?;
         Ok(())
     })
+}
+
+/// Write config.inc.php for MariaDB on `db_port`, keeping the secret it has
+/// (a new one would sign everyone out of phpMyAdmin).
+pub fn write_config(dir: &Path, db_port: u16) -> AppResult<()> {
+    let tmp = dir.join("tmp");
+    fs::create_dir_all(&tmp)?;
+    let config = dir.join("config.inc.php");
+    let old = fs::read_to_string(&config).unwrap_or_default();
+    let secret = secret_in(&old).unwrap_or_else(new_secret);
+    let new = render_config(&secret, db_port, &tmp);
+    if new != old {
+        fs::write(config, new)?;
+    }
+    Ok(())
+}
+
+/// The blowfish_secret of a config.inc.php Zefaro wrote.
+fn secret_in(config: &str) -> Option<String> {
+    let rest = &config[config.find("$cfg['blowfish_secret'] = '")? + 27..];
+    let secret = &rest[..rest.find('\'')?];
+    (secret.len() == 32).then(|| secret.to_owned())
 }
 
 #[cfg(test)]
@@ -252,5 +269,19 @@ mod tests {
         assert!(conf.contains("$cfg['Servers'][$i]['port'] = '3306';"));
         assert!(conf.contains("$cfg['TempDir'] = 'C:/zefaro/apps/phpmyadmin/tmp';"));
         assert_eq!(new_secret().len(), 32);
+    }
+
+    #[test]
+    fn a_new_port_keeps_the_secret() {
+        let dir = std::env::temp_dir().join(format!("zefaro-pma-port-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        write_config(&dir, 3306).unwrap();
+        let first = fs::read_to_string(dir.join("config.inc.php")).unwrap();
+        let secret = secret_in(&first).unwrap();
+        write_config(&dir, 3316).unwrap();
+        let second = fs::read_to_string(dir.join("config.inc.php")).unwrap();
+        assert!(second.contains("['port'] = '3316';") && !second.contains("'3306'"));
+        assert_eq!(secret_in(&second).as_deref(), Some(secret.as_str()));
+        let _ = fs::remove_dir_all(&dir);
     }
 }

@@ -70,6 +70,18 @@ fn describe(id: &str) -> (String, &'static str, String, Kind) {
             crate::tr!("Key-value store", "Penyimpanan key-value").into(),
             Kind::Redis,
         ),
+        "rustfs" => (
+            "RustFS".into(),
+            "Databases",
+            crate::tr!("S3 storage", "Penyimpanan S3").into(),
+            Kind::Plain,
+        ),
+        "meilisearch" => (
+            "Meilisearch".into(),
+            "Databases",
+            crate::tr!("Search engine", "Mesin pencari").into(),
+            Kind::Plain,
+        ),
         "mailpit" => ("Mailpit".into(), "System", crate::tr!("Mail catcher", "Penangkap email").into(), Kind::Plain),
         "dns" => (
             "DNS".into(),

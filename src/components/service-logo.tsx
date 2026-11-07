@@ -35,7 +35,7 @@ const LOGOS: Record<string, { src: string; tile?: "light"; wide?: boolean }> = {
 /** php-8.3 → php */
 const key = (id: string) => (id.startsWith("php-") ? "php" : id);
 /** Services without a logo file get an icon that says what they are. */
-const FALLBACK_ICON: Record<string, string> = { adminer: "table-list" };
+const FALLBACK_ICON: Record<string, string> = { adminer: "table-list", meilisearch: "magnifying-glass", rustfs: "box-archive" };
 
 /** A service's logo on a tile; greyed while the service isn't running. */
 export function ServiceLogo({ id, status, className }: { id: string; status: ServiceStatus; className?: string }) {

@@ -54,9 +54,9 @@ impl Engine {
 
     pub fn port(self) -> u16 {
         match self {
-            Engine::MariaDb => mariadb::PORT,
-            Engine::MySql => mysql::PORT,
-            Engine::PostgreSql => postgres::PORT,
+            Engine::MariaDb => mariadb::port(),
+            Engine::MySql => mysql::port(),
+            Engine::PostgreSql => postgres::port(),
         }
     }
 
@@ -597,10 +597,6 @@ pub fn check_flavor(engine: Engine, flavor: &Flavor) -> AppResult<()> {
             "This is a MySQL or MariaDB dump, which PostgreSQL can't load. Import it into MariaDB or MySQL instead.",
             "Ini dump MySQL atau MariaDB, yang tidak bisa dimuat oleh PostgreSQL. Impor ke MariaDB atau MySQL saja."
         ))),
-        (Engine::PostgreSql, Flavor::PgCluster) => Err(AppError::msg(crate::tr!(
-            "This is a pg_dumpall dump of a whole server. Zefaro imports one database at a time: make the dump with pg_dump instead.",
-            "Ini dump pg_dumpall berisi seluruh server. Zefaro mengimpor satu database sekali jalan: buat dumpnya dengan pg_dump."
-        ))),
         (Engine::MariaDb | Engine::MySql, Flavor::Postgres | Flavor::PgCluster | Flavor::PgCustom) => {
             Err(AppError::msg(crate::tr!(
                 format!("This is a PostgreSQL dump, which {server} can't load. Import it into PostgreSQL instead."),
@@ -612,11 +608,24 @@ pub fn check_flavor(engine: Engine, flavor: &Flavor) -> AppResult<()> {
 }
 
 /// Reads the dump to find where it came from and which databases it holds.
-/// A MariaDB or MySQL dump is read whole (about as long as reading the file
-/// from disk); a PostgreSQL dump holds one database, so its start is enough.
+/// A MariaDB or MySQL dump, or a pg_dumpall one, is read whole (about as long
+/// as reading the file from disk); a pg_dump holds one database, so its start
+/// is enough.
 pub fn scan(engine: Engine, src: &Path) -> AppResult<DumpInfo> {
     let (flavor, version) = sniff(src)?;
     check_flavor(engine, &flavor)?;
+    if flavor == Flavor::PgCluster {
+        let (reader, _) = open_dump(src)?;
+        let mut info = DumpInfo { origin: version, databases: Vec::new(), system: Vec::new(), custom: false };
+        for (name, bytes) in crate::engine::dumpfilter::cluster_sections(BufReader::with_capacity(CHUNK, reader))? {
+            if engine.is_system(&name) {
+                info.system.push(name);
+            } else {
+                info.databases.push(DumpDatabase { name, bytes });
+            }
+        }
+        return Ok(info);
+    }
     if engine == Engine::PostgreSql {
         return Ok(DumpInfo {
             origin: version,
@@ -721,7 +730,19 @@ pub fn import(
             let mut cmd = c.command(Tool::Client);
             // `-f -` reads stdin as a script file, so errors say "psql:<stdin>:LINE:".
             cmd.args(["-X", "-q", "-v", "ON_ERROR_STOP=1", "--dbname", db, "-f", "-"]);
-            (cmd, Filter::Pg(PgFilter::default()), Tool::Client)
+            // pg_dumpall: one database's section, picked like a MySQL dump's.
+            let filter = if flavor == Flavor::PgCluster {
+                let want = from.ok_or_else(|| {
+                    AppError::msg(crate::tr!(
+                        "This pg_dumpall dump holds several databases. Pick the one to import.",
+                        "Dump pg_dumpall ini berisi beberapa database. Pilih yang akan diimpor."
+                    ))
+                })?;
+                PgFilter::cluster(want)
+            } else {
+                PgFilter::default()
+            };
+            (cmd, Filter::Pg(filter), Tool::Client)
         }
         _ => {
             let mut cmd = c.command(Tool::Client);
@@ -760,6 +781,9 @@ pub fn import(
         if let Filter::MySql(router) = &filter {
             router.finish()?;
             stdin.write_all(b"\nSET SESSION unique_checks=1, foreign_key_checks=1;\n")?;
+        }
+        if let Filter::Pg(f) = &filter {
+            f.finish()?;
         }
         Ok(())
     })();
@@ -997,6 +1021,27 @@ mod tests {
         import(&c, "from_create", &created, None, &never, |_| {}).expect("import a --create dump");
         assert_eq!(checksum("from_create"), expected);
 
+        // pg_dumpall of the whole server, with a role of its own: one database
+        // comes out of it, the role and the other databases don't.
+        q("postgres", "CREATE ROLE dumpall_only LOGIN");
+        let all = root.join("all.sql");
+        let mut cmd = process::command(l.bin("pg_dumpall.exe"));
+        for (k, v) in postgres::client_env(55433) {
+            cmd.env(k, v);
+        }
+        process::run(cmd.arg("-f").arg(&all)).expect("pg_dumpall");
+        q("postgres", "DROP ROLE dumpall_only");
+        let scanned = scan(Engine::PostgreSql, &all).unwrap();
+        let names: Vec<&str> = scanned.databases.iter().map(|d| d.name.as_str()).collect();
+        assert!(names.contains(&"src") && names.contains(&"Mixed-Case") && !names.contains(&"postgres"), "{scanned:?}");
+        assert!(scanned.system.iter().any(|s| s == "template1" || s == "postgres"), "{scanned:?}");
+        create_db(&c, "from_all").unwrap();
+        assert!(import(&c, "from_all", &all, None, &never, |_| {}).is_err(), "a database has to be picked");
+        import(&c, "from_all", &all, Some("src"), &never, |_| {}).expect("import one database of a pg_dumpall dump");
+        assert_eq!(checksum("from_all"), expected);
+        assert_eq!(q("postgres", "SELECT count(*) FROM pg_roles WHERE rolname = 'dumpall_only'"), "0", "roles stay out");
+        assert!(import(&c, "from_all", &all, Some("not_there"), &never, |_| {}).is_err());
+
         // A SQL error is reported with psql's own message and line.
         let bad = root.join("bad.sql");
         fs::write(&bad, "CREATE TABLE ok (id int);\nTHIS IS NOT SQL;\n").unwrap();
@@ -1011,7 +1056,7 @@ mod tests {
 
         drop_db(&c, "bad").unwrap();
         let names: Vec<String> = list(&c).unwrap().into_iter().map(|d| d.name).collect();
-        assert_eq!(names, ["Mixed-Case", "from_create", "from_custom", "from_gz", "from_sql", "src"]);
+        assert_eq!(names, ["Mixed-Case", "from_all", "from_create", "from_custom", "from_gz", "from_sql", "src"]);
         sup.stop(postgres::SERVICE_ID).unwrap();
         let _ = fs::remove_dir_all(&root);
     }
