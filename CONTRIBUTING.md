@@ -45,7 +45,10 @@ applications, or from anything whose licence doesn't allow it.
 
 These hold for every change:
 
-- **Local only.** Services listen on `127.0.0.1`, never on other interfaces.
+- **Local only.** Services listen on `127.0.0.1`, never on other interfaces. The one
+  exception is **Open on a phone**, which the user starts for one site: nginx then
+  serves that site on the computer's network address, to private networks only, and
+  stops when the time the user picked runs out.
 - **Verified downloads.** Zefaro downloads official builds from each project's
   own source and checks them against a pinned or published SHA-256. Don't add a
   download without a checksum.
