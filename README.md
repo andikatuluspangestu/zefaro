@@ -7,7 +7,7 @@
 Zefaro is a free, open-source local PHP development environment for Windows, and an
 alternative to XAMPP and Laragon. Link a project folder and Zefaro serves it at
 `name.test` on the PHP version you choose, with HTTPS, databases and a mail catcher
-already set up.
+already set up. macOS and Linux ports are welcome; see [macOS and Linux](#macos-and-linux).
 
 **Website:** [zefaro.pages.dev](https://zefaro.pages.dev) ·
 [Bahasa Indonesia](https://zefaro.pages.dev/id/) ·
@@ -209,6 +209,31 @@ The landing page at zefaro.pages.dev lives in `site/` (React, Vite and Framer Mo
 Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first. Zefaro accepts
 no AI features of any kind and no cloud features, and pull requests that add them are
 closed without review.
+
+### macOS and Linux
+
+Zefaro runs on Windows only today, and we would welcome developers who want to bring it
+to macOS or Linux. The interface and most of the engine are plain Rust and React, and the
+Windows-specific parts are what a port has to replace:
+
+- **Downloads.** Each service (nginx, MariaDB, MySQL, PostgreSQL, Redis, Mailpit,
+  Meilisearch, RustFS, cloudflared) pins a Windows build and its SHA-256 in
+  `src-tauri/src/engine/`. PHP has no official macOS or Linux builds, so a port needs a
+  source for those too.
+- **PHP.** Sites run on `php-cgi`. On macOS and Linux, `php-fpm` is the usual choice.
+- **`.test` names.** Windows gets a name resolution rule (NRPT). macOS uses
+  `/etc/resolver/test`, and Linux uses systemd-resolved or dnsmasq.
+- **HTTPS.** The local CA is trusted in the Windows certificate store, and its key is
+  encrypted with DPAPI. On macOS that's the Keychain, and on Linux the system trust store.
+- **Processes and the Terminal.** Job Objects, the restricted token for PostgreSQL and
+  the ConPTY terminal map to process groups, a non-root user and a pty.
+- **Install and update.** The NSIS installer, the PATH and start-with-Windows entries, the
+  `.bat` shims and the updater map to a `.dmg` or AppImage, shell scripts and a LaunchAgent
+  or systemd unit.
+
+The rules in [CONTRIBUTING.md](CONTRIBUTING.md) apply to a port as well. Open an issue
+first to agree on a plan; a port can land in steps, starting with nginx, PHP, DNS and
+HTTPS.
 
 ## Licence and trademarks
 
