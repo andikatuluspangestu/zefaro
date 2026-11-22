@@ -385,7 +385,7 @@ fn nginx_error(raw: &str) -> Option<LogEntry> {
 }
 
 /// Read one double-quoted field from the start of `s`; returns (field, rest).
-fn quoted(s: &str) -> Option<(&str, &str)> {
+pub(crate) fn quoted(s: &str) -> Option<(&str, &str)> {
     let s = s.trim_start().strip_prefix('"')?;
     let mut escaped = false;
     for (i, c) in s.char_indices() {
@@ -398,7 +398,7 @@ fn quoted(s: &str) -> Option<(&str, &str)> {
     None
 }
 
-fn word(s: &str) -> (&str, &str) {
+pub(crate) fn word(s: &str) -> (&str, &str) {
     let s = s.trim_start();
     match s.split_once(' ') {
         Some((w, r)) => (w, r),
@@ -407,7 +407,7 @@ fn word(s: &str) -> (&str, &str) {
 }
 
 /// `21/Oct/2026:15:53:09 +0700` → `2026-10-21 15:53:09`
-fn access_time(s: &str) -> Option<String> {
+pub(crate) fn access_time(s: &str) -> Option<String> {
     let (date, _zone) = s.split_once(' ').unwrap_or((s, ""));
     let mut p = date.splitn(4, [':', '/']);
     let (d, m, y) = (p.next()?, month(p.next()?)?, p.next()?);

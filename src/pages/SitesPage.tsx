@@ -44,7 +44,7 @@ import {
 } from "@/components/ui/empty";
 import { defineMessages, useT } from "@/i18n";
 import { common } from "@/i18n/common";
-import { SitePage } from "@/pages/site/SitePage";
+import { SitePage, type SiteTab } from "@/pages/site/SitePage";
 import { NewSitePage } from "@/pages/site/NewSitePage";
 import { ProjectLinkDialog } from "@/pages/site/project-dialog";
 import { ImportPage } from "@/pages/site/ImportPage";
@@ -116,6 +116,8 @@ export function SitesPage({ intent, onIntentDone }: { intent?: Intent | null; on
   const [sites, setSites] = useState<Site[] | null>(null);
   const ca = useCaStatus();
   const [open, setOpen] = useState<string | null>(null);
+  /** Where a notification asked the site page to open, and a count that remounts it. */
+  const [jump, setJump] = useState<{ tab?: SiteTab; view?: "app" | "requests"; n: number }>({ n: 0 });
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
   // A chosen folder that has a zefaro.json, waiting for the user's answer.
@@ -140,7 +142,10 @@ export function SitesPage({ intent, onIntentDone }: { intent?: Intent | null; on
     if (!intent) return;
     if (intent.type === "new-site") setCreating(true);
     else if (intent.type === "import") setImporting(true);
-    else if (intent.type === "open-site") setOpen(intent.name);
+    else if (intent.type === "open-site") {
+      setOpen(intent.name);
+      setJump((j) => ({ tab: intent.tab, view: intent.logView, n: j.n + 1 }));
+    }
     else return;
     onIntentDone?.();
   }, [intent, onIntentDone]);
@@ -222,7 +227,7 @@ export function SitesPage({ intent, onIntentDone }: { intent?: Intent | null; on
   }
 
   if (open && sites?.some((s) => s.name === open)) {
-    return <SitePage name={open} onBack={() => setOpen(null)} />;
+    return <SitePage key={jump.n} name={open} initialTab={jump.tab} logView={jump.view} onBack={() => setOpen(null)} />;
   }
 
   const linkButton = (

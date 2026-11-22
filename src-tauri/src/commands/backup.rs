@@ -3,8 +3,9 @@
 //! progress and cancel, polled with `backup_job` like the database export.
 
 use super::{blocking, services};
-use crate::config::{self, ZefaroConfig};
+use crate::config::{self, BackupSchedule, ZefaroConfig};
 use crate::engine::backup::{self, Contents, Servers, Step};
+use crate::engine::backupsched::{self, Record};
 use crate::engine::dbio::{Client, Engine};
 use crate::engine::{nginx, paths};
 use crate::error::{AppError, AppResult};
@@ -143,9 +144,14 @@ pub async fn backup_inspect(path: String) -> AppResult<Contents> {
 /// Make a backup at `path`; with `databases`, every database of each
 /// installed server (MariaDB, MySQL, PostgreSQL) goes in.
 #[tauri::command]
-pub fn backup_start(app: AppHandle, state: State<AppState>, path: String, databases: bool) -> AppResult<()> {
-    let dest = PathBuf::from(path);
-    let (slot, cancel) = begin(&state, "backup", &dest)?;
+pub fn backup_start(app: AppHandle, path: String, databases: bool) -> AppResult<()> {
+    start_backup(&app, PathBuf::from(path), databases)
+}
+
+/// Start the backup job; it runs on its own thread.
+fn start_backup(app: &AppHandle, dest: PathBuf, databases: bool) -> AppResult<()> {
+    let (slot, cancel) = begin(&app.state::<AppState>(), "backup", &dest)?;
+    let app = app.clone();
     std::thread::spawn(move || {
         let state = app.state::<AppState>();
         let cfg = state.config.lock().unwrap().clone();
@@ -246,5 +252,142 @@ pub fn backup_dismiss(state: State<AppState>) {
     let mut slot = state.backup_job.lock().unwrap();
     if slot.as_ref().is_some_and(|j| j.state != "running") {
         *slot = None;
+    }
+}
+
+// ---------------------------------------------------------------- schedule --
+
+#[derive(serde::Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ScheduleView {
+    pub schedule: BackupSchedule,
+    /// The folder the files go to, with the default filled in.
+    pub folder: String,
+    /// When the next one runs, while the schedule is on.
+    pub next_ms: Option<u64>,
+    pub last: Record,
+}
+
+fn schedule_view(schedule: BackupSchedule) -> ScheduleView {
+    let next_ms = schedule
+        .enabled
+        .then(|| backupsched::next_slot(&schedule, backupsched::now_local()))
+        .flatten()
+        .map(backupsched::unix_ms);
+    ScheduleView {
+        folder: backupsched::folder(&schedule).display().to_string(),
+        schedule,
+        next_ms,
+        last: backupsched::load(),
+    }
+}
+
+#[tauri::command]
+pub fn backup_schedule(state: State<AppState>) -> ScheduleView {
+    schedule_view(state.config.lock().unwrap().backup_schedule.clone())
+}
+
+/// Save the schedule. Slots that already passed today don't count, so turning
+/// it on never starts a backup right away.
+#[tauri::command]
+pub fn backup_schedule_save(state: State<AppState>, schedule: BackupSchedule) -> AppResult<ScheduleView> {
+    backupsched::validate(&schedule)?;
+    let mut schedule = schedule;
+    schedule.folder = schedule.folder.trim().to_owned();
+    {
+        let mut cfg = state.config.lock().unwrap();
+        cfg.backup_schedule = schedule.clone();
+        config::save(&cfg)?;
+    }
+    let mut record = backupsched::load();
+    record.anchor_ms = now_ms();
+    backupsched::save(&record)?;
+    Ok(schedule_view(schedule))
+}
+
+/// Once a minute: start the scheduled backup when one is due, wait for it,
+/// then delete the oldest of its files beyond the count to keep. A backup or
+/// restore already running makes it wait for the next minute.
+pub fn scheduler(app: AppHandle) {
+    std::thread::spawn(move || loop {
+        // The first look comes a minute after Zefaro starts, after its services.
+        std::thread::sleep(std::time::Duration::from_secs(60));
+        let schedule = app.state::<AppState>().config.lock().unwrap().backup_schedule.clone();
+        let now = backupsched::now_local();
+        let mut record = backupsched::load();
+        if !backupsched::is_due(&schedule, now, &record) {
+            continue;
+        }
+        let folder = backupsched::folder(&schedule);
+        let dest = folder.join(backupsched::file_name(now));
+        let started = std::fs::create_dir_all(&folder).map_err(AppError::from).and_then(|()| start_backup(&app, dest.clone(), schedule.databases));
+        let job = match started {
+            Ok(()) => wait_for(&app, &dest),
+            Err(e) if is_busy(&app) => {
+                let _ = e;
+                continue;
+            }
+            Err(e) => Some(BackupJob { state: "failed".into(), message: Some(e.to_string()), ..empty_job(&dest) }),
+        };
+        let job = job.unwrap_or_else(|| BackupJob { state: "failed".into(), ..empty_job(&dest) });
+        record.last_ms = Some(now_ms());
+        record.last_file = Some(dest.display().to_string());
+        record.last_state = Some(job.state.clone());
+        record.last_message = job.message.clone();
+        record.pruned = 0;
+        if job.state == "done" {
+            record.pruned = backupsched::prune(&folder, schedule.keep).map(|gone| gone.len() as u32).unwrap_or(0);
+        } else if job.state == "failed" {
+            crate::notify::send(
+                &app,
+                crate::notify::Notice {
+                    title: crate::tr!("The scheduled backup failed".to_owned(), "Pencadangan terjadwal gagal".to_owned()),
+                    body: job.message.clone().unwrap_or_default(),
+                    tone: "error",
+                    site: None,
+                    view: None,
+                },
+            );
+        }
+        let _ = backupsched::save(&record);
+    });
+}
+
+fn is_busy(app: &AppHandle) -> bool {
+    app.state::<AppState>().backup_job.lock().unwrap().as_ref().is_some_and(|j| j.state == "running")
+}
+
+/// Wait for the job writing `dest` to end, and return how it ended.
+fn wait_for(app: &AppHandle, dest: &Path) -> Option<BackupJob> {
+    let file = dest.to_string_lossy().into_owned();
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        let job = app.state::<AppState>().backup_job.lock().unwrap().clone();
+        match job {
+            Some(j) if j.file == file && j.state == "running" => continue,
+            Some(j) if j.file == file => return Some(j),
+            _ => return None,
+        }
+    }
+}
+
+fn empty_job(dest: &Path) -> BackupJob {
+    BackupJob {
+        kind: "backup".into(),
+        state: String::new(),
+        file: dest.to_string_lossy().into_owned(),
+        phase: String::new(),
+        server: None,
+        current: None,
+        done: 0,
+        total: 0,
+        message: None,
+        size: None,
+        loaded: Vec::new(),
+        skipped: Vec::new(),
+        settings_restored: false,
+        has_secured_sites: false,
+        started_ms: now_ms(),
+        ended_ms: None,
     }
 }

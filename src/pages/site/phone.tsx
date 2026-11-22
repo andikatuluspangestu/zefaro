@@ -36,6 +36,8 @@ const messages = defineMessages({
     cancel: "Cancel",
     start: "Open on the network",
     open: "On your phone, open",
+    scan: "Scan with the phone's camera, or open",
+    qrAlt: (url: string) => `QR code for ${url}`,
     hint: (time: string) => `Same Wi-Fi as this computer. Stops by itself at ${time}.`,
     copy: "Copy",
     copied: "Address copied",
@@ -57,6 +59,8 @@ const messages = defineMessages({
     cancel: "Batal",
     start: "Buka di jaringan",
     open: "Di HP Anda, buka",
+    scan: "Pindai dengan kamera HP, atau buka",
+    qrAlt: (url: string) => `Kode QR untuk ${url}`,
     hint: (time: string) => `Wi-Fi yang sama dengan komputer ini. Berhenti sendiri pukul ${time}.`,
     copy: "Salin",
     copied: "Alamat disalin",
@@ -174,12 +178,36 @@ const clock = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: "2-dig
 export function PhoneBanner({ phone }: { phone: Phone }) {
   const t = useT(messages);
   const r = phone.route;
+  const url = r?.url;
+  // Black on white whatever the theme: phone cameras read that best.
+  const [qr, setQr] = useState<string | null>(null);
+  useEffect(() => {
+    setQr(null);
+    if (!url) return;
+    let stop = false;
+    api
+      .qrSvg(url)
+      .then((svg) => !stop && setQr(svg))
+      .catch(() => {});
+    return () => {
+      stop = true;
+    };
+  }, [url]);
   if (!r) return null;
   return (
     <Card className="mb-5 gap-2 border-primary/40 bg-primary/5 p-4" role="status" aria-live="polite">
+      <div className="flex flex-wrap items-center gap-4">
+      {qr && (
+        <img
+          src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qr)}`}
+          alt={t.qrAlt(r.url)}
+          className="size-32 shrink-0 rounded-md border bg-white p-1"
+        />
+      )}
+      <div className="min-w-0 flex-1 space-y-2">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <Icon name="mobile-screen" className="text-primary" />
-        <span className="text-sm font-medium">{t.open}</span>
+        <span className="text-sm font-medium">{qr ? t.scan : t.open}</span>
         <code className="font-mono text-lg font-semibold tracking-tight select-all">{r.url}</code>
         <div className="ml-auto flex gap-2">
           <Button
@@ -206,6 +234,8 @@ export function PhoneBanner({ phone }: { phone: Phone }) {
         </div>
       </div>
       <p className="text-xs text-muted-foreground">{t.hint(clock(r.expiresMs))}</p>
+      </div>
+      </div>
     </Card>
   );
 }

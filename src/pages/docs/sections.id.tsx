@@ -376,7 +376,9 @@ export const SECTIONS_ID: DocSection[] = [
                 disembunyikan model, dan apa pun yang namanya mirip password atau token, tampil
                 sebagai titik sampai Anda mengklik ikon mata. <em>Setara dengan kode</em> menyalin
                 query di layar sebagai kode Eloquent, dan <em>Buka di Tinker</em> memasukkannya ke
-                Tinker.
+                Tinker. <em>Snapshot</em> menyimpan database aplikasi (MariaDB, MySQL, PostgreSQL, atau
+                SQLite) dengan sekali klik, dengan catatan bila perlu, lalu mengembalikannya nanti: berguna
+                sebelum migrasi yang berisiko.
               </>,
             ],
             [
@@ -389,7 +391,9 @@ export const SECTIONS_ID: DocSection[] = [
                 tampak rahasia (key, password, token) tetap tersembunyi sampai Anda menampilkannya.
                 Dibandingkan dengan <C>.env.example</C>, variabel yang ada di sana tetapi belum ada di
                 <C>.env</C> ditampilkan untuk ditambahkan satu per satu atau sekaligus, dan variabel yang
-                hanya ada di <C>.env</C> ditandai. Situs tanpa <C>.env</C> bisa membuatnya dari contoh.
+                hanya ada di <C>.env</C> ditandai. Situs tanpa <C>.env</C> bisa membuatnya dari contoh.{" "}
+                <em>Batas PHP</em> memberi situs ukuran upload, batas memori, dan input vars sendiri, ditulis ke{" "}
+                <C>.user.ini</C> di folder publiknya dan tidak ikut ke Git; situs lain tetap memakai batas versi PHP-nya.
               </>,
             ],
             [
@@ -409,7 +413,9 @@ export const SECTIONS_ID: DocSection[] = [
               <>
                 Log milik aplikasi di <C>storage/logs</C>, yang terbaru di atas. Saring per level,
                 cari, buka entri untuk melihat konteks dan stack trace-nya, ikuti entri baru saat
-                ditulis, atau kosongkan file.
+                ditulis, atau kosongkan file. <em>Request</em> menampilkan apa yang disajikan nginx untuk
+                situs ini, yang terbaru di atas, dengan status, durasi, dan ukurannya; tampilkan hanya error,
+                error server, atau request yang lambat (satu detik atau lebih).
               </>,
             ],
             [
@@ -435,12 +441,25 @@ export const SECTIONS_ID: DocSection[] = [
               </>,
             ],
             [
+              "Test",
+              <>
+                Menjalankan test Pest atau PHPUnit aplikasi dengan PHP situs, dengan output langsung dan
+                tombol Hentikan, lalu menampilkan setiap test dari laporan runner. Test yang gagal
+                menampilkan pesannya dan terbuka di VS Code atau PhpStorm pada baris yang gagal;{" "}
+                <em>Jalankan yang gagal</em> mengulang hanya yang itu. Test memakai pengaturan di{" "}
+                <C>phpunit.xml</C>, jadi test yang me-refresh database akan mengosongkan database yang diatur di sana.
+              </>,
+            ],
+            [
               "Worker",
               <>
                 Perintah yang dijaga Zefaro tetap berjalan untuk situs dan dijalankan ulang jika
                 crash: queue worker, scheduler, Vite, Reverb atau Horizon, atau perintah apa pun
                 yang Anda tulis. Masing-masing bisa mulai saat Zefaro mulai. Outputnya masuk ke
-                halaman Log, di grup Worker.
+                halaman Log, di grup Worker. Di bawahnya, <em>Job gagal</em> menampilkan job antrean yang
+                gagal beserta exception-nya, untuk dicoba lagi atau dihapus satu per satu atau sekaligus, dan{" "}
+                <em>Tugas terjadwal</em> menampilkan jadwal aplikasi beserta kapan tiap tugas berjalan
+                berikutnya; <em>Jalankan sekarang</em> menjalankan satu tugas lewat <C>schedule:test</C>.
               </>,
             ],
           ]}
@@ -470,6 +489,28 @@ export const SECTIONS_ID: DocSection[] = [
           boleh dilihat orang asing, dan matikan <C>APP_DEBUG</C> dulu: halaman error-nya
           menampilkan kode dan <C>.env</C> Anda. Quick Tunnel dibuat untuk pengujian, bukan untuk
           menjalankan situs produksi.
+        </P>
+        <P>
+          Selama situs dibagikan, panel <em>Request</em> di bawah banner menampilkan setiap request yang
+          masuk, dengan header, body, dan jawabannya, dan bisa mengirim ulang satu request dengan sekali
+          klik: berguna untuk webhook pembayaran. Password berbagi tidak pernah ditampilkan di sana.
+        </P>
+        <H3>Buka di HP</H3>
+        <P>
+          Tombol HP di header situs menyajikan situs di alamat komputer ini pada jaringan Anda selama
+          15 menit sampai dua jam, jadi HP atau tablet di Wi-Fi yang sama bisa membukanya. Banner
+          menampilkan kode QR untuk dipindai dengan kamera HP, dan alamat untuk diketik. Hanya jaringan
+          privat yang bisa masuk, dan siapa pun di Wi-Fi itu yang tahu alamatnya bisa membuka situs
+          selama masih aktif. Pertama kali, Windows mungkin bertanya apakah nginx boleh menerima koneksi:
+          izinkan untuk jaringan privat.
+        </P>
+        <H3>Notifikasi error</H3>
+        <P>
+          Saat situs menjawab dengan error server (500 ke atas) atau log Laravel-nya mendapat error,
+          Zefaro memberi tahu Anda: di dalam jendela saat Zefaro di depan, dengan <em>Buka log</em>, dan
+          sebagai notifikasi Windows selain itu. Tiap situs mendapat paling banyak satu per menit; yang
+          muncul di antaranya dihitung di notifikasi berikutnya. Matikan di Pengaturan, bagian{" "}
+          <em>Notifikasi</em>.
         </P>
         <H3>Perlu diketahui</H3>
         <List
@@ -709,7 +750,7 @@ export const SECTIONS_ID: DocSection[] = [
             ["Redis  ·  port 6379", "Cache, antrean, dan sesi."],
             ["Meilisearch  ·  port 7700", "Mesin pencari untuk Laravel Scout."],
             ["RustFS  ·  port 9000, 9001", "Penyimpanan S3-compatible untuk disk s3, dengan konsol web."],
-            ["phpMyAdmin", <>GUI database untuk MariaDB di <C>http://phpmyadmin.test</C>.</>],
+            ["phpMyAdmin", <>GUI database untuk MariaDB dan MySQL di <C>http://phpmyadmin.test</C>.</>],
             ["Adminer", <>GUI database untuk MariaDB, MySQL, dan PostgreSQL di <C>http://adminer.test</C>.</>],
             ["Mailpit  ·  1025 dan 8025", "Menangkap email keluar (SMTP di 1025, antarmuka web di 8025)."],
           ]}
@@ -894,7 +935,7 @@ export const SECTIONS_ID: DocSection[] = [
           mengunduhnya (328 MB, Zefaro hanya menyimpan server dan alatnya, tanpa file debug) lalu
           membuat folder data. Di terminal, <C>mysql -P 3307</C> terhubung ke MySQL. Wizard{" "}
           <strong>Situs baru</strong> bisa membuat aplikasi di atasnya, dan halaman Database
-          mengelola database-nya. Cadangan dan Adminer juga bekerja dengannya; phpMyAdmin hanya dengan MariaDB.
+          mengelola database-nya. Cadangan, Adminer, dan phpMyAdmin juga bekerja dengannya.
         </P>
         <H3>PostgreSQL</H3>
         <P>
@@ -933,8 +974,10 @@ export const SECTIONS_ID: DocSection[] = [
         <H3>phpMyAdmin</H3>
         <P>
           Buka <C>http://phpmyadmin.test</C>. phpMyAdmin langsung memasukkan Anda sebagai root.
-          Memulai phpMyAdmin juga memulai MariaDB, PHP, dan nginx; menghentikannya hanya membuat
-          situs phpMyAdmin offline.
+          phpMyAdmin masuk ke MariaDB atau MySQL; pilih lewat dropdown server. Memulai phpMyAdmin juga
+          memulai PHP dan nginx, serta server database hanya jika belum ada yang berjalan: MariaDB, atau MySQL
+          bila hanya itu yang terpasang. phpMyAdmin terbuka di server yang sedang berjalan. Menghentikannya
+          hanya membuat situs phpMyAdmin offline.
         </P>
         <H3>Meilisearch</H3>
         <P>
@@ -1384,6 +1427,14 @@ export const SECTIONS_ID: DocSection[] = [
           server lebih dulu bila berkas berisi database untuknya dan server itu belum ada. Keduanya bisa dibatalkan, dan
           pencadangan yang dibatalkan atau gagal tidak meninggalkan berkas setengah jadi. Zefaro versi sebelum cadangan
           MySQL dan PostgreSQL menolak berkas yang berisi database tersebut, dan menyebutkan alasannya.
+        </P>
+        <P>
+          <em>Pencadangan otomatis</em>, di tab yang sama, membuat cadangan yang sama dengan sendirinya setiap hari
+          atau setiap minggu pada jam yang Anda pilih, ke folder pilihan Anda (<C>Documents\Zefaro backups</C>
+          kecuali Anda menggantinya). Zefaro menyimpan 3, 7, 14, atau 30 yang terbaru dan menghapus cadangan lama
+          buatannya; file lain di folder itu tidak pernah disentuh. Pencadangan yang terlewat saat komputer mati
+          dibuat begitu Zefaro berjalan lagi, dan yang gagal muncul sebagai notifikasi. Zefaro harus berjalan, di
+          jendela atau di tray.
         </P>
         <H3>Pembaruan</H3>
         <P>

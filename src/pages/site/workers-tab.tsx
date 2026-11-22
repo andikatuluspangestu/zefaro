@@ -21,6 +21,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { defineMessages, useT } from "@/i18n";
 import { common } from "@/i18n/common";
+import { QueuePanel } from "./queue-panel";
 import type { Overview, Worker, WorkerStatus } from "./types";
 
 const messages = defineMessages({
@@ -299,6 +300,9 @@ export function WorkersTab({ site, overview }: { site: string; overview: Overvie
           ))}
         </div>
       )}
+
+      {/* Failed jobs and scheduled tasks need the app itself: Laravel only. */}
+      {overview && <QueuePanel site={site} workers={workers} />}
 
       <AlertDialog open={toRemove !== null} onOpenChange={(open) => !open && setToRemove(null)}>
         <AlertDialogContent>

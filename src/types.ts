@@ -190,6 +190,18 @@ export interface AppInfo {
   autostart: string[];
   /** This Windows account can approve an admin prompt (a standard account can't). */
   canElevate: boolean;
+  /** A notification when a site answers with a server error or logs an error. */
+  notifyErrors: boolean;
+}
+
+/** Something Zefaro tells the user about while it is in front (else a Windows notification). */
+export interface Notice {
+  title: string;
+  body: string;
+  tone: "error" | "info";
+  /** The site it's about: its toast opens the site's logs. */
+  site: string | null;
+  view: "app" | "requests" | null;
 }
 
 export interface Component {
@@ -474,6 +486,35 @@ export interface BackupContents {
   created: number;
   sites: number;
   databases: BackupDb[];
+}
+
+/** When Zefaro backs up by itself (Settings → Updates and backup). */
+export interface BackupSchedule {
+  enabled: boolean;
+  every: "daily" | "weekly";
+  /** Hour of the day, local time. */
+  hour: number;
+  /** 1 = Monday to 7 = Sunday. */
+  weekday: number;
+  /** Empty: Documents\Zefaro backups. */
+  folder: string;
+  keep: number;
+  databases: boolean;
+}
+
+export interface BackupScheduleView {
+  schedule: BackupSchedule;
+  /** The folder the files go to, with the default filled in. */
+  folder: string;
+  nextMs: number | null;
+  last: {
+    anchorMs: number;
+    lastMs: number | null;
+    lastFile: string | null;
+    lastState: "done" | "failed" | "cancelled" | null;
+    lastMessage: string | null;
+    pruned: number;
+  };
 }
 
 /** The backup or restore in progress, or the last one until dismissed. */

@@ -137,6 +137,18 @@ pub async fn site_routes(name: String, state: State<'_, AppState>) -> AppResult<
     query(&state, &name, json!({ "op": "routes" })).await
 }
 
+/// The app's failed queue jobs. Retrying and deleting them are Artisan jobs.
+#[tauri::command]
+pub async fn site_queue_failed(name: String, state: State<'_, AppState>) -> AppResult<Value> {
+    query(&state, &name, json!({ "op": "queueFailed" })).await
+}
+
+/// The app's scheduled tasks with when each runs next.
+#[tauri::command]
+pub async fn site_schedule(name: String, state: State<'_, AppState>) -> AppResult<Value> {
+    query(&state, &name, json!({ "op": "schedule" })).await
+}
+
 fn env_path(state: &AppState, name: &str) -> AppResult<PathBuf> {
     let cfg = state.config.lock().unwrap();
     let site = cfg
@@ -257,8 +269,8 @@ fn open_targets(state: &AppState, name: &str) -> AppResult<(PathBuf, Option<apps
             _ => true,
         })
         .collect();
-    // phpMyAdmin signs in to MariaDB only.
-    if phpmyadmin && matches!(db, Some(apps::Database::Mysql { port, .. }) if port == mariadb::port()) {
+    // phpMyAdmin signs in to Zefaro's MariaDB and MySQL.
+    if phpmyadmin && matches!(db, Some(apps::Database::Mysql { port, .. }) if port == mariadb::port() || port == crate::engine::mysql::port()) {
         list.push(apps::ExternalApp { id: "phpmyadmin".into(), name: "phpMyAdmin".into(), kind: "database".into(), exe: PathBuf::new() });
     }
     // Adminer opens any of Zefaro's three servers.
@@ -303,8 +315,10 @@ pub fn site_open(name: String, target: String, app: tauri::AppHandle, state: Sta
                 cfg.url_for(&format!("{}.{}", crate::engine::phpmyadmin::HOST, cfg.tld), false)
             };
             let url = match &db {
-                Some(apps::Database::Mysql { name, .. }) if !name.is_empty() => {
-                    format!("{url}/index.php?route=/database/structure&db={name}")
+                Some(apps::Database::Mysql { name, port, .. }) if !name.is_empty() => {
+                    // Server 1 in phpMyAdmin's config is MariaDB, 2 is MySQL.
+                    let server = if *port == crate::engine::mysql::port() { 2 } else { 1 };
+                    format!("{url}/index.php?route=/database/structure&server={server}&db={name}")
                 }
                 _ => url,
             };

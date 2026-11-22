@@ -1,6 +1,6 @@
 [package]
 name = "zefaro"
-version = "1.7.0"
+version = "1.8.0"
 description = "Zefaro: Yet Another Local Laravel Tools, a free local PHP development environment for Windows"
 edition = "2024"
 license = "MIT"
@@ -33,11 +33,13 @@ sha2 = "0.10"
 # HTTPS for sites: Zefaro's local CA and site certificates (ECDSA P-256 via ring).
 rcgen = "0.14"
 ring = "0.17"
-time = "0.3"
+time = { version = "0.3", features = ["local-offset"] }
 # Gzip for database exports/imports (already in the tree via zip).
 flate2 = "1"
 # Fast line scanning for dump files (already in the tree).
 memchr = "2"
+qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
+tauri-plugin-notification = "2"
 
 # Job Objects: every service runs inside one, so stopping a service (or Zefaro
 # exiting/crashing) also kills its child processes — no orphaned nginx workers
@@ -57,6 +59,10 @@ windows-sys = { version = "0.61", features = [
   "Win32_System_LibraryLoader",
 ] }
 
+
+[dev-dependencies]
+# datetime!() in the backup schedule's tests.
+time = { version = "0.3", features = ["macros"] }
 
 [profile.dev]
 # Skip PDB debug info to slash linker memory on low-RAM machines (this is what

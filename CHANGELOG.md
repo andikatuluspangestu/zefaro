@@ -4,6 +4,40 @@ All notable changes to Zefaro are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Zefaro uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+## [1.8.0] - 2026-11-22
+
+### Added
+
+- **phpMyAdmin works with MySQL.** It signs in as root to MariaDB or MySQL, with a server drop-down to switch
+  between them, so MySQL alone is enough. Starting phpMyAdmin uses whichever server is already running and only
+  starts one when neither is (MariaDB, or MySQL when that's the only one installed). Open in phpMyAdmin on a site
+  opens the server its database is on.
+
+- **Automatic backups.** Settings → Updates and backup can make the same backup by itself, every day or every
+  week at the hour you pick, into a folder you choose (Documents\Zefaro backups by default), with or without the
+  databases. It keeps the newest 3, 7, 14 or 30 and deletes the older ones it made; other files in the folder are
+  never touched. A backup missed while the computer was off is made the next time Zefaro runs, and one that fails
+  comes as a notification.
+- **Failed jobs and scheduled tasks.** Under a site's workers, Failed jobs lists the queue's failed jobs with their
+  exception, to retry or delete one or all of them, and Scheduled tasks lists the app's schedule with when each
+  task runs next and Run now (through `schedule:test`). Zefaro says when no queue worker or scheduler is running.
+- **Error notifications.** When a site answers with a server error (500 and up) or its Laravel log gets an error,
+  Zefaro tells you: inside the window when it's in front, with Open log, and as a Windows notification otherwise.
+  One per site a minute at most. Settings → General → Notifications turns them off.
+- **Requests in a site's logs.** The Logs tab of a site has Requests next to the app log: what nginx served for
+  the site, newest first, with status, time taken and size, filtered to errors, server errors or slow requests.
+  Sites that aren't Laravel apps show it on their page too.
+- **QR code for Open on a phone.** The banner shows a QR code of the site's network address to scan with the
+  phone's camera.
+
+### Changed
+
+- phpMyAdmin no longer shows "Needs MariaDB running" when MySQL is the server that's up.
+- The built-in documentation now covers snapshots, the Tests tab, Open on a phone, PHP limits per site and the
+  Requests panel while sharing.
+
 ## [1.7.0] - 2026-11-07
 
 ### Added
@@ -367,6 +401,7 @@ development environment for Windows.
 - Every service listens on `127.0.0.1` only.
 - The installer isn't code-signed yet, so Windows SmartScreen asks you to confirm it.
 
+[1.8.0]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.8.0
 [1.7.0]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.7.0
 [1.6.0]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.6.0
 [1.5.0]: https://github.com/andikatuluspangestu/zefaro/releases/tag/v1.5.0

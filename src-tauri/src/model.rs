@@ -264,6 +264,8 @@ pub struct AppInfo {
     pub autostart: Vec<String>,
     /// Whether this Windows account can approve an admin prompt.
     pub can_elevate: bool,
+    /// A notification when a site answers with a server error or logs an error.
+    pub notify_errors: bool,
 }
 
 /// One piece of third-party software Zefaro installs.

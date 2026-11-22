@@ -5,6 +5,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { api } from "@/api";
 import { Icon } from "@/components/icon";
 import { BackupGroup } from "@/components/backup-card";
+import { BackupScheduleGroup } from "@/components/backup-schedule";
 import { TrustCaButton, UntrustCaButton, useCaStatus } from "@/components/https-trust";
 import { PageHeader } from "@/components/page-header";
 import { SettingGroup, SettingRow } from "@/components/settings-layout";
@@ -184,6 +185,35 @@ function useSaved(value: boolean | null | undefined, save: (on: boolean) => Prom
 
 function SavedSwitch({ on, change, label }: { on: boolean | null; change: (v: boolean) => void; label: string }) {
   return on === null ? <Pending /> : <Switch checked={on} onCheckedChange={change} aria-label={label} />;
+}
+
+const noticeMessages = defineMessages({
+  en: {
+    title: "Notifications",
+    errors: "Site errors",
+    errorsHint:
+      "When a site answers with a server error (500 and up) or writes an error to its Laravel log. In front, Zefaro shows it inside the window; otherwise Windows shows a notification. At most one a minute per site.",
+  },
+  id: {
+    title: "Notifikasi",
+    errors: "Error situs",
+    errorsHint:
+      "Saat situs menjawab dengan error server (500 ke atas) atau menulis error ke log Laravel-nya. Saat Zefaro di depan, pesannya muncul di dalam jendela; selain itu Windows menampilkan notifikasi. Paling banyak satu per menit untuk tiap situs.",
+  },
+});
+
+function NoticesGroup({ info }: { info: AppInfo | null }) {
+  const t = useT(noticeMessages);
+  const [errors, setErrors] = useSaved(info?.notifyErrors, api.setNotifyErrors);
+  return (
+    <SettingGroup title={t.title}>
+      {[
+        <SettingRow key="errors" icon="bell" title={t.errors} description={t.errorsHint}>
+          <SavedSwitch on={errors} change={setErrors} label={t.errors} />
+        </SettingRow>,
+      ]}
+    </SettingGroup>
+  );
 }
 
 function InterfaceGroup() {
@@ -503,10 +533,12 @@ export function SettingsPage({ info, update = null }: { info: AppInfo | null; up
         <TabsContent value="general" tabIndex={-1} className="space-y-6 outline-none">
           <InterfaceGroup />
           <RunningGroup info={info} />
+          <NoticesGroup info={info} />
         </TabsContent>
         <TabsContent value="updates" tabIndex={-1} className="space-y-6 outline-none">
           <UpdatesGroup info={info} update={update} onNotes={(newer) => setNotes({ newer })} />
           <BackupGroup />
+          <BackupScheduleGroup />
         </TabsContent>
         <TabsContent value="system" tabIndex={-1} className="space-y-6 outline-none">
           <HttpsGroup ca={ca} />

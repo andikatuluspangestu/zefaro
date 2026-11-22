@@ -222,6 +222,31 @@ impl Default for DbTuning {
     }
 }
 
+/// When Zefaro backs up by itself, and where the files go.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct BackupSchedule {
+    pub enabled: bool,
+    /// "daily" or "weekly".
+    pub every: String,
+    /// Hour of the day, in local time (0 to 23).
+    pub hour: u8,
+    /// The day of a weekly backup: 1 = Monday to 7 = Sunday.
+    pub weekday: u8,
+    /// Where the files go; empty means Documents\Zefaro backups.
+    pub folder: String,
+    /// How many of these backups to keep in the folder; older ones are deleted.
+    pub keep: u32,
+    /// Every database of each installed server goes in too.
+    pub databases: bool,
+}
+
+impl Default for BackupSchedule {
+    fn default() -> Self {
+        Self { enabled: false, every: "daily".into(), hour: 12, weekday: 1, folder: String::new(), keep: 7, databases: true }
+    }
+}
+
 fn postgres_tuning() -> DbTuning {
     DbTuning::postgres_default()
 }
@@ -267,6 +292,11 @@ pub struct ZefaroConfig {
     pub mysql: DbTuning,
     #[serde(default = "postgres_tuning")]
     pub postgres: DbTuning,
+    /// Backups Zefaro makes by itself, from Settings → Updates and backup.
+    pub backup_schedule: BackupSchedule,
+    /// Tell the user when a site answers with a server error or its Laravel
+    /// log gets an error.
+    pub notify_errors: bool,
 }
 
 impl ZefaroConfig {
@@ -310,6 +340,8 @@ impl Default for ZefaroConfig {
             mariadb: DbTuning::mysql_default(),
             mysql: DbTuning::mysql_default(),
             postgres: DbTuning::postgres_default(),
+            backup_schedule: BackupSchedule::default(),
+            notify_errors: true,
         }
     }
 }

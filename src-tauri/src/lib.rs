@@ -10,6 +10,7 @@ mod config;
 mod engine;
 mod error;
 mod model;
+mod notify;
 mod state;
 mod tray;
 
@@ -82,8 +83,12 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             tray::create(app.handle())?;
+            // Backups on a schedule, and notices about site errors.
+            commands::backup::scheduler(app.handle().clone());
+            commands::notices::watch(app.handle().clone());
             // The window starts hidden (tauri.conf.json): shown now, unless Windows
             // started Zefaro at sign-in, when it waits in the tray.
             if !std::env::args().any(|a| a == engine::startup::BACKGROUND_ARG) {
@@ -158,6 +163,10 @@ pub fn run() {
             commands::system::update_install,
             commands::system::update_progress,
             commands::system::set_check_updates,
+            commands::backup::backup_schedule,
+            commands::backup::backup_schedule_save,
+            commands::notices::set_notify_errors,
+            commands::notices::site_requests,
             commands::tools::tools_active_php,
             commands::tools::tools_bin_on_path,
             commands::tools::tools_install_composer,
@@ -223,6 +232,8 @@ pub fn run() {
             commands::laravel::site_delete_row,
             commands::laravel::site_config,
             commands::laravel::site_routes,
+            commands::laravel::site_queue_failed,
+            commands::laravel::site_schedule,
             commands::laravel::site_env,
             commands::laravel::site_env_example,
             commands::laravel::site_packages,
@@ -241,6 +252,7 @@ pub fn run() {
             commands::tunnel::tunnel_requests_clear,
             commands::tunnel::lan_start,
             commands::tunnel::lan_status,
+            commands::tunnel::qr_svg,
             commands::tunnel::lan_stop,
             commands::snapshots::site_snapshots,
             commands::snapshots::site_snapshot_take,

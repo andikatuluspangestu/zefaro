@@ -27,8 +27,8 @@ import { ConfigTab } from "./config-tab";
 import { TinkerTab } from "./tinker-tab";
 import { ArtisanTab } from "./artisan-tab";
 import { WorkersTab } from "./workers-tab";
+import { RequestsView, SiteLogs } from "./requests-view";
 import { TestsTab } from "./tests-tab";
-import { LogsTab } from "./logs-tab";
 import { PackagesTab } from "./packages-tab";
 import { ShareBanner, ShareButton, useShare } from "./share";
 import { SharedRequests } from "./shared-requests";
@@ -141,13 +141,24 @@ const messages = defineMessages({
 /** The last overview of each site, so coming back to a site shows it at once while a fresh one loads. */
 const overviewCache = new Map<string, Overview>();
 
-export function SitePage({ name, onBack }: { name: string; onBack: () => void }) {
+export function SitePage({
+  name,
+  onBack,
+  initialTab,
+  logView,
+}: {
+  name: string;
+  onBack: () => void;
+  /** Opened from a notification: straight to the site's logs. */
+  initialTab?: SiteTab;
+  logView?: "app" | "requests";
+}) {
   const t = useT(messages);
   const [info, setInfo] = useState<SiteInfo | null>(null);
   const [overview, setOverview] = useState<Overview | null>(() => overviewCache.get(name) ?? null);
   const [overviewError, setOverviewError] = useState<string | null>(null);
   const [loadingOverview, setLoadingOverview] = useState(false);
-  const [tab, setTab] = useState<SiteTab>("overview");
+  const [tab, setTab] = useState<SiteTab>(initialTab ?? "overview");
   const [tinkerDraft, setTinkerDraft] = useState<{ code: string; at: number } | null>(null);
   const [installJob, setInstallJob] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -345,6 +356,7 @@ export function SitePage({ name, onBack }: { name: string; onBack: () => void })
       {share.info?.state === "running" && <SharedRequests site={name} />}
 
       {!info.isLaravel ? (
+        <>
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -356,6 +368,11 @@ export function SitePage({ name, onBack }: { name: string; onBack: () => void })
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
+        {/* Any site has requests, Laravel or not. */}
+        <div className="mt-6">
+          <RequestsView site={name} />
+        </div>
+        </>
       ) : !info.php ? (
         <IconAlert icon="triangle-exclamation" className="border-warning/40 text-warning *:data-[slot=alert-description]:text-muted-foreground" title={t.noPhp.title}>
           {t.noPhp.body}
@@ -437,7 +454,7 @@ export function SitePage({ name, onBack }: { name: string; onBack: () => void })
               <PackagesTab site={name} />
             </TabsContent>
             <TabsContent value="logs">
-              <LogsTab site={name} />
+              <SiteLogs site={name} initialView={logView} />
             </TabsContent>
             {/* Mounted while hidden, so the session's history survives switching tabs. */}
             <TabsContent value="tinker" forceMount className="data-[state=inactive]:hidden">

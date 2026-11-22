@@ -156,3 +156,40 @@ pub async fn tunnel_stop(app: AppHandle, state: State<'_, AppState>, site: Strin
     })
     .await
 }
+
+/// A QR code of `text` as SVG, black on white, for a phone camera: the address
+/// on the Open on a phone banner.
+#[tauri::command]
+pub fn qr_svg(text: String) -> AppResult<String> {
+    qr(&text)
+}
+
+fn qr(text: &str) -> AppResult<String> {
+    use qrcode::render::svg;
+    if text.is_empty() || text.len() > 1000 {
+        return Err(AppError::msg("Nothing to put in a QR code."));
+    }
+    let code = qrcode::QrCode::with_error_correction_level(text.as_bytes(), qrcode::EcLevel::M)
+        .map_err(|e| AppError::msg(format!("QR code: {e}")))?;
+    Ok(code
+        .render::<svg::Color>()
+        .min_dimensions(192, 192)
+        .quiet_zone(true)
+        .dark_color(svg::Color("#000000"))
+        .light_color(svg::Color("#ffffff"))
+        .build())
+}
+
+#[cfg(test)]
+mod qr_tests {
+    #[test]
+    fn a_lan_address_makes_an_svg() {
+        let svg = super::qr("http://192.168.1.20:8200/").unwrap();
+        assert!(svg.contains("<svg") && svg.contains("#000000") && svg.contains("#ffffff"));
+        assert!(super::qr("").is_err());
+        // ZEFARO_QR_OUT=file.svg keeps one to look at.
+        if let Some(out) = std::env::var_os("ZEFARO_QR_OUT") {
+            std::fs::write(out, svg).unwrap();
+        }
+    }
+}

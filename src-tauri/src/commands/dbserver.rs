@@ -180,7 +180,7 @@ fn refresh_port_users(cfg: &ZefaroConfig) {
     crate::engine::shims::refresh(cfg);
     let pma = phpmyadmin::dir();
     if phpmyadmin::installed_at(&pma) {
-        let _ = phpmyadmin::write_config(&pma, mariadb::port());
+        let _ = phpmyadmin::write_config(&pma, mariadb::port(), mysql::port(), None);
     }
     let adm = adminer::dir();
     if adminer::installed_at(&adm) {

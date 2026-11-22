@@ -41,6 +41,7 @@ export const common = defineMessages({
       aboutZefaro: "About Zefaro",
       localPhp: "Local PHP",
     },
+    openLog: "Open log",
     configPending: {
       title: "Settings not saved yet",
       body: "Another program has config.json open. Zefaro saves your settings as soon as it's closed.",
@@ -90,6 +91,7 @@ export const common = defineMessages({
       aboutZefaro: "Tentang Zefaro",
       localPhp: "PHP lokal",
     },
+    openLog: "Buka log",
     configPending: {
       title: "Pengaturan belum tersimpan",
       body: "Program lain sedang membuka config.json. Zefaro menyimpan pengaturan Anda begitu file itu ditutup.",

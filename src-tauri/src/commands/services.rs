@@ -110,15 +110,21 @@ fn phpmyadmin_service(cfg: &ZefaroConfig, sup: &Supervisor) -> Service {
                 format!("PHP {} (install it from Services → Install PHP)", phpmyadmin::PHP_RANGE),
                 format!("PHP {} (instal dari Layanan → Instal PHP)", phpmyadmin::PHP_RANGE_ID)
             )],
-            Some(l) => [
-                (nginx::SERVICE_ID.to_string(), "nginx".to_string()),
-                (php::service_id(l), format!("PHP {l}")),
-                (mariadb::SERVICE_ID.to_string(), "MariaDB".to_string()),
-            ]
-            .into_iter()
-            .filter(|(id, _)| sup.status(id).health != Health::Running)
-            .map(|(_, name)| name)
-            .collect(),
+            Some(l) => {
+                let mut missing: Vec<String> = [
+                    (nginx::SERVICE_ID.to_string(), "nginx".to_string()),
+                    (php::service_id(l), format!("PHP {l}")),
+                ]
+                .into_iter()
+                .filter(|(id, _)| sup.status(id).health != Health::Running)
+                .map(|(_, name)| name)
+                .collect();
+                // Either database server will do.
+                if !sup.is_running(mariadb::SERVICE_ID) && !sup.is_running(mysql::SERVICE_ID) {
+                    missing.push("MariaDB / MySQL".to_string());
+                }
+                missing
+            }
         };
         if missing.is_empty() {
             s.status = "running".into();
@@ -418,7 +424,7 @@ fn port_hint(e: AppError, port: u16) -> AppError {
 }
 
 /// Start one service, installing it on first use. phpMyAdmin also starts what
-/// it needs: MariaDB, its PHP line's php-cgi, and nginx. The caller must have
+/// it needs: a database server (MariaDB or MySQL), its PHP line's php-cgi, and nginx. The caller must have
 /// set `cfg.phpmyadmin` already.
 pub fn start(cfg: &ZefaroConfig, sup: &Supervisor, id: &str) -> AppResult<()> {
     crate::engine::progress::scope(id, || start_inner(cfg, sup, id))
@@ -545,8 +551,15 @@ fn start_inner(cfg: &ZefaroConfig, sup: &Supervisor, id: &str) -> AppResult<()> 
                     )
                 ))
             })?;
-            phpmyadmin::prepare(&phpmyadmin::dir(), mariadb::port(), &downloads, false)?;
-            start(cfg, sup, mariadb::SERVICE_ID)?;
+            // Use whichever database server is already running; if none is,
+            // start MariaDB, or MySQL when that's the only one installed.
+            let (maria_up, mysql_up) = (sup.is_running(mariadb::SERVICE_ID), sup.is_running(mysql::SERVICE_ID));
+            let mysql_only = !mariadb::installed(&mariadb::Layout::standard()) && mysql::installed(&mysql::Layout::standard());
+            let use_mysql = if maria_up { false } else { mysql_up || mysql_only };
+            phpmyadmin::prepare(&phpmyadmin::dir(), mariadb::port(), mysql::port(), Some(use_mysql), &downloads, false)?;
+            if !maria_up && !mysql_up {
+                start(cfg, sup, if use_mysql { mysql::SERVICE_ID } else { mariadb::SERVICE_ID })?;
+            }
             start(cfg, sup, &php::service_id(&line))?;
             // Starts nginx with the phpMyAdmin site, or reloads it if running.
             start(cfg, sup, nginx::SERVICE_ID)?;

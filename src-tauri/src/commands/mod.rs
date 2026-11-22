@@ -13,6 +13,7 @@ pub mod mail;
 pub mod new_site;
 pub mod nginx;
 pub mod node;
+pub mod notices;
 pub mod php;
 pub mod project;
 pub mod services;

@@ -139,6 +139,71 @@ export interface RoutesResponse {
   routes: RouteInfo[];
 }
 
+/** One request nginx served for a site, from its access log. */
+export interface SiteRequest {
+  /** "2026-11-14 10:00:01", the computer's time. */
+  time: string;
+  method: string;
+  path: string;
+  status: number;
+  bytes: number | null;
+  /** Response time. */
+  ms: number | null;
+  host: string | null;
+  referer: string | null;
+  agent: string | null;
+  addr: string;
+}
+
+export interface SiteRequests {
+  /** Newest first, at most 500. */
+  requests: SiteRequest[];
+  /** The log has older requests than these. */
+  older: boolean;
+  /** nginx's access log is on (nginx settings). */
+  accessLog: boolean;
+}
+
+/** A queue job that failed, from Laravel's failed job store. */
+export interface FailedJob {
+  /** What queue:retry and queue:forget take. */
+  id: string;
+  connection: string | null;
+  queue: string | null;
+  /** The job class. */
+  name: string | null;
+  failedAt: string | null;
+  /** The exception's first line. */
+  exception: string;
+  trace: string;
+}
+
+export interface FailedJobs {
+  /** False when the app has no store or its table is missing (see reason). */
+  available: boolean;
+  driver: string | null;
+  reason: string | null;
+  total: number;
+  /** The newest 200. */
+  jobs: FailedJob[];
+}
+
+/** A task from the app's schedule (schedule:list). */
+export interface ScheduledTask {
+  /** What schedule:test --name takes. */
+  name: string;
+  /** "php artisan inspire" or a shell command; null for a closure or job. */
+  command: string | null;
+  description: string | null;
+  summary: string;
+  /** Cron expression. */
+  expression: string;
+  repeatSeconds: number | null;
+  /** ISO date with offset. */
+  next: string | null;
+  timezone: string | null;
+}
+
 /** One test from the runner's JUnit report (Tests tab). */
 export interface TestCase {
   name: string;

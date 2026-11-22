@@ -423,7 +423,9 @@ export const SECTIONS: DocSection[] = [
                 its database isn't on this computer. Columns the model hides, and anything named
                 like a password or token, show as dots until you click the eye. <em>Same in code</em>{" "}
                 copies the query on screen as Eloquent code, and <em>Open in Tinker</em> puts it
-                in Tinker.
+                in Tinker. <em>Snapshots</em> saves the app's database (MariaDB, MySQL, PostgreSQL or
+                SQLite) in one click, with an optional note, and puts it back later: handy before a
+                risky migration.
               </>,
             ],
             [
@@ -435,7 +437,9 @@ export const SECTIONS: DocSection[] = [
                 it, and clears a cached config. Values of keys that look secret (keys, passwords,
                 tokens) stay hidden until you show them. Compared with <C>.env.example</C>, variables
                 it has that <C>.env</C> lacks are listed to add one by one or all at once, and variables
-                only in <C>.env</C> are marked. A site without <C>.env</C> can create one from the example.
+                only in <C>.env</C> are marked. A site without <C>.env</C> can create one from the example.{" "}
+                <em>PHP limits</em> gives the site its own upload size, memory limit and input vars, written to
+                a <C>.user.ini</C> in its public folder and kept out of Git; other sites keep their PHP version's.
               </>,
             ],
             [
@@ -455,7 +459,9 @@ export const SECTIONS: DocSection[] = [
               <>
                 The app's own logs in <C>storage/logs</C>, newest first. Filter by level, search,
                 open an entry to see its context and stack trace, follow new entries as they're
-                written, or clear the file.
+                written, or clear the file. <em>Requests</em> lists what nginx served for the site,
+                newest first, with the status, the time taken and the size; show only errors, server
+                errors or slow requests (a second or more).
               </>,
             ],
             [
@@ -480,11 +486,24 @@ export const SECTIONS: DocSection[] = [
               </>,
             ],
             [
+              "Tests",
+              <>
+                Runs the app's Pest or PHPUnit tests with the site's PHP, with live output and Stop, then
+                lists every test from the runner's report. A failure shows its message and opens in VS Code
+                or PhpStorm at the failing line; <em>Run failed</em> runs only those again. Tests use the
+                settings in <C>phpunit.xml</C>, so a test that refreshes the database empties the one
+                configured there.
+              </>,
+            ],
+            [
               "Workers",
               <>
                 Commands Zefaro keeps running for the site and restarts if they crash: a queue
                 worker, the scheduler, Vite, Reverb or Horizon, or any command you write. Each can
-                start when Zefaro starts. Their output goes to the Logs page, under Workers.
+                start when Zefaro starts. Their output goes to the Logs page, under Workers. Below
+                them, <em>Failed jobs</em> lists the queue's failed jobs with their exception, to retry
+                or delete one or all of them, and <em>Scheduled tasks</em> lists the app's schedule with
+                when each task runs next; <em>Run now</em> runs one through <C>schedule:test</C>.
               </>,
             ],
           ]}
@@ -513,6 +532,27 @@ export const SECTIONS: DocSection[] = [
           <C>.test</C>. Anyone with the link can open the site, so share only what a stranger may
           see, and turn off <C>APP_DEBUG</C> first: its error pages show your code and{" "}
           <C>.env</C>. Quick Tunnels are meant for testing, not for running a live site.
+        </P>
+        <P>
+          While a site is shared, the <em>Requests</em> panel under the banner lists every request that
+          reaches it, with its headers, body and answer, and sends one again with a click: handy for
+          payment webhooks. The share password is never shown there.
+        </P>
+        <H3>Open on a phone</H3>
+        <P>
+          The phone button in a site's header serves the site on this computer's address on your
+          network for 15 minutes to two hours, so a phone or tablet on the same Wi-Fi can open it.
+          The banner shows a QR code to scan with the phone's camera, and the address to type. Only
+          private networks get in, and anyone on that Wi-Fi who has the address can open the site while
+          it lasts. The first time, Windows may ask whether nginx may accept connections: allow it on
+          private networks.
+        </P>
+        <H3>Error notifications</H3>
+        <P>
+          When a site answers with a server error (500 and up) or its Laravel log gets an error,
+          Zefaro tells you: inside the window when Zefaro is in front, with <em>Open log</em>, and as a
+          Windows notification otherwise. Each site gets one a minute at most; more in between are
+          counted in the next one. Settings, under <em>Notifications</em>, turns them off.
         </P>
         <H3>Good to know</H3>
         <List
@@ -746,7 +786,7 @@ export const SECTIONS: DocSection[] = [
             ["Redis  ·  port 6379", "Cache, queues and sessions."],
             ["Meilisearch  ·  port 7700", "Search engine for Laravel Scout."],
             ["RustFS  ·  ports 9000, 9001", "S3-compatible storage for the s3 disk, with a web console."],
-            ["phpMyAdmin", <>Database GUI for MariaDB at <C>http://phpmyadmin.test</C>.</>],
+            ["phpMyAdmin", <>Database GUI for MariaDB and MySQL at <C>http://phpmyadmin.test</C>.</>],
             ["Adminer", <>Database GUI for MariaDB, MySQL and PostgreSQL at <C>http://adminer.test</C>.</>],
             ["Mailpit  ·  1025 and 8025", "Catches outgoing mail (SMTP on 1025, web UI on 8025)."],
           ]}
@@ -920,7 +960,7 @@ export const SECTIONS: DocSection[] = [
           <C>DB_PORT=3307</C>. The first start downloads it (328 MB, of which Zefaro keeps the server
           and its tools, without debug files) and creates the data folder. In a terminal,{" "}
           <C>mysql -P 3307</C> connects to it. The <strong>New site</strong> wizard can create an app
-          on it, and the Databases page, backups and Adminer work with it. phpMyAdmin works with MariaDB only.
+          on it, and the Databases page, backups and Adminer work with it, and so does phpMyAdmin.
         </P>
         <H3>PostgreSQL</H3>
         <P>
@@ -957,8 +997,10 @@ export const SECTIONS: DocSection[] = [
         </P>
         <H3>phpMyAdmin</H3>
         <P>
-          Open <C>http://phpmyadmin.test</C>. phpMyAdmin signs you in as root. Starting
-          phpMyAdmin also starts MariaDB, PHP and nginx; stopping it only takes the phpMyAdmin
+          Open <C>http://phpmyadmin.test</C>. phpMyAdmin signs you in as root, to MariaDB or MySQL: the
+          server drop-down switches between them. Starting phpMyAdmin also starts PHP and nginx, and a
+          database server only if neither is running yet: MariaDB, or MySQL when that's the only one installed.
+          It opens on the server that is running. Stopping it only takes the phpMyAdmin
           site offline.
         </P>
         <H3>Meilisearch</H3>
@@ -1397,6 +1439,13 @@ export const SECTIONS: DocSection[] = [
           leaves more running than it found. Restoring installs a server first if the file has databases for it and it
           isn't there yet. Both can be cancelled, and a cancelled or failed backup leaves no half-written file. Zefaro
           versions from before MySQL and PostgreSQL backups refuse a file that has them, and say why.
+        </P>
+        <P>
+          <em>Automatic backups</em>, on the same tab, makes the same backup by itself every day or every week at
+          the hour you pick, into a folder you choose (<C>Documents\Zefaro backups</C> unless you change it). It
+          keeps the newest 3, 7, 14 or 30 and deletes older ones it made; other files in that folder are never
+          touched. A backup missed while the computer was off is made the next time Zefaro runs, and one that
+          fails comes as a notification. Zefaro has to be running, in the window or in the tray.
         </P>
         <H3>Updates</H3>
         <P>

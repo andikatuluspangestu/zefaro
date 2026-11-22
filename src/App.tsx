@@ -13,6 +13,7 @@ import { UpdateHost, useStartupUpdateCheck } from "@/components/update-check";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { HomePage } from "@/pages/HomePage";
 import { SitesPage } from "@/pages/SitesPage";
+import type { SiteTab } from "@/pages/site/SitePage";
 import { ServicesPage } from "@/pages/ServicesPage";
 import { TerminalPage } from "@/pages/TerminalPage";
 import { cn } from "@/lib/utils";
@@ -45,7 +46,10 @@ export type PageId =
   | "about";
 
 /** What a page should do when another page sends the user to it. */
-export type Intent = { type: "new-site" } | { type: "open-site"; name: string } | { type: "import" };
+export type Intent =
+  | { type: "new-site" }
+  | { type: "open-site"; name: string; tab?: SiteTab; logView?: "app" | "requests" }
+  | { type: "import" };
 
 /** Holds the interface language: the saved setting, and what it resolves to. */
 export default function App() {
@@ -102,6 +106,22 @@ function Shell() {
   }, []);
   const clearIntent = useCallback(() => setIntent(null), []);
   const [info, setInfo] = useState<AppInfo | null>(null);
+
+  // Errors on a site (and other notices) while Zefaro is in front; behind other
+  // windows or in the tray they come as Windows notifications instead.
+  useEffect(() => {
+    const off = api.onNotice((n) => {
+      const site = n.site;
+      const open = site
+        ? { label: t.openLog, onClick: () => go("sites", { type: "open-site", name: site, tab: "logs", logView: n.view ?? "app" }) }
+        : undefined;
+      (n.tone === "error" ? toast.error : toast)(n.title, { description: n.body, action: open, duration: 10000 });
+    });
+    return () => {
+      off.then((stop) => stop());
+    };
+  }, [go, t]);
+
   const [summary, setSummary] = useState({ sites: 0, running: 0, total: 0 });
   const [unreadMail, setUnreadMail] = useState(0);
   /** Sites shared on the internet right now, for the warning chip in the top bar. */

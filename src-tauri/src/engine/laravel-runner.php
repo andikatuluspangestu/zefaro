@@ -443,6 +443,81 @@ function zefaro_routes($app): array
     return ['cached' => $app->routesAreCached(), 'routes' => $routes];
 }
 
+function zefaro_cut(string $text, int $max): string
+{
+    return function_exists('mb_substr') ? mb_substr($text, 0, $max) : substr($text, 0, $max);
+}
+
+/** The failed jobs Laravel keeps (queue:failed), newest first. */
+function zefaro_queue_failed($app): array
+{
+    $driver = $app['config']->get('queue.failed.driver');
+    if (!$app->bound('queue.failer')) {
+        return ['available' => false, 'driver' => $driver, 'reason' => 'This app has no failed job store.', 'total' => 0, 'jobs' => []];
+    }
+    try {
+        $all = $app['queue.failer']->all();
+    } catch (Throwable $e) {
+        // Usually the failed_jobs table doesn't exist yet.
+        return ['available' => false, 'driver' => $driver, 'reason' => $e->getMessage(), 'total' => 0, 'jobs' => []];
+    }
+    $jobs = [];
+    foreach (array_slice($all, 0, 200) as $row) {
+        $row = (array) $row;
+        $payload = json_decode((string) ($row['payload'] ?? ''), true);
+        $payload = is_array($payload) ? $payload : [];
+        $exception = (string) ($row['exception'] ?? '');
+        $first = strtok($exception, "\n");
+        $jobs[] = [
+            // queue:retry and queue:forget take the UUID, or the ID before Laravel 8.
+            'id' => (string) ($row['uuid'] ?? $row['id'] ?? ''),
+            'connection' => isset($row['connection']) ? (string) $row['connection'] : null,
+            'queue' => isset($row['queue']) ? (string) $row['queue'] : null,
+            'name' => $payload['displayName'] ?? ($payload['job'] ?? null),
+            'failedAt' => isset($row['failed_at']) ? (string) $row['failed_at'] : null,
+            'exception' => $first === false ? '' : zefaro_cut($first, 500),
+            'trace' => zefaro_cut($exception, 6000),
+        ];
+    }
+    return ['available' => true, 'driver' => $driver, 'reason' => null, 'total' => count($all), 'jobs' => $jobs];
+}
+
+/** The app's scheduled tasks, as schedule:list sees them. */
+function zefaro_schedule($app): array
+{
+    $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+    // Starting Artisan runs the withSchedule() callbacks of Laravel 11 and later.
+    if (method_exists($kernel, 'all')) {
+        $kernel->all();
+    }
+    $schedule = $app->make(Illuminate\Console\Scheduling\Schedule::class);
+    $artisan = Illuminate\Console\Application::phpBinary() . ' ' . Illuminate\Console\Application::artisanBinary();
+    $tasks = [];
+    foreach ($schedule->events() as $event) {
+        $callback = $event instanceof Illuminate\Console\Scheduling\CallbackEvent;
+        $raw = (string) ($event->command ?? '');
+        $isArtisan = !$callback && strpos($raw, $artisan) === 0;
+        // schedule:test --name matches these exactly.
+        $name = $callback ? $event->getSummaryForDisplay() : trim(str_replace($artisan, '', $raw));
+        try {
+            $next = $event->nextRunDate()->toIso8601String();
+        } catch (Throwable $e) {
+            $next = null;
+        }
+        $tasks[] = [
+            'name' => $name,
+            'command' => $callback ? null : ($isArtisan ? 'php artisan ' . $name : $raw),
+            'description' => $event->description ?: null,
+            'summary' => $event->getSummaryForDisplay(),
+            'expression' => $event->expression,
+            'repeatSeconds' => property_exists($event, 'repeatSeconds') ? $event->repeatSeconds : null,
+            'next' => $next,
+            'timezone' => is_string($event->timezone) ? $event->timezone : (is_object($event->timezone) ? $event->timezone->getName() : null),
+        ];
+    }
+    return ['tasks' => $tasks];
+}
+
 function zefaro_query(array $request): array
 {
     $app = zefaro_boot();
@@ -461,6 +536,10 @@ function zefaro_query(array $request): array
             return zefaro_config($app);
         case 'routes':
             return zefaro_routes($app);
+        case 'queueFailed':
+            return zefaro_queue_failed($app);
+        case 'schedule':
+            return zefaro_schedule($app);
     }
     throw new InvalidArgumentException('Unknown request.');
 }

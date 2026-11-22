@@ -42,9 +42,9 @@ fn components() -> Vec<Component> {
 
 #[tauri::command]
 pub fn app_info(state: State<AppState>) -> AppResult<AppInfo> {
-    let (tld, language, close_to_tray, check_updates, autostart) = {
+    let (tld, language, close_to_tray, check_updates, autostart, notify_errors) = {
         let cfg = state.config.lock().unwrap();
-        (cfg.tld.clone(), cfg.language.clone(), cfg.close_to_tray, cfg.check_updates, cfg.autostart.clone())
+        (cfg.tld.clone(), cfg.language.clone(), cfg.close_to_tray, cfg.check_updates, cfg.autostart.clone(), cfg.notify_errors)
     };
     Ok(AppInfo {
         name: "Zefaro".into(),
@@ -60,6 +60,7 @@ pub fn app_info(state: State<AppState>) -> AppResult<AppInfo> {
         start_with_windows: crate::engine::startup::is_enabled(),
         autostart,
         can_elevate: crate::engine::dns::can_elevate(),
+        notify_errors,
     })
 }
 
